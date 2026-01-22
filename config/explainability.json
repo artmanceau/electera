@@ -1,0 +1,8 @@
+{
+    "model_version": "20260119_213202",
+    "years": [2022],
+    "types":["pres"],
+    "vars_": ["voteCG", "voteCD", "voteC", "voteD", "voteG", "par"],
+    "data_path":"s3://arthurmanceau/election_modeling_uhcp",
+    "steps":["feature_importance", "shap_values"]
+}

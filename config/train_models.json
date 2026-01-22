@@ -1,0 +1,15 @@
+{   "vote_variable": "pvoteCD",
+    "dataset_path": "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_ppar_pvoteG_pvoteC_pvoteD_pvoteCG_pvoteCD_1958_presidentiel_20260118_094321.parquet",
+    "remove_previous_features": false,
+    "split_method": "2022_0",
+    "predict_delta": false,
+    "val_size": 0.2,
+    "test_size": 0.2,
+    "random_state": 42,
+    "param_search_methods": ["none"],
+    "feature_selection_methods": ["none", "gain"],
+    "boosting_methods": ["xgboost", "catboost"],
+    "top_n_features": 100,
+    "use_MLFlow": false,
+    "models": ["meta_boosting"]
+}

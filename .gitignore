@@ -1,0 +1,28 @@
+# Python virtual environment
+.venv
+
+# Python cache files
+__pycache__/
+
+# Ruff cache files
+.ruff_cache
+.pre-commit-config.yaml
+
+# Data folder
+data/
+untracked/
+results/
+
+# ML runs
+mlruns
+
+# Catboost
+catboost_info
+
+# Egg-info
+election_modeling_uhcp.egg-info
+
+# Notebooks results
+notebooks/ml/results
+
+http_cache.sqlite

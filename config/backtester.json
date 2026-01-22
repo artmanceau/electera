@@ -1,0 +1,9 @@
+{
+    "political_trends": ["voteCG", "voteCD", "voteC", "voteD", "voteG", "par"],
+    "data_path": "s3://arthurmanceau/election_modeling_uhcp/",
+    "dataset_path": "data/derived/processed/data_ppar_pvoteG_pvoteC_pvoteD_pvoteCG_pvoteCD_1958_presidentiel_20260118_094321.parquet",
+    "random_seed": 42,
+    "k_year": [2022],
+    "k_type": ["pres"],
+    "model" : "meta_boosting"
+}

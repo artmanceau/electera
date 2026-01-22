@@ -1,0 +1,24 @@
+{
+    "vote_variables": [
+        "ppar",
+        "pvoteG",
+        "pvoteC",
+        "pvoteD",
+        "pvoteCG",
+        "pvoteCD"
+    ],
+    "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
+    "first_election_only": false,
+    "first_election_target_year": 2022,
+    "first_election_target_type": "presidentiel",
+    "include_elections_after": 1958,
+    "include_elections_of_type": [
+        "presidentiel"
+    ],
+    "features_aug": ["lag", "pct_change"],
+    "encoding_type": "no",
+    "encoding_year": "no",
+    "quality_filter": true,
+    "projections":true,
+    "plm_policy":"Arr"
+}

@@ -1,0 +1,78 @@
+stages:
+  - test
+  - lint
+  - pre-commit
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_DEPTH: 1
+  GIT_CLEAN_FLAGS: -ffdx
+
+cache:
+  paths:
+    - .cache/pip/
+    - .venv/
+    - .cache/pre-commit/
+
+before_script:
+  - df -h  # Check disk usage
+  - python --version
+  - pip install --upgrade pip
+  - python -m venv .venv
+  - source .venv/bin/activate
+
+install_dependencies:
+  stage: test
+  image: python:3.9-slim
+  script:
+    - pip install --no-cache-dir -r requirements.txt
+    - pip install --no-cache-dir pre-commit
+    - pip cache purge
+  artifacts:
+    paths:
+      - .venv/
+    expire_in: 1 hour
+  after_script:
+    - df -h
+
+run_tests:
+  stage: test
+  image: python:3.9-slim
+  dependencies:
+    - install_dependencies
+  script:
+    - source .venv/bin/activate
+    - python -m pytest tests/ -v --tb=short
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  after_script:
+    - find . -name "*.pyc" -delete
+    - find . -name "__pycache__" -type d -exec rm -rf {} + || true
+
+code_quality:
+  stage: lint
+  image: python:3.9-slim
+  dependencies:
+    - install_dependencies
+  script:
+    - source .venv/bin/activate
+    - pip install --no-cache-dir pylint
+    - pylint src/ --fail-under=6 --reports=no
+  allow_failure: false
+  after_script:
+    - pip cache purge
+
+pre_commit_check:
+  stage: pre-commit
+  image: python:3.9-slim
+  dependencies:
+    - install_dependencies
+  variables:
+    PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
+  script:
+    - source .venv/bin/activate
+    - pre-commit install-hooks
+    - pre-commit run --all-files --show-diff-on-failure
+  allow_failure: false
+  after_script:
+    - find . -name "*.pyc" -delete
+    - find . -name "__pycache__" -type d -exec rm -rf {} + || true
