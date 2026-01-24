@@ -4,55 +4,76 @@ Ce projet de recherche propose une double approche pour comprendre et modéliser
 
 ## Installation
 
+Le projet est pour l'instant en mode "privé", pour les collaborateurs ajoutés : 
+
+```bash
+git clone https://<your-username>@github.com/artmanceau/electera.git 
 ```
-git clone https://gitlab-research.centralesupelec.fr/arthur.manceau/election_modeling_uhcp.git
-cd election_modeling_UHCP
+```bash
+cd electera
 ```
 
 ### Machine Learning [1]
 
 ## Setup & Environment
-```bash
+
 # 1. Navigate to project directory
-cd election_modeling_uhcp/
+```bash
+cd electera/
+```
 
 # 2. Virtual environment
+```bash
 python -m venv .venv # Create
 source .venv/bin/activate # Activate
+```
 
 # 3. Install requirements
+```bash
 pip install -r requirements.txt
 ```
 
 Several pipeline are available, to run the project end-to-end:
 
 ## Pipelines
-```bash
+
 # 1. Download data
+```bash
 python src/pipeline/download_data.py
-# Will fetch data from https://www.unehistoireduconflitpolitique.fr/telecharger.html and store it to a specified location (local or S3)
+```
+Will fetch data from https://www.unehistoireduconflitpolitique.fr/telecharger.html and store it to a specified location (local or S3)
 
 # 2. Process data
+```bash
 python src/pipeline/data_processing.py
-# Will run data processing and store it to a specified location (local or S3)
+```
+Will run data processing and store it to a specified location (local or S3)
 
 # 3. Train models
+```bash
 python src/pipeline/train_models.py
-# Several models are implemented. Models tracking can be done with MLFlow.
+```
+Several models are implemented. Models tracking can be done with MLFlow.
 
 # 4. Generate explanations
+```bash
 python src/pipeline/election_backtester.py
-# Perform a back-testing with the selected model. Training on previous (and previous previous) election (of the same type) to predict the next one.
-# Results are stored in a specified location (local or S3)
+```
+Perform a back-testing with the selected model. Training on previous (and previous previous) election (of the same type) to predict the next one.
+Results are stored in a specified location (local or S3)
 
 # 5. Election backtester
+```bash
 python src/pipeline/explain_model.py
-# Contains several explanability features for the model trained during the back-testing
+```
+Contains several explanability features for the model trained during the back-testing
 
 # 6. polling data
+```bash
 python src/pipeline/poll_data_extract.py
-# Extract polling data for the elections (from Wikipedia)
 ```
+Extract polling data for the elections (from Wikipedia)
+
 
 ## Pipelines
 Application pour visualiser les performances du modèle
@@ -79,9 +100,12 @@ Notebooks :
 ## Références
 
 [1] Cagé J., Piketty T. (2023) : Une histoire du conflit politique. Élections et inégalités sociales en France, 1789-2022.
+
+
 [2] Borghesi, C., Bouchaud, JP. (2010) : Spatial correlations in vote statistics: a diffusive field model for decision-making.
 
 ## Auteur
 
 Arthur Manceau
+
 Damien Challet
