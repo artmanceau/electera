@@ -12,6 +12,7 @@ __pycache__/
 data/
 untracked/
 results/
+output/
 
 # ML runs
 mlruns

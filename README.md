@@ -4,10 +4,10 @@ Ce projet de recherche propose une double approche pour comprendre et modéliser
 
 ## Installation
 
-Le projet est pour l'instant en mode "privé", pour les collaborateurs ajoutés : 
+Le projet est pour l'instant en mode "privé", pour les collaborateurs ajoutés :
 
 ```bash
-git clone https://<your-username>@github.com/artmanceau/electera.git 
+git clone https://<your-username>@github.com/artmanceau/electera.git
 ```
 ```bash
 cd electera
