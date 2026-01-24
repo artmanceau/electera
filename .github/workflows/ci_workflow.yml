@@ -1,0 +1,128 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  install_dependencies:
+    name: Install Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install Dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
+          pip install --no-cache-dir pre-commit
+
+      - name: Cache Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            .venv
+            .cache/pip
+            .cache/pre-commit
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+  run_tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: install_dependencies
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Restore Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            .venv
+            .cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Run Tests
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -v --tb=short
+
+  code_quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    needs: install_dependencies
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Restore Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            .venv
+            .cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Run Pylint
+        run: |
+          source .venv/bin/activate
+          pip install --no-cache-dir pylint
+          pylint src/ --fail-under=6 --reports=no
+
+  pre_commit_check:
+    name: Pre-commit Check
+    runs-on: ubuntu-latest
+    needs: install_dependencies
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Restore Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            .venv
+            .cache/pip
+            .cache/pre-commit
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Run Pre-commit
+        run: |
+          source .venv/bin/activate
+          pre-commit install-hooks
+          pre-commit run --all-files --show-diff-on-failure
