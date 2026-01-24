@@ -1,22 +1,10 @@
 import json
-import re
 
-import numpy as np
-import pandas as pd
 import pydeck as pdk
 import streamlit as st
 from asset.definitions import COMMUNES_MAP_PATH, DATA, RESULT_FULL_PATH
-from tqdm import tqdm
 
-from src.components.streamlit_utils.utils import (
-    blocs,
-    colors,
-    present_results,
-    show_shap_values,
-    trad,
-    trends,
-    type_trad,
-)
+from src.components.streamlit_utils.utils import blocs, colors, trad
 
 VERSIONS = [
     ("Model prediction", "pred"),

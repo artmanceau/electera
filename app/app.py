@@ -1,10 +1,4 @@
-import pandas as pd
 import streamlit as st
-
-from src.components.data_processing.data_loader import DataLoader
-from src.components.streamlit_utils.utils import blocs, trends
-from src.components.utils.config import AppConfig
-from src.components.utils.read_config import ConfigReader
 
 st.set_page_config(page_title="Electera", layout="wide")
 st.title("Electera")

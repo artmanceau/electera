@@ -7,7 +7,6 @@ from src.components.streamlit_utils.utils import (
     show_feature_importance,
     show_shap_values,
     trad,
-    trends,
     type_trad,
 )
 

@@ -1,13 +1,9 @@
-import matplotlib.pyplot as plt
-import shap
 import streamlit as st
 
 from src.components.streamlit_utils.utils import (
     blocs,
-    colors,
     present_results,
     show_shap_values,
-    trends,
 )
 
 if "data" in st.session_state:

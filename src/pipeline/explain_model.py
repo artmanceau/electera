@@ -68,7 +68,7 @@ class Explainer:
             perm_importance_df = FeatureImportance.compute_importance(
                 models=self.model.models[self.var].best_models,
                 features=self.model.features[self.var],
-                _get_importance_method=lambda x: permutation_importance(
+                _get_importance_method=lambda model: permutation_importance(
                     model, X, y, n_repeats=2, random_state=42
                 ),
             )
