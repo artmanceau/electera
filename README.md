@@ -13,75 +13,75 @@ git clone https://<your-username>@github.com/artmanceau/electera.git
 cd electera
 ```
 
-### Machine Learning [1]
+## Machine Learning [1]
 
-## Setup & Environment
+### Setup & Environment
 
-# 1. Navigate to project directory
+#### 1. Navigate to project directory
 ```bash
 cd electera/
 ```
 
-# 2. Virtual environment
+#### 2. Virtual environment
 ```bash
 python -m venv .venv # Create
 source .venv/bin/activate # Activate
 ```
 
-# 3. Install requirements
+#### 3. Install requirements
 ```bash
 pip install -r requirements.txt
 ```
 
 Several pipeline are available, to run the project end-to-end:
 
-## Pipelines
+### Pipelines
 
-# 1. Download data
+#### 1. Download data
 ```bash
 python src/pipeline/download_data.py
 ```
 Will fetch data from https://www.unehistoireduconflitpolitique.fr/telecharger.html and store it to a specified location (local or S3)
 
-# 2. Process data
+#### 2. Process data
 ```bash
 python src/pipeline/data_processing.py
 ```
 Will run data processing and store it to a specified location (local or S3)
 
-# 3. Train models
+#### 3. Train models
 ```bash
 python src/pipeline/train_models.py
 ```
 Several models are implemented. Models tracking can be done with MLFlow.
 
-# 4. Generate explanations
+#### 4. Generate explanations
 ```bash
 python src/pipeline/election_backtester.py
 ```
 Perform a back-testing with the selected model. Training on previous (and previous previous) election (of the same type) to predict the next one.
 Results are stored in a specified location (local or S3)
 
-# 5. Election backtester
+#### 5. Election backtester
 ```bash
 python src/pipeline/explain_model.py
 ```
 Contains several explanability features for the model trained during the back-testing
 
-# 6. polling data
+#### 6. polling data
 ```bash
 python src/pipeline/poll_data_extract.py
 ```
 Extract polling data for the elections (from Wikipedia)
 
 
-## Pipelines
+### Application
 Application pour visualiser les performances du modèle
 ```bash
 streamlit run app/app.py
 ```
 
-### Modèle mathématique [2]
+## Modèle mathématique [2]
 
 Le dossier model/ contient les fichiers relatifs à la modélisation mathématique des comportements electoraux.
 
