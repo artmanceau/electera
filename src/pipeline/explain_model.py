@@ -32,19 +32,20 @@ class Explainer:
         self.model_version = self.config.model_version
         self.steps = self.config.steps
 
-        self.output_dir = f"{self.data_path}/output/explain/"
+        self.output_dir = f"{self.data_path}output/explain/"
         if not DataUtils._detect_s3(self.data_path):
             os.makedirs(self.output_dir, exist_ok=True)
             self.local_output_dir = self.output_dir
         else:
-            self.local_output_dir = "results/output/explain/"
+            # Assume data path
+            self.local_output_dir = "output/explain/"
             os.makedirs(self.local_output_dir, exist_ok=True)
 
         self.n_models = None
         self.models = None
 
     def _load_model(self, var, year, type_):
-        model_path = f"{self.data_path}/output/models/model_{year}_{type_}_{self.model_version}.pkl"
+        model_path = f"{self.data_path}output/models/model_{year}_{type_}_{self.model_version}.pkl"
         self.model = DataLoader.load_pickle(file_path=model_path)
         self.n_models = len(self.model.models[var].best_models)
 

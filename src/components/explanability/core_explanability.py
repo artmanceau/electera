@@ -23,14 +23,17 @@ class ExplainCore:
         )
         return X_test, y_test
 
-    def stratify_sample(self, X, y, frac=0.30, random_state=42):
-        X_sample, _, y_sample, _ = train_test_split(
-            X, y, train_size=frac, random_state=random_state
-        )  # No stratification
-        return X_sample, y_sample
+    def stratify_sample(self, X, y, frac=None, random_state=42):
+        if frac is None:
+            return X, y
+        else:
+            X_sample, _, y_sample, _ = train_test_split(
+                X, y, train_size=frac, random_state=random_state
+            )  # No stratification
+            return X_sample, y_sample
 
-    def run(self, data):
+    def run(self, data, frac=None):
         X, y = self._data_processing(data)
-        X_sampled, y_sampled = self.stratify_sample(X, y)
+        X_sampled, y_sampled = self.stratify_sample(X, y, frac=frac)
         commune_sampled = data.loc[X_sampled.index, "codecommune"]
         return X_sampled, y_sampled, commune_sampled

@@ -68,9 +68,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 10,
-        "n_splits_outer": 10,
-        "n_trials": 10,
+        "n_splits_inner": 3,
+        "n_splits_outer": 3,
+        "n_trials": 3,
     },
     "meta_boosting_multiple": {
         "method": "catboost",
@@ -78,8 +78,8 @@ MODEL_ARGS = {
         "weighting": "proportional",
         "features": None,
         "n_splits_inner": 3,
-        "n_splits_outer": 5,
-        "n_trials": 5,
+        "n_splits_outer": 3,
+        "n_trials": 3,
         "ponderation": [0.7, 0.3],
     },
 }
@@ -140,7 +140,7 @@ class BackTester:
         # Ground truth
         ground_truth_data_path = (
             self.config.data_path
-            + f"data/raw/elections/presidentiel/{k_year}/pres{k_year}_csv/pres{k_year}comm.parquet"
+            + f"raw/elections/presidentiel/{k_year}/pres{k_year}_csv/pres{k_year}comm.parquet"
         )
         X_true = DataLoader.load_dataset(ground_truth_data_path)[
             ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
@@ -182,9 +182,9 @@ class BackTester:
     def save_results(self, model, result, k_year, k_type):
         # Create directories
         if not DataUtils._detect_s3(self.config.data_path):
-            path = Path.cwd() + self.config.data_path + "output/"
-            result_dir_path = path + "results/"
-            model_dir_path = path + "models/"
+            path = Path.cwd() / "output/"
+            result_dir_path = str(path / "results/")
+            model_dir_path = str(path / "models/")
             os.makedirs(result_dir_path, exist_ok=True)
             os.makedirs(model_dir_path, exist_ok=True)
             logger.info(f"Output saved locally: {path}")
