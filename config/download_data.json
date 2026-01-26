@@ -1,4 +1,4 @@
 {
     "url": "https://www.unehistoireduconflitpolitique.fr/telecharger.html",
-    "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/raw"
+    "data_path": "data/raw"
 }

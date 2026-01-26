@@ -79,7 +79,6 @@ class DataDownloader(UtilsDownloader):
 
     def __init__(self):
         """Initialize the pipeline with configuration file."""
-        super().__init__()
         self.config = ConfigReader._read_config(
             "config/download_data.json", DownloadDataConfig
         )
@@ -89,15 +88,6 @@ class DataDownloader(UtilsDownloader):
             else os
         )
         self.use_s3 = DataUtils._detect_s3(self.config.data_path)
-
-        # if self.use_s3:
-        #     self.load_file_system(self.config["s3_endpoint"])
-        #     self.config.data_path = (
-        #         f"s3://{self.config['bucket']}/{self.config['s3_data_path']}"
-        #     )
-        # else:
-        #     self.config.data_path = self.config["local_data_path"]
-
         logger.debug(f"Using data path: {self.config.data_path}")
 
     def format_content(self, content):
@@ -299,4 +289,4 @@ class DataDownloader(UtilsDownloader):
 if __name__ == "__main__":
     # Example usage with S3
     dd = DataDownloader()
-    dd.fetch_website(url=dd.config["url"], base_dir=dd.data_path)
+    dd.fetch_website(url=dd.config.url, base_dir=dd.config.data_path)
