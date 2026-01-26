@@ -117,7 +117,7 @@ class DataDownloader(UtilsDownloader):
             year = name_file[start_idx:end_idx]
             if name_file in ["leg1871juil", "leg1946Nov"]:
                 year = str(int(year) + 1)
-                name_file = re.sub(r"(juil|Nov$", "", name_file)
+                name_file = re.sub(r"juil|Nov$", "", name_file)
                 logger.warning(f"Election {name_file} is given the year {year}")
             if self.use_s3:
                 output_dir = f"{base_dir.rstrip('/')}/elections/{folder_name}/{year}"
@@ -284,7 +284,6 @@ class DataDownloader(UtilsDownloader):
             logger.error("Unable to fetch website")
 
         return output
-
 
 if __name__ == "__main__":
     # Example usage with S3
