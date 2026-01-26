@@ -385,13 +385,8 @@ class ElectionDataProcessor:
         for election_type in self.config.include_elections_of_type:
             dummy_election_columns += [
                 f"inscrits2027-{election_type}",
-                f"pvoteppar2027-{election_type}",
-                f"pvotepvoteG2027-{election_type}",
-                f"pvotepvoteC2027-{election_type}",
-                f"pvotepvoteD2027-{election_type}",
-                f"pvotepvoteCG2027-{election_type}",
-                f"pvotepvoteCD2027-{election_type}",
             ]
+            dummy_election_columns += [f"pvote{var}2027-{election_type}" for var in self.config.vote_variables]
 
         for col in dummy_election_columns:
             self.dfs[col] = 0.0
@@ -781,7 +776,7 @@ class ElectionDataProcessor:
     def save_processed_data(self):
         """Save all processed datasets and configuration file"""
         if not DataUtils._detect_s3(self.config.data_path):
-            os.makedirs("derived/processed/", exist_ok=True)
+            os.makedirs("data/derived/processed/", exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
