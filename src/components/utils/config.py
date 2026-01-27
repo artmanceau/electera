@@ -43,8 +43,8 @@ class BackTesterConfig(BaseModel):
 
         # Define allowed variable sets
         allowed_sets = [
-            {"ppar", "pvoteTD", "pvoteTG"},
-            {"ppar", "pvoteCGC", "pvoteC", "pvoteDCD"},
+            {"par", "voteTD", "voteTG"},
+            {"par", "voteCGC", "voteC", "voteDCD"},
             {"voteCG", "voteCD", "voteC", "voteD", "voteG", "par"},  # existing default
         ]
 
@@ -256,6 +256,9 @@ class DataProcessingConfig(BaseModel):
 class DownloadDataConfig(BaseModel):
     # Source
     url: HttpUrl = Field(description="URL to download data from")
+
+
+    geo_url : HttpUrl = Field(description="URL to download geodata from")
 
     # Data path (to download the data)
     data_path: str = Field(

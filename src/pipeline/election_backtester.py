@@ -183,8 +183,8 @@ class BackTester:
         # Create directories
         if not DataUtils._detect_s3(self.config.data_path):
             path = Path.cwd() / "output/"
-            result_dir_path = str(path / "results/")
-            model_dir_path = str(path / "models/")
+            result_dir_path = str(path) + "/results/"
+            model_dir_path = str(path) + "/models/"
             os.makedirs(result_dir_path, exist_ok=True)
             os.makedirs(model_dir_path, exist_ok=True)
             logger.info(f"Output saved locally: {path}")

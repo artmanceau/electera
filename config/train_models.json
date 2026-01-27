@@ -1,5 +1,5 @@
-{   "vote_variable": "pvoteCD",
-    "dataset_path": "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_ppar_pvoteG_pvoteC_pvoteD_pvoteCG_pvoteCD_1958_presidentiel_20260118_094321.parquet",
+{   "vote_variable": "pvoteTD",
+    "dataset_path": "data/derived/processed/data_ppar_pvoteTD_pvoteTG_1958_presidentiel_legislative_20260127_073437.parquet",
     "remove_previous_features": false,
     "split_method": "2022_0",
     "predict_delta": false,
@@ -8,8 +8,8 @@
     "random_state": 42,
     "param_search_methods": ["none"],
     "feature_selection_methods": ["none", "gain"],
-    "boosting_methods": ["xgboost", "catboost"],
+    "boosting_methods": ["xgboost"],
     "top_n_features": 100,
     "use_MLFlow": false,
-    "models": ["meta_boosting"]
+    "models": ["meta_boosting", "boosting", "trivial_1", "trivial_2", "linear_reg"]
 }

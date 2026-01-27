@@ -285,7 +285,20 @@ class DataDownloader(UtilsDownloader):
 
         return output
 
+    def fetch_geo_data(self, url, base_dir):
+        geo_dir = os.path.join(base_dir, "geo_data")
+        os.makedirs(geo_dir, exist_ok=True)
+        file_name = os.path.join(geo_dir, "communes.geojson")
+
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(file_name, "wb") as f:
+            f.write(response.content)
+
+        logger.info(f"Downloaded {file_name} from {url}")
+
 if __name__ == "__main__":
     # Example usage with S3
     dd = DataDownloader()
     dd.fetch_website(url=dd.config.url, base_dir=dd.config.data_path)
+    dd.fetch_geo_data(url=dd.config.geo_url, base_dir=dd.config.data_path)

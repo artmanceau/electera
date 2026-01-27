@@ -77,7 +77,7 @@ class ElectionPredictor:
         return X_result
 
     def compute_votes_per_circo(self, X):
-        circo_mapping = pd.read_csv("data/raw/insee_geo/circo.csv")[
+        circo_mapping = pd.read_csv("config/mappings/circo_mapping.csv")[
             ["COMMUNE_RESID", "circo"]
         ]
         X_merged = X.merge(
