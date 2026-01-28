@@ -234,6 +234,10 @@ class DataProcessingConfig(BaseModel):
         default="Arr", description="Whether to keep the arrondissement of PLM commune"
     )
 
+    polls_data : bool = Field(
+        default=False, description="Whether to add polling data"
+    )
+
     @property
     def elections_to_exclude(self) -> List[str]:
         """

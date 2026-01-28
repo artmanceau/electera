@@ -504,6 +504,12 @@ class ElectionDataProcessor:
         logger.info(f"Shape of the dataset is now: {self.global_dataset.shape}")
         logger.success("Quality filter applied")
 
+    def add_polls_data(self):
+        """Adds polling data. Warning run the extract poll data pipeline before"""
+        # Load relevant polls dataset
+        return None
+        # X[['C', 'CD', 'CG', 'G', 'D']].mean()
+
     def add_geographical_data(self):
         """Add geographical coordinates from GeoJSON file"""
         logger.info("Adding geographical data...")

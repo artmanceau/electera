@@ -1,10 +1,13 @@
 {
     "vote_variables": [
         "ppar",
-        "pvoteTD",
-        "pvoteTG"
+        "pvoteD",
+        "pvoteG",
+        "pvoteCG",
+        "pvoteCD",
+        "pvoteC"
     ],
-    "data_path": "data/",
+    "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "first_election_only": false,
     "first_election_target_year": 2022,
     "first_election_target_type": "presidentiel",
@@ -18,5 +21,6 @@
     "encoding_year": "no",
     "quality_filter": false,
     "projections":true,
-    "plm_policy":"Arr"
+    "plm_policy":"Arr",
+    "polls_data":false
 }
