@@ -6,6 +6,7 @@ shap
 matplotlib
 seaborn
 joblib
+dotenv
 pyarrow
 fastparquet
 tqdm

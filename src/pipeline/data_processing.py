@@ -504,11 +504,23 @@ class ElectionDataProcessor:
         logger.info(f"Shape of the dataset is now: {self.global_dataset.shape}")
         logger.success("Quality filter applied")
 
-    def add_polls_data(self):
+    def add_polls_data(self, data, year, election_type):
         """Adds polling data. Warning run the extract poll data pipeline before"""
         # Load relevant polls dataset
-        return None
-        # X[['C', 'CD', 'CG', 'G', 'D']].mean()
+        data = data.copy()
+        path_to_poll_data = self.config.data_path + f'polls/{election_type}/{year}/polls_t1.parquet'
+        fs = DataUtils._create_fs() if DataUtils._detect_s3(path_to_poll_data) else None
+        if DataUtils._exists(path_to_poll_data, fs):
+            X = pd.read_parquet(path_to_poll_data)
+            blocs = [v.replace("pvote", "") for v in self.config.vote_variables if v.startswith("pvote")]
+            poll_results = X[blocs].mean()
+            for b in blocs:
+                data[f'poll_pvote{b}{year}'] = poll_results[b]
+
+        else:
+            logger.warning(f'No poll data available for {election_type} {year}')
+
+        return data
 
     def add_geographical_data(self):
         """Add geographical coordinates from GeoJSON file"""
@@ -589,20 +601,26 @@ class ElectionDataProcessor:
 
     def create_dataset_common(self, year, election_type):
         """Create dataset for a specific election year and type"""
+        features_dataset = self.dfc.copy()
+
+        # Add polling data if available
+        if self.config.polls_data:
+            features_dataset = self.add_polls_data(features_dataset, year, election_type)
+
         # 1. Select socio-economic features
         features_year_list = set(
-            [col[:-4] for col in self.dfc.columns if re.search(r"\d{4}$", col)]
+            [col[:-4] for col in features_dataset if re.search(r"\d{4}$", col)]
         )
 
         # Some features are available in the given year
         year_pattern = r"(\d{4})$"
         columns_to_keep = [
             col
-            for col in self.dfc.columns
+            for col in features_dataset.columns
             if not re.search(year_pattern, col)  # 'lat', 'long', 'codecommune'
             or int(re.search(year_pattern, col).group(1)) == year
         ]  # Feature of the year 2022
-        dataset = self.dfc[columns_to_keep]
+        dataset = features_dataset[columns_to_keep]
 
         # If the feature is not available for the given year,
         # we try to find a value in a previous year (up to 10 years before)
@@ -618,8 +636,8 @@ class ElectionDataProcessor:
                 previous_year = year - year_offset
                 if previous_year < year - max_past_year:
                     break
-                if f"{feature}{previous_year}" in self.dfc.columns:
-                    new_columns[f"{feature}{year}"] = self.dfc[
+                if f"{feature}{previous_year}" in features_dataset.columns:
+                    new_columns[f"{feature}{year}"] = features_dataset[
                         f"{feature}{previous_year}"
                     ]
                     # dataset.loc[:, f'{feature}{year}'] = self.dfc.loc[:,f'{feature}{previous_year}']
@@ -630,7 +648,7 @@ class ElectionDataProcessor:
                     break
 
         if new_columns:
-            new_columns_df = pd.DataFrame(new_columns, index=self.dfc.index)
+            new_columns_df = pd.DataFrame(new_columns, index=features_dataset.index)
             dataset = pd.concat([dataset, new_columns_df], axis=1)
             logger.warning(
                 f"We imputed the following features with value within the last {max_past_year} years : {self.feature_backfill_map}"

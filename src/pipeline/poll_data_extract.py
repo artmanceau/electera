@@ -19,8 +19,8 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 YEARS = ["1988", "2022", '2007', '2012', '2017', '2022', '2027']
 
-#data_path = "s3://arthurmanceau/election_modeling_uhcp/polls/"
-data_path = "data/polls/"
+data_path = "s3://arthurmanceau/election_modeling_uhcp/data/polls/"
+#data_path = "data/polls/"
 
 links = {
     "2027": "https://fr.wikipedia.org/wiki/Liste_de_sondages_sur_l%27%C3%A9lection_pr%C3%A9sidentielle_fran%C3%A7aise_de_2027",
@@ -737,20 +737,21 @@ class PollFetcher:
         return poll_dataset, poll_dataset_t2
 
     def save_s3(self, datasets, year):
+        election_type = "presidentiel"
         logger.debug("Saving to S3")
         t1, t2 = datasets
 
         if not DataUtils._detect_s3(data_path):
-            os.makedirs(f"{data_path}/{year}/", exist_ok=True)
-            os.makedirs(f"{data_path}/{year}/", exist_ok=True)
+            os.makedirs(f"{data_path}/{election_type}/{year}/", exist_ok=True)
+            os.makedirs(f"{data_path}/{election_type}/{year}/", exist_ok=True)
 
         DataLoader.write_dataset(
             t1,
-            data_path + f"{year}/polls_t1.parquet",
+            data_path + f"{election_type}/{year}/polls_t1.parquet",
         )
         DataLoader.write_dataset(
             t2,
-            data_path + f"{year}/polls_t2.parquet",
+            data_path + f"{election_type}/{year}/polls_t2.parquet",
         )
 
 

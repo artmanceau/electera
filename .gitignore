@@ -27,3 +27,6 @@ election_modeling_uhcp.egg-info
 notebooks/ml/results
 
 http_cache.sqlite
+
+
+.env

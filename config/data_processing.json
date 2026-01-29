@@ -5,7 +5,11 @@
         "pvoteG",
         "pvoteCG",
         "pvoteCD",
-        "pvoteC"
+        "pvoteC",
+        "pvoteTD",
+        "pvoteTG",
+        "pvoteGCG",
+        "pvoteDCD"
     ],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "first_election_only": false,
@@ -16,11 +20,11 @@
         "presidentiel",
         "legislative"
     ],
-    "features_aug": ["lag", "pct_change", "rank", "delta"],
+    "features_aug": [],
     "encoding_type": "no",
     "encoding_year": "no",
     "quality_filter": false,
     "projections":true,
     "plm_policy":"Arr",
-    "polls_data":false
+    "polls_data":true
 }
