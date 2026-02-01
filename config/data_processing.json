@@ -20,7 +20,7 @@
         "presidentiel",
         "legislative"
     ],
-    "features_aug": [],
+    "features_aug": ["rank", "pct_change", "lag"],
     "encoding_type": "no",
     "encoding_year": "no",
     "quality_filter": false,

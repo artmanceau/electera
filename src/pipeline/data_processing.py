@@ -961,18 +961,33 @@ class ElectionDataProcessor:
 
         return mapping.get(election_type, -1)
 
+    def correct_rows(self, year, t, code, code_arr, n_arr):
+        X = self.global_dataset[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year)]
+        nan_cols_arr_mask = X.loc[X['codecommune'].isin(code_arr)].isna().all()
+        nan_cols_arr = X.columns[nan_cols_arr_mask]
+        cols_not_na_for_metropole = X.loc[X['codecommune'] == code, nan_cols_arr].dropna(axis=1).columns
+        cols_to_correct = list(set(cols_not_na_for_metropole).intersection(nan_cols_arr))
+        ref_row = self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & (self.global_dataset['codecommune'] == code),    cols_to_correct].iloc[0]
+        ref_row_corrected = ref_row.copy()
+        ref_row_corrected[ref_row_corrected > 5] = ref_row_corrected[ref_row_corrected > 5] / n_arr
+        self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & self.global_dataset['codecommune'].isin(code_arr), cols_to_correct] = ref_row_corrected.values
+        logger.debug(f'Corrected rows for PLM policy {code}/{year}/{t}')
+
     def _choose_plm(self):
         """ "During the dataprocessing Paris, Mareseille and Lyon are treated as a commune and their arrondissement also.
         Choose whether to keep the commune at the aggregated of arrondissement level"""
         logger.info(f"PLM policy : {self.config.plm_policy}")
         PARIS = "75056"
         PARIS_arr = [str(x) for x in list(range(75101, 75121))]
+        n_PARIS = len(PARIS_arr)
 
         LYON = "69123"
         LYON_arr = [str(x) for x in list(range(69381, 69390))]
+        n_LYON = len(LYON_arr)
 
         MARSEILLE = "13055"
         MARSEILLE_arr = [str(x) for x in list(range(13201, 13217))]
+        n_MARSEILLE = len(MARSEILLE_arr)
 
         PLM = (
             PARIS,
@@ -981,6 +996,17 @@ class ElectionDataProcessor:
             LYON_arr,
             MARSEILLE_arr,
         )
+
+        # Warning : this procedures can create NaN (if a socio-economic feature is non available at the Arrondissement level or vice-versa)
+        # The following code extends features available at the metropole level to arrondissement
+        election_types = self.global_dataset['type'].unique().tolist()
+        years = self.global_dataset['annee'].unique().tolist()
+        for t in election_types:
+            for year in years:
+                self.correct_rows(year, t, PARIS, PARIS_arr, n_PARIS)
+                self.correct_rows(year, t, LYON, LYON_arr, n_LYON)
+                self.correct_rows(year, t, MARSEILLE, MARSEILLE_arr, n_MARSEILLE)
+
         n, p = self.global_dataset.shape
         self.global_dataset = self.global_dataset.loc[
             ~self.global_dataset["codecommune"].astype(str).isin(PLM), :
