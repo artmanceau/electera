@@ -427,7 +427,7 @@ class ElectionDataProcessor:
             ),
             "delta": lambda x, y: x - y,
             "lag": lambda x, y: y,
-            "pct_change": lambda x, y: (x - y / x),
+            "pct_change": lambda x, y: ((x - y) / x),
         }
 
         current_feature_fam = features_all[0].split("/")[0]
