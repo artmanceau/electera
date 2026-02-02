@@ -7,6 +7,7 @@ for the election modeling project.
 
 import gc
 import os
+import numpy as np
 import re
 from datetime import datetime
 
@@ -962,14 +963,26 @@ class ElectionDataProcessor:
         return mapping.get(election_type, -1)
 
     def correct_rows(self, year, t, code, code_arr, n_arr):
+        # Columns and row selection
         X = self.global_dataset[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year)]
+        code_not_in_X = (len(X[X['codecommune'] == code]) == 0)
+        if code_not_in_X:
+            return None
         nan_cols_arr_mask = X.loc[X['codecommune'].isin(code_arr)].isna().all()
         nan_cols_arr = X.columns[nan_cols_arr_mask]
         cols_not_na_for_metropole = X.loc[X['codecommune'] == code, nan_cols_arr].dropna(axis=1).columns
         cols_to_correct = list(set(cols_not_na_for_metropole).intersection(nan_cols_arr))
-        ref_row = self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & (self.global_dataset['codecommune'] == code),    cols_to_correct].iloc[0]
+ 
+        # Get row
+        ref_row = self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & (self.global_dataset['codecommune'] == code), cols_to_correct].iloc[0]
+
         ref_row_corrected = ref_row.copy()
-        ref_row_corrected[ref_row_corrected > 5] = ref_row_corrected[ref_row_corrected > 5] / n_arr
+        mask = pd.to_numeric(ref_row_corrected, errors='coerce') < 5
+        mask |= pd.to_numeric(ref_row_corrected, errors='coerce').isna()
+        numeric_values = pd.to_numeric(ref_row_corrected.loc[~mask], errors='coerce')
+        ref_row_corrected.loc[~mask] = numeric_values / n_arr
+
+        # Input global dataset
         self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & self.global_dataset['codecommune'].isin(code_arr), cols_to_correct] = ref_row_corrected.values
         logger.debug(f'Corrected rows for PLM policy {code}/{year}/{t}')
 
