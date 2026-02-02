@@ -68,18 +68,18 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 3,
-        "n_splits_outer": 3,
-        "n_trials": 3,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
     },
     "meta_boosting_multiple": {
         "method": "catboost",
         "objective_metric": mean_absolute_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 3,
-        "n_splits_outer": 3,
-        "n_trials": 3,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
         "ponderation": [0.7, 0.3],
     },
 }
@@ -100,20 +100,20 @@ class BackTester:
         self.results = {}
         self.features_after_selection = {}
 
-    def process_and_split_dataset(self, data, k_year):
+    def process_and_split_dataset(self, data, k_year, k_political_trends):
         """
         Split the dataset into training, validation, and test sets.
         """
         # From this with will retrieve in the each dataset (one for political trend)
-        self.X_train = {trend: [] for trend in self.config.political_trends}
-        self.X_val = {trend: [] for trend in self.config.political_trends}
-        self.X_test = {trend: [] for trend in self.config.political_trends}
-        self.y_train = {trend: [] for trend in self.config.political_trends}
-        self.y_val = {trend: [] for trend in self.config.political_trends}
-        self.y_test = {trend: [] for trend in self.config.political_trends}
+        self.X_train = {trend: [] for trend in k_political_trends}
+        self.X_val = {trend: [] for trend in k_political_trends}
+        self.X_test = {trend: [] for trend in k_political_trends}
+        self.y_train = {trend: [] for trend in k_political_trends}
+        self.y_val = {trend: [] for trend in k_political_trends}
+        self.y_test = {trend: [] for trend in k_political_trends}
 
         # Retrieve the rows matching the years for each dataset
-        for trend in self.config.political_trends:
+        for trend in k_political_trends:
             st = Splitter("p" + trend)
             split_method = f"{k_year}_{self.k_t}"
             X, y, y_split = st.get_Xy(data)
@@ -136,7 +136,7 @@ class BackTester:
             )
             self.feature_names[trend] = self.X_train[trend].columns.tolist()
 
-    def organize_vote(self, k_year):
+    def organize_vote(self, k_year, k_political_trends):
         # Ground truth
         ground_truth_data_path = (
             self.config.data_path
@@ -144,13 +144,13 @@ class BackTester:
         )
         X_true = DataLoader.load_dataset(ground_truth_data_path)[
             ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-            + [trend for trend in self.config.political_trends if trend != "par"]
-            + ["p" + trend for trend in self.config.political_trends]
+            + [trend for trend in k_political_trends if trend != "par"]
+            + ["p" + trend for trend in k_political_trends]
         ]
         str_cols = ["codecommune", "nomcommune"]
-        float_cols = ["p" + trend for trend in self.config.political_trends]
+        float_cols = ["p" + trend for trend in k_political_trends]
         int_cols = [
-            trend for trend in self.config.political_trends if trend != "par"
+            trend for trend in k_political_trends if trend != "par"
         ] + ["inscrits", "votants", "exprimes"]
         X_true[str_cols] = X_true[str_cols].astype(str)
         X_true[int_cols] = X_true[int_cols].astype(int)
@@ -170,7 +170,7 @@ class BackTester:
             if key
             in [
                 f"tot_p{trend}"
-                for trend in self.config.political_trends
+                for trend in k_political_trends
                 if trend != "par"
             ]
         }
@@ -217,24 +217,29 @@ class BackTester:
             file_path=model_dir_path + f"model_{k_year}_{k_type}_{ts}.pkl",
         )
 
-    def run_backtest(self, k_year, k_type, model, model_args):
+    def run_backtest(self, k_year, k_type, k_political_trends, model, model_args):
         """
         Run the backtesting process.
         """
         self.k_t = 0 if k_type == "pres" else 1
 
         # For now only one backtesting model
-        self.election_predictor = ElectionPredictor(trends=self.config.political_trends)
+        self.election_predictor = ElectionPredictor(trends=k_political_trends)
 
         # 1. Load all dataset
         data = DataLoader.load_dataset(self.config.data_path + self.config.dataset_path)
 
         # 2. Test and split
-        self.process_and_split_dataset(data, k_year)
+        self.process_and_split_dataset(data, k_year, k_political_trends)
 
         # 3. Train model
-        for trend in self.config.political_trends:
+        for trend in k_political_trends:
             logger.info(f"Training model for trend: {trend}")
+
+            # For trivial model (same as previous election)
+            if self.config.model == "trivial_1":
+                model_args['y_prev'] = self.X_test[trend][f'pvotepreviousp{trend}']
+
             instance_model = model(**model_args)
 
             trainings = {
@@ -283,7 +288,7 @@ class BackTester:
             )
 
         # 4. Predict
-        X_pred, X_true = self.organize_vote(k_year)
+        X_pred, X_true = self.organize_vote(k_year, k_political_trends)
 
         # 5. Evaluate vote
         X_result, X_synthetic = self.election_predictor.evaluate_predictions(
@@ -312,12 +317,14 @@ def main():
     )
     k_year = backtester.config.k_year
     k_type = backtester.config.k_type
-    for year in k_year:
-        for type_ in k_type:
-            logger.info(f"Running backtest for year: {year} (type: {type_})")
-            backtester.run_backtest(
-                k_year=year, k_type=type_, model=model, model_args=model_args
-            )
+    k_political_trends = backtester.config.political_trends
+    for political_trends in k_political_trends:
+        for year in k_year:
+            for type_ in k_type:
+                logger.info(f"Running backtest for  : year: {year}, type: {type_}, political_trends: {political_trends}")
+                backtester.run_backtest(
+                    k_year=year, k_type=type_, k_political_trends=political_trends, model=model, model_args=model_args
+                )
 
 
 if __name__ == "__main__":

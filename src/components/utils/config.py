@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, HttpUrl, validator
 
 class BackTesterConfig(BaseModel):
     # Political trends/variables
-    political_trends: List[str] = Field(
+    political_trends: List[List[str]] = Field(
         default=["voteCG", "voteCD", "voteC", "voteD", "voteG", "par"],
         description="Political trend variables to include in modeling",
     )
@@ -48,16 +48,19 @@ class BackTesterConfig(BaseModel):
             {"voteCG", "voteCD", "voteC", "voteD", "voteG", "par"},  # existing default
         ]
 
-        # Convert input to set for comparison
-        input_set = set(v)
+        # Ensure the input is a list of lists
+        if not isinstance(v, list) or not all(isinstance(inner, list) for inner in v):
+            raise ValueError("political_trends must be a list of lists.")
 
-        # Check if input matches any allowed combination
-        if not any(input_set == allowed_set for allowed_set in allowed_sets):
-            allowed_combinations = [list(s) for s in allowed_sets]
-            raise ValueError(
-                f"political_trends must be one of the allowed combinations: {allowed_combinations}."
-                f"Got: {v}"
-            )
+        # Validate each inner list
+        for inner_list in v:
+            input_set = set(inner_list)
+            if not any(set(input_set) == set(allowed_set) for allowed_set in allowed_sets):
+                allowed_combinations = [list(s) for s in allowed_sets]
+                raise ValueError(
+                    f"Each inner list in political_trends must match one of the allowed combinations: {allowed_combinations}."
+                    f"Got: {inner_list}"
+                )
 
         return v
 
