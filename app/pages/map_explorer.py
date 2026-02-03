@@ -21,13 +21,13 @@ fs = s3fs.S3FileSystem(
 
 
 @st.cache_data
-def load_geojson(path: str, fs):
+def load_geojson(path: str, _fs: object):
     return DataLoader.load_geojson(path, fs)
 
 
 if DATA in st.session_state:
     result_df = st.session_state[DATA][RESULT_FULL_PATH]
-    communes_geojson = load_geojson(COMMUNES_MAP_PATH, fs=fs)
+    communes_geojson = load_geojson(COMMUNES_MAP_PATH, _fs=fs)
 else:
     st.warning("Visit the home page!")
     st.stop()
