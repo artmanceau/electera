@@ -26,17 +26,11 @@ st.session_state["ELECTION_TYPE"] = st.selectbox(
 )
 
 # Instantiate fs
-aws_secrets = st.secrets["aws"]
-os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-os.environ["AWS_ACCESS_KEY_ID"] = aws_secrets["aws_access_key_id"]
-os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secrets["aws_secret_access_key"]
-os.environ["AWS_SESSION_TOKEN"] = aws_secrets["token"]
-
 fs = s3fs.S3FileSystem(
-    client_kwargs={"endpoint_url": aws_secrets["endpoint_url"]},
-    key=aws_secrets["aws_access_key_id"],
-    secret=aws_secrets["aws_secret_access_key"],
-    token=aws_secrets["token"]
+    client_kwargs={'endpoint_url': 'https://'+'minio.lab.sspcloud.fr'},
+    key=st.secrets["AWS_ACCESS_KEY_ID"],
+    secret=st.secrets["AWS_SECRET_ACCESS_KEY"],
+    token=st.secrets["AWS_SESSION_TOKEN"]
 )
 
 

@@ -26,6 +26,9 @@ election_modeling_uhcp.egg-info
 # Notebooks results
 notebooks/ml/results
 
+# Secrets
+app/.streamlit/secrets.toml
+
 http_cache.sqlite
 
 
