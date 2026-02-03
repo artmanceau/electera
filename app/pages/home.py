@@ -5,7 +5,6 @@ from src.components.streamlit_utils.utils import trends
 from src.components.utils.config import AppConfig
 from src.components.utils.read_config import ConfigReader
 import s3fs
-import os
 
 st.divider()
 
@@ -30,7 +29,7 @@ fs = s3fs.S3FileSystem(
     client_kwargs={'endpoint_url': 'https://'+'minio.lab.sspcloud.fr'},
     key=st.secrets["AWS_ACCESS_KEY_ID"],
     secret=st.secrets["AWS_SECRET_ACCESS_KEY"],
-    token=st.secrets["AWS_SESSION_TOKEN"]
+    # token=st.secrets["AWS_SESSION_TOKEN"]
 )
 
 
@@ -68,7 +67,7 @@ def load_assets(config):
             )
 
 
-if st.button("Charger l'application"):
+if st.button("Charger l'application (environ 60 secondes)"):
     with st.spinner(text="Chargement en cours...", show_time=True, width="content"):
         load_assets(st.session_state["config"])
 

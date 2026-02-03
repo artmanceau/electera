@@ -1,7 +1,7 @@
-import json
-
+import s3fs
 import pydeck as pdk
 import streamlit as st
+from src.components.data_processing.data_loader import DataLoader
 from asset.definitions import COMMUNES_MAP_PATH, DATA, RESULT_FULL_PATH
 
 from src.components.streamlit_utils.utils import blocs, colors, trad
@@ -11,11 +11,18 @@ VERSIONS = [
     ("Actual result", "true"),
 ]
 
+# Instantiate fs
+fs = s3fs.S3FileSystem(
+    client_kwargs={'endpoint_url': 'https://'+'minio.lab.sspcloud.fr'},
+    key=st.secrets["AWS_ACCESS_KEY_ID"],
+    secret=st.secrets["AWS_SECRET_ACCESS_KEY"],
+    # token=st.secrets["AWS_SESSION_TOKEN"]
+)
+
 
 @st.cache_data
 def load_geojson(path: str):
-    with open(path) as f:
-        return json.load(f)
+    return DataLoader.load_geojson(path, fs)
 
 
 if DATA in st.session_state:
