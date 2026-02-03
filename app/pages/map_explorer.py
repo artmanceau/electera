@@ -21,7 +21,7 @@ fs = s3fs.S3FileSystem(
 
 
 @st.cache_data
-def load_geojson(path: str):
+def load_geojson(path: str, fs):
     return DataLoader.load_geojson(path, fs)
 
 
