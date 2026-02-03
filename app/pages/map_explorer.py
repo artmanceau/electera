@@ -22,7 +22,7 @@ fs = s3fs.S3FileSystem(
 
 @st.cache_data
 def load_geojson(path: str, _fs: object):
-    return DataLoader.load_geojson(path, fs)
+    return DataLoader.load_geojson(path, _fs)
 
 
 if DATA in st.session_state:
