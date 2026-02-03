@@ -27,7 +27,7 @@ def load_geojson(path: str, fs):
 
 if DATA in st.session_state:
     result_df = st.session_state[DATA][RESULT_FULL_PATH]
-    communes_geojson = load_geojson(COMMUNES_MAP_PATH)
+    communes_geojson = load_geojson(COMMUNES_MAP_PATH, fs=fs)
 else:
     st.warning("Visit the home page!")
     st.stop()
