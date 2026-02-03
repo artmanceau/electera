@@ -4,6 +4,8 @@ from src.components.data_processing.data_loader import DataLoader
 from src.components.streamlit_utils.utils import trends
 from src.components.utils.config import AppConfig
 from src.components.utils.read_config import ConfigReader
+import s3fs
+import os
 
 st.divider()
 
@@ -21,6 +23,20 @@ st.session_state["ELECTION_YEAR"] = st.selectbox(
 )
 st.session_state["ELECTION_TYPE"] = st.selectbox(
     "Election type", st.session_state["config"].types_to_display, index=0
+)
+
+# Instantiate fs
+aws_secrets = st.secrets["aws"]
+os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+os.environ["AWS_ACCESS_KEY_ID"] = aws_secrets["aws_access_key_id"]
+os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secrets["aws_secret_access_key"]
+os.environ["AWS_SESSION_TOKEN"] = aws_secrets["token"]
+
+fs = s3fs.S3FileSystem(
+    client_kwargs={"endpoint_url": aws_secrets["endpoint_url"]},
+    key=aws_secrets["aws_access_key_id"],
+    secret=aws_secrets["aws_secret_access_key"],
+    token=aws_secrets["token"]
 )
 
 
@@ -44,17 +60,17 @@ def load_assets(config):
     explain_assets_to_load = ["feature_importance", "shap_values"]
     for asset in results_assets_to_load:
         st.session_state["data"][asset] = DataLoader.load_dataset(
-            f"{data_path}/output/results/{asset}_{year}_{election_type}_{version}.parquet"
+            f"{data_path}/output/results/{asset}_{year}_{election_type}_{version}.parquet", fs=fs
         )
 
     for asset in explain_assets_to_load:
         st.session_state["data"][asset] = {}
         for b in trends:
             st.session_state["data"][asset][b] = DataLoader.load_dataset(
-                f"{data_path}/output/explain/{asset}_{b}_{year}_{election_type}_{version}.parquet"
+                f"{data_path}/output/explain/{asset}_{b}_{year}_{election_type}_{version}.parquet", fs=fs
             )
             st.session_state["data"][asset][b] = DataLoader.load_dataset(
-                f"{data_path}/output/explain/{asset}_{b}_{year}_{election_type}_{version}.parquet"
+                f"{data_path}/output/explain/{asset}_{b}_{year}_{election_type}_{version}.parquet", fs=fs
             )
 
 
