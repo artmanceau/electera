@@ -44,7 +44,7 @@ class BackTesterConfig(BaseModel):
         # Define allowed variable sets
         allowed_sets = [
             {"par", "voteTD", "voteTG"},
-            {"par", "voteCGC", "voteC", "voteDCD"},
+            {"par", "voteGCG", "voteC", "voteDCD"},
             {"voteCG", "voteCD", "voteC", "voteD", "voteG", "par"},  # existing default
         ]
 

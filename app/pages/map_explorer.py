@@ -4,7 +4,8 @@ import streamlit as st
 from src.components.data_processing.data_loader import DataLoader
 from asset.definitions import COMMUNES_MAP_PATH, DATA, RESULT_FULL_PATH
 
-from src.components.streamlit_utils.utils import blocs, colors, trad
+from core.utils import blocs, colors, trad
+from core.data_handler import FileSystem
 
 VERSIONS = [
     ("Model prediction", "pred"),
@@ -12,12 +13,8 @@ VERSIONS = [
 ]
 
 # Instantiate fs
-fs = s3fs.S3FileSystem(
-    client_kwargs={'endpoint_url': 'https://'+'minio.lab.sspcloud.fr'},
-    key=st.secrets["AWS_ACCESS_KEY_ID"],
-    secret=st.secrets["AWS_SECRET_ACCESS_KEY"],
-    # token=st.secrets["AWS_SESSION_TOKEN"]
-)
+fs = FileSystem(client_kwargs='https://'+'minio.lab.sspcloud.fr', key=st.secrets["AWS_ACCESS_KEY_ID"], secret=st.secrets["AWS_SECRET_ACCESS_KEY"])
+fs.load_fs()
 
 
 @st.cache_data
@@ -27,7 +24,7 @@ def load_geojson_page(path: str, _fs: object):
 
 if DATA in st.session_state:
     result_df = st.session_state[DATA][RESULT_FULL_PATH]
-    communes_geojson = load_geojson_page(path=COMMUNES_MAP_PATH, _fs=fs)
+    communes_geojson = load_geojson_page(path=COMMUNES_MAP_PATH, _fs=fs.get_fs())
 else:
     st.warning("Visit the home page!")
     st.stop()

@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.components.streamlit_utils.utils import (
+from core.utils import (
     blocs,
     compute_agg_results,
     present_results,
