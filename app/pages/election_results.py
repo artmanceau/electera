@@ -1,5 +1,5 @@
 import streamlit as st
-
+from core.data_handler import AppData
 from core.utils import (
     blocs,
     compute_agg_results,
@@ -10,31 +10,30 @@ from core.utils import (
     type_trad,
 )
 
-# Check that assets are loaded
-if (
-    "data" in st.session_state
-    and "ELECTION_YEAR" in st.session_state
-    and "ELECTION_TYPE" in st.session_state
-):
-    X = st.session_state["data"]["results_full"]
-    y = st.session_state["data"]["results_synth"]
-    y.index = y["var"]
-    YEAR = st.session_state["ELECTION_YEAR"]
-    TYPE = type_trad[st.session_state["ELECTION_TYPE"]]
-else:
-    st.warning("Visit the home page!")
-    st.stop()
+YEAR = st.selectbox(
+    "Election year", st.session_state["config"].years_to_display, index=0
+)
+TYPE = st.selectbox(
+    "Election type", st.session_state["config"].types_to_display, index=0
+)
 
-# Compute aggregated results
-data_line = compute_agg_results(X)
+AppData(
+    st.session_state["config"].data_path, st.session_state["config"].model_version
+).load_element(asset="results_synth", year=YEAR, type=TYPE)
+AppData(
+    st.session_state["config"].data_path, st.session_state["config"].model_version
+).load_element(asset="feature_importance", year=YEAR, type=TYPE)
+results = st.session_state["data"]["result_synth"]
+feature_importance = st.session_state["data"]["feature_importance"]
 
 st.header(f"Résultat des élections {TYPE} de {YEAR}")
 
-present_results(data_line.to_frame().T)
+present_results(page_data)
 
 st.divider()
 
 st.header("Erreur du modèle")
+
 
 mean = round(
     y[y["var"] == "avg_error_tot"][str(YEAR)].values[0] * 100,
@@ -69,8 +68,8 @@ with st.expander("Ecart type de l'erreur de prédiction"):
 
 st.divider()
 
-show_feature_importance(st.session_state["data"]["feature_importance"])
+show_feature_importance(feature_importance)
 
-st.divider()
+# st.divider()
 
-show_shap_values(st.session_state["data"]["shap_values"])
+# show_shap_values(st.session_state["data"]["shap_values"])

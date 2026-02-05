@@ -190,7 +190,9 @@ class DataLoader:
         return data
 
     @staticmethod
-    def load_geojson(geo_data_path: str, fs: Optional[object] | None = None) -> pd.DataFrame:
+    def load_geojson(
+        geo_data_path: str, fs: Optional[object] | None = None
+    ) -> pd.DataFrame:
         if not fs:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(geo_data_path) else None
         if not DataUtils._exists(geo_data_path, fs):

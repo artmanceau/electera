@@ -55,7 +55,9 @@ class BackTesterConfig(BaseModel):
         # Validate each inner list
         for inner_list in v:
             input_set = set(inner_list)
-            if not any(set(input_set) == set(allowed_set) for allowed_set in allowed_sets):
+            if not any(
+                set(input_set) == set(allowed_set) for allowed_set in allowed_sets
+            ):
                 allowed_combinations = [list(s) for s in allowed_sets]
                 raise ValueError(
                     f"Each inner list in political_trends must match one of the allowed combinations: {allowed_combinations}."
@@ -237,9 +239,7 @@ class DataProcessingConfig(BaseModel):
         default="Arr", description="Whether to keep the arrondissement of PLM commune"
     )
 
-    polls_data : bool = Field(
-        default=False, description="Whether to add polling data"
-    )
+    polls_data: bool = Field(default=False, description="Whether to add polling data")
 
     @property
     def elections_to_exclude(self) -> List[str]:
@@ -264,8 +264,7 @@ class DownloadDataConfig(BaseModel):
     # Source
     url: HttpUrl = Field(description="URL to download data from")
 
-
-    geo_url : HttpUrl = Field(description="URL to download geodata from")
+    geo_url: HttpUrl = Field(description="URL to download geodata from")
 
     # Data path (to download the data)
     data_path: str = Field(

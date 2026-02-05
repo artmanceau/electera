@@ -1,10 +1,5 @@
 import streamlit as st
-
-from core.utils import (
-    blocs,
-    present_results,
-    show_shap_values,
-)
+from core.utils import blocs, present_results, show_shap_values
 
 if "data" in st.session_state:
     X = st.session_state["data"]["results_full"]

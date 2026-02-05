@@ -1,20 +1,16 @@
-import s3fs
 import pydeck as pdk
+import s3fs
 import streamlit as st
-from src.components.data_processing.data_loader import DataLoader
 from asset.definitions import COMMUNES_MAP_PATH, DATA, RESULT_FULL_PATH
-
-from core.utils import blocs, colors, trad
 from core.data_handler import FileSystem
+from core.utils import blocs, colors, trad
+
+from src.components.data_processing.data_loader import DataLoader
 
 VERSIONS = [
     ("Model prediction", "pred"),
     ("Actual result", "true"),
 ]
-
-# Instantiate fs
-fs = FileSystem(client_kwargs='https://'+'minio.lab.sspcloud.fr', key=st.secrets["AWS_ACCESS_KEY_ID"], secret=st.secrets["AWS_SECRET_ACCESS_KEY"])
-fs.load_fs()
 
 
 @st.cache_data

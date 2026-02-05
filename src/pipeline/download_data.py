@@ -297,6 +297,7 @@ class DataDownloader(UtilsDownloader):
 
         logger.info(f"Downloaded {file_name} from {url}")
 
+
 if __name__ == "__main__":
     # Example usage with S3
     dd = DataDownloader()

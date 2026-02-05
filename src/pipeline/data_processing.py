@@ -7,10 +7,10 @@ for the election modeling project.
 
 import gc
 import os
-import numpy as np
 import re
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import polars as pl
 from loguru import logger
@@ -387,7 +387,9 @@ class ElectionDataProcessor:
             dummy_election_columns += [
                 f"inscrits2027-{election_type}",
             ]
-            dummy_election_columns += [f"pvote{var}2027-{election_type}" for var in self.config.vote_variables]
+            dummy_election_columns += [
+                f"pvote{var}2027-{election_type}" for var in self.config.vote_variables
+            ]
 
         for col in dummy_election_columns:
             self.dfs[col] = 0.0
@@ -509,17 +511,23 @@ class ElectionDataProcessor:
         """Adds polling data. Warning run the extract poll data pipeline before"""
         # Load relevant polls dataset
         data = data.copy()
-        path_to_poll_data = self.config.data_path + f'polls/{election_type}/{year}/polls_t1.parquet'
+        path_to_poll_data = (
+            self.config.data_path + f"polls/{election_type}/{year}/polls_t1.parquet"
+        )
         fs = DataUtils._create_fs() if DataUtils._detect_s3(path_to_poll_data) else None
         if DataUtils._exists(path_to_poll_data, fs):
             X = pd.read_parquet(path_to_poll_data)
-            blocs = [v.replace("pvote", "") for v in self.config.vote_variables if v.startswith("pvote")]
+            blocs = [
+                v.replace("pvote", "")
+                for v in self.config.vote_variables
+                if v.startswith("pvote")
+            ]
             poll_results = X[blocs].mean()
             for b in blocs:
-                data[f'poll_pvote{b}{year}'] = poll_results[b]
+                data[f"poll_pvote{b}{year}"] = poll_results[b]
 
         else:
-            logger.warning(f'No poll data available for {election_type} {year}')
+            logger.warning(f"No poll data available for {election_type} {year}")
 
         return data
 
@@ -606,7 +614,9 @@ class ElectionDataProcessor:
 
         # Add polling data if available
         if self.config.polls_data:
-            features_dataset = self.add_polls_data(features_dataset, year, election_type)
+            features_dataset = self.add_polls_data(
+                features_dataset, year, election_type
+            )
 
         # 1. Select socio-economic features
         features_year_list = set(
@@ -964,27 +974,43 @@ class ElectionDataProcessor:
 
     def correct_rows(self, year, t, code, code_arr, n_arr):
         # Columns and row selection
-        X = self.global_dataset[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year)]
-        code_not_in_X = (len(X[X['codecommune'] == code]) == 0)
+        X = self.global_dataset[
+            (self.global_dataset["type"] == t) & (self.global_dataset["annee"] == year)
+        ]
+        code_not_in_X = len(X[X["codecommune"] == code]) == 0
         if code_not_in_X:
             return None
-        nan_cols_arr_mask = X.loc[X['codecommune'].isin(code_arr)].isna().all()
+        nan_cols_arr_mask = X.loc[X["codecommune"].isin(code_arr)].isna().all()
         nan_cols_arr = X.columns[nan_cols_arr_mask]
-        cols_not_na_for_metropole = X.loc[X['codecommune'] == code, nan_cols_arr].dropna(axis=1).columns
-        cols_to_correct = list(set(cols_not_na_for_metropole).intersection(nan_cols_arr))
- 
+        cols_not_na_for_metropole = (
+            X.loc[X["codecommune"] == code, nan_cols_arr].dropna(axis=1).columns
+        )
+        cols_to_correct = list(
+            set(cols_not_na_for_metropole).intersection(nan_cols_arr)
+        )
+
         # Get row
-        ref_row = self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & (self.global_dataset['codecommune'] == code), cols_to_correct].iloc[0]
+        ref_row = self.global_dataset.loc[
+            (self.global_dataset["type"] == t)
+            & (self.global_dataset["annee"] == year)
+            & (self.global_dataset["codecommune"] == code),
+            cols_to_correct,
+        ].iloc[0]
 
         ref_row_corrected = ref_row.copy()
-        mask = pd.to_numeric(ref_row_corrected, errors='coerce') < 5
-        mask |= pd.to_numeric(ref_row_corrected, errors='coerce').isna()
-        numeric_values = pd.to_numeric(ref_row_corrected.loc[~mask], errors='coerce')
+        mask = pd.to_numeric(ref_row_corrected, errors="coerce") < 5
+        mask |= pd.to_numeric(ref_row_corrected, errors="coerce").isna()
+        numeric_values = pd.to_numeric(ref_row_corrected.loc[~mask], errors="coerce")
         ref_row_corrected.loc[~mask] = numeric_values / n_arr
 
         # Input global dataset
-        self.global_dataset.loc[(self.global_dataset['type'] == t) & (self.global_dataset['annee'] == year) & self.global_dataset['codecommune'].isin(code_arr), cols_to_correct] = ref_row_corrected.values
-        logger.debug(f'Corrected rows for PLM policy {code}/{year}/{t}')
+        self.global_dataset.loc[
+            (self.global_dataset["type"] == t)
+            & (self.global_dataset["annee"] == year)
+            & self.global_dataset["codecommune"].isin(code_arr),
+            cols_to_correct,
+        ] = ref_row_corrected.values
+        logger.debug(f"Corrected rows for PLM policy {code}/{year}/{t}")
 
     def _choose_plm(self):
         """ "During the dataprocessing Paris, Mareseille and Lyon are treated as a commune and their arrondissement also.
@@ -1012,8 +1038,8 @@ class ElectionDataProcessor:
 
         # Warning : this procedures can create NaN (if a socio-economic feature is non available at the Arrondissement level or vice-versa)
         # The following code extends features available at the metropole level to arrondissement
-        election_types = self.global_dataset['type'].unique().tolist()
-        years = self.global_dataset['annee'].unique().tolist()
+        election_types = self.global_dataset["type"].unique().tolist()
+        years = self.global_dataset["annee"].unique().tolist()
         for t in election_types:
             for year in years:
                 self.correct_rows(year, t, PARIS, PARIS_arr, n_PARIS)
