@@ -1,6 +1,7 @@
 {
-    "model_version": "20260119_213202",
+    "model_version": "20260207_110751",
     "years_to_display": [2022],
     "types_to_display":["pres"],
-    "data_path":"s3://arthurmanceau/election_modeling_uhcp"
+    "political_divisions_to_dislay" : [["voteTG", "voteTD", "par"]],
+    "data_path":"s3://arthurmanceau/election_modeling_uhcp/data"
 }

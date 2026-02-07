@@ -136,6 +136,9 @@ class ElectionPredictor:
             )
             result.loc[f"p{b}", f"{election_code}_diff"] = X[f"p{b}_diff"].mean()
             result.loc[f"p{b}", f"{election_code}_std"] = X[f"p{b}_diff"].std()
+
+        result = result.reset_index()
+
         return result
 
     def compute_votes_per_circo(self, X):

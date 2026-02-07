@@ -1,34 +1,36 @@
 import streamlit as st
-from core.data_handler import AppData
+from asset.definitions import blocs, trad, display_config_converter, convert, reverse_convert
 from core.utils import (
-    blocs,
-    compute_agg_results,
     present_results,
     show_feature_importance,
-    show_shap_values,
-    trad,
-    type_trad,
+    check_home_run
 )
+
+check_home_run()
+st.write( st.session_state["config"])
 
 YEAR = st.selectbox(
     "Election year", st.session_state["config"].years_to_display, index=0
 )
-TYPE = st.selectbox(
-    "Election type", st.session_state["config"].types_to_display, index=0
+t = st.selectbox(
+    "Election type", [convert('type', el) for el in st.session_state["config"].types_to_display], index=0
 )
+b = st.selectbox(
+    "Division du spectre politique", [convert('political_division', el) for el in st.session_state['config'].political_divisions_to_dislay], index=0
+)
+TYPE, BLOCS = reverse_convert('type', t), reverse_convert('political_division', b)
 
-AppData(
-    st.session_state["config"].data_path, st.session_state["config"].model_version
-).load_element(asset="results_synth", year=YEAR, type=TYPE)
-AppData(
-    st.session_state["config"].data_path, st.session_state["config"].model_version
-).load_element(asset="feature_importance", year=YEAR, type=TYPE)
-results = st.session_state["data"]["result_synth"]
-feature_importance = st.session_state["data"]["feature_importance"]
+st.session_state['data'].load_result(asset="results_synth", year=YEAR, election_type=TYPE, trends=BLOCS)
+results = st.session_state["data"].container['results_synth']
 
-st.header(f"Résultat des élections {TYPE} de {YEAR}")
+#st.session_state['data'].load_explain(asset="feature_importance", trend='voteG', year=YEAR, election_type=TYPE)
 
-present_results(page_data)
+
+#feature_importance = st.session_state["data"]["feature_importance"]
+
+st.header(f"Résultat des {t} de {YEAR} ({b})")
+
+present_results(results)
 
 st.divider()
 

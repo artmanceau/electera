@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Literal, Optional
 
 import s3fs
 import streamlit as st
@@ -9,6 +9,14 @@ from src.components.data_processing.data_loader import DataLoader
 
 class FileSystem:
 
+    instance = None
+
+    def __new__(cls, client_kwargs, key, secret):
+        """Create or return existing singleton instance."""
+        if cls.instance is None:
+            cls.instance = super().__new__(cls)
+        return cls.instance
+
     def __init__(self, client_kwargs, key, secret):
         if not hasattr(self, "initialized"):
             self.fs = s3fs.S3FileSystem(
@@ -18,7 +26,8 @@ class FileSystem:
             )
             self.initialized = True
 
-    def is_initialized(self):
+    @classmethod
+    def is_initialized(cls):
         return cls.instance is not None and hasattr(cls.instance, "initialized")
 
 
@@ -28,7 +37,7 @@ def load_fs(client_kwargs, key, secret):
 
 def get_fs():
     if not FileSystem.is_initialized():
-        raise ValueError("FileSystem is not initialized. Call load_fs() first.")
+        raise ValueError('Call load_fs first!')
 
     return FileSystem.instance
 
@@ -38,28 +47,46 @@ class AppData:
     def __init__(self, data_path, version):
         self.data_path = data_path
         self.version = version
-        st.session_state["data"] = {}
+        self.container = {}
 
-    def load_element(
+    def load_explain(
         self,
         asset: Literal[
-            "result_full", "result_synth", "feature_importance", "shap_values"
+            "feature_importance", "shap_values"
         ],
+        trends : List[str],
         year: int,
-        election_type: str,
-        filters: List[Tuple] = None,
+        election_type: Literal[
+            "leg", "pres", "ref"
+        ],
+        filters: Optional[List[Tuple]] | None = None,
     ):
-        sub_folder = {
-            "feature_importance": "explain",
-            "shap_values": "explain",
-            "result_full": "results",
-            "result_synth": "results",
-        }
-        # modify to load asset explain correctly
         element = DataLoader.load_dataset(
-            f"{self.data_path}/output/{sub_folder[asset]}/{asset}_{year}_{election_type}_{self.version}.parquet",
+            f"{self.data_path}/output/explain/{asset}_{trends}_{year}_{election_type}_{self.version}.parquet",
             fs=get_fs().fs,
-            filters=None,
+            formate='parquet',
+            filters=filters,
         )
-        st.session_state["data"]['results'][asset] = element
         logger.info(f"{asset} loaded with success!")
+        self.container[asset][trends] = element
+
+    def load_result(
+        self,
+        asset: Literal[
+            "result_full", "result_synth"
+        ],
+        trends : List[str],
+        year: int,
+        election_type: Literal[
+            "leg", "pres", "ref"
+        ],
+        filters: Optional[List[Tuple]] | None = None,
+    ):
+        element = DataLoader.load_dataset(
+            f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
+            fs=get_fs().fs,
+            formate='parquet',
+            filters=filters,
+        )
+        logger.info(f"{asset} loaded with success!")
+        self.container[asset] = element

@@ -18,38 +18,15 @@ trad = {
 type_trad = {"pres": "présidentielles", "leg": "leglisatives"}
 
 
-# def compute_agg_results(X):
-#     print(X)
-#     data_line = pd.Series([np.nan] * len(X.columns), index=X.columns)
-#     data_line["inscrits"] = X["inscrits"].sum()
-#     data_line["exprimes"] = X["exprimes"].sum()
-#     for m in ["pred", "true"]:
-#         data_line[f"votants_{m}"] = X[f"votants_{m}"].sum()
-#         data_line[f"ppar_{m}"] = round(
-#             data_line[f"votants_{m}"] / data_line["inscrits"] * 100, 2
-#         )
-#     for x in ["votants", "ppar"]:
-#         data_line[f"{x}_diff"] = round(
-#             data_line[f"{x}_true"] - data_line[f"{x}_pred"], 2
-#         )
-#     for b in blocs:
-#         for m in ["pred", "true"]:
-#             data_line[f"vote{b}_{m}"] = X[f"vote{b}_{m}"].sum()
-#             data_line[f"pvote{b}_{m}"] = round(
-#                 data_line[f"vote{b}_{m}"] / data_line["exprimes"] * 100, 2
-#             )
-#         data_line[f"vote{b}_diff"] = (
-#             data_line[f"vote{b}_true"] - data_line[f"vote{b}_pred"]
-#         )
-#         data_line[f"pvote{b}_diff"] = round(
-#             data_line[f"pvote{b}_true"] - data_line[f"pvote{b}_pred"], 2
-#         )
-#     print(data_line)
-#     return data_line
+def check_home_run():
+    if ('home_run' in st.session_state):
+        if st.session_state['home_run']:
+            return None
+    st.switch_page("pages/home.py")
 
 
 def present_results(data_line):
-
+    st.write(data_line)
     tab1, tab2 = st.tabs(["Nombre de vote", "Pourcentage des suffrages"])
 
     with tab1:

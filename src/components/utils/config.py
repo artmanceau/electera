@@ -293,4 +293,5 @@ class AppConfig(BaseModel):
     model_version: str
     years_to_display: List[int]
     types_to_display: List[str]
+    political_divisions_to_dislay: List[List[str]]
     data_path: str
