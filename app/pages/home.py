@@ -67,6 +67,12 @@ pages = [
         "link": "pages/map_explorer.py",
         "desc": "xxx",
         "icon": "🌍"
+    },
+    {
+        "name": "Back-Testing",
+        "link": "pages/back_testing.py",
+        "desc": "Analysez les performances du modèle sur plusieurs années",
+        "icon": "📈"
     }
 ]
 

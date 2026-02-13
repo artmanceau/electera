@@ -9,15 +9,22 @@ from core.utils import (
 
 check_home_run()
 
-YEAR = st.selectbox(
-    "Election year", st.session_state["config"].years_to_display, index=0
-)
-t = st.selectbox(
-    "Election type", [convert('type', el) for el in st.session_state["config"].types_to_display], index=0
-)
-b = st.selectbox(
-    "Division du spectre politique", [convert('political_division', el) for el in st.session_state['config'].political_divisions_to_dislay], index=0
-)
+
+# User selections
+col1, col2, col3 = st.columns(3)
+with col1:
+    YEAR = st.selectbox(
+        "Année électorale", st.session_state["config"].years_to_display, index=0
+    )
+with col2:
+    t = st.selectbox(
+        "Type d'élection", [convert('type', el) for el in st.session_state["config"].types_to_display], index=0
+    )
+with col3:
+    b = st.selectbox(
+        "Division politique", [convert('political_division', el) for el in st.session_state['config'].political_divisions_to_dislay], index=0
+    )
+
 TYPE, BLOCS = reverse_convert('type', t), reverse_convert('political_division', b)
 
 
