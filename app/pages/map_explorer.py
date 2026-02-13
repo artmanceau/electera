@@ -4,6 +4,13 @@ import streamlit as st
 from asset.definitions import COMMUNES_MAP_PATH, DATA, RESULT_FULL_PATH
 from core.data_handler import FileSystem
 from core.utils import blocs, colors, trad
+from asset.definitions import blocs, trad, display_config_converter, convert, reverse_convert
+from core.utils import (
+    present_results,
+    show_feature_importance,
+    check_home_run,
+    diff_show
+)
 
 from src.components.data_processing.data_loader import DataLoader
 
@@ -18,12 +25,24 @@ def load_geojson_page(path: str, _fs: object):
     return DataLoader.load_geojson(geo_data_path=path, fs=_fs)
 
 
-if DATA in st.session_state:
-    result_df = st.session_state[DATA][RESULT_FULL_PATH]
-    communes_geojson = load_geojson_page(path=COMMUNES_MAP_PATH, _fs=fs.get_fs())
-else:
-    st.warning("Visit the home page!")
-    st.stop()
+check_home_run()
+
+YEAR = st.selectbox(
+    "Election year", st.session_state["config"].years_to_display, index=0
+)
+t = st.selectbox(
+    "Election type", [convert('type', el) for el in st.session_state["config"].types_to_display], index=0
+)
+b = st.selectbox(
+    "Division du spectre politique", [convert('political_division', el) for el in st.session_state['config'].political_divisions_to_dislay], index=0
+)
+TYPE, BLOCS = reverse_convert('type', t), reverse_convert('political_division', b)
+
+
+st.header("Resultats sur une carte")
+
+st.session_state['data'].load_result(asset="results_full", year=YEAR, election_type=TYPE, trends=BLOCS)
+results = st.session_state["data"].container['results_full']
 
 result_df.index = result_df["codecommune"]
 winner_true = result_df[[f"pvote{b}_true" for b in blocs]].idxmax(axis=1).reset_index()

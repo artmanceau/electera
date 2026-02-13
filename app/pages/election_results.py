@@ -3,11 +3,11 @@ from asset.definitions import blocs, trad, display_config_converter, convert, re
 from core.utils import (
     present_results,
     show_feature_importance,
-    check_home_run
+    check_home_run,
+    diff_show
 )
 
 check_home_run()
-st.write( st.session_state["config"])
 
 YEAR = st.selectbox(
     "Election year", st.session_state["config"].years_to_display, index=0
@@ -21,57 +21,37 @@ b = st.selectbox(
 TYPE, BLOCS = reverse_convert('type', t), reverse_convert('political_division', b)
 
 st.session_state['data'].load_result(asset="results_synth", year=YEAR, election_type=TYPE, trends=BLOCS)
-results = st.session_state["data"].container['results_synth']
-
-#st.session_state['data'].load_explain(asset="feature_importance", trend='voteG', year=YEAR, election_type=TYPE)
-
-
-#feature_importance = st.session_state["data"]["feature_importance"]
+results = st.session_state["data"].container['results_synth'].set_index('index')
+#feature_importance = st.session_state["data"].container['feature_importance']
 
 st.header(f"Résultat des {t} de {YEAR} ({b})")
 
-present_results(results)
+present_results(results, year=YEAR, t=TYPE, scale="global")
 
 st.divider()
 
 st.header("Erreur du modèle")
 
+# Create trad adapté à bloc
+trad = {
+    'voteTD': 'à gauche',
+    'voteTG': 'à droite',
+    'par' : "Participation"
+}
 
-mean = round(
-    y[y["var"] == "avg_error_tot"][str(YEAR)].values[0] * 100,
-    2,
-)
-std = round(
-    y[y["var"] == "std_error_tot"][str(YEAR)].values[0] * 100,
-    2,
-)
-st.write(f"Erreur moyenne des prédictions: {mean}%")
-st.write(f"Ecart type de l'erreur de prédiction: {std}%")
+st.write(f"Erreur moyenne des prédictions: {(results.loc[[f"p{b}" for b in BLOCS], f'{YEAR}_{TYPE}_diff'].values.mean()*100):1f}%")
+st.write(f"Ecart type de l'erreur de prédiction: {(results.loc[[f"p{b}" for b in BLOCS], f'{YEAR}_{TYPE}_diff'].values.std()*100):1f}%")
 
-with st.expander("Erreurs moyenne des prédictions"):
-    variable_error = [f"error_pvote{bloc}" for bloc in blocs] + ["error_ppar"]
-    col_config_error = {f"error_pvote{bloc}": f"Vote {trad[bloc]}" for bloc in blocs}
-    col_config_error["error_ppar"] = "Participation"
-    st.dataframe(
-        y[y["var"].isin(variable_error)][[str(YEAR)]].T * 100,
-        column_config=col_config_error,
-        hide_index=True,
-    )
+with st.expander("Erreurs moyenne des prédictions (sur l'ensemble des communes)"):
+    diff_show(results, BLOCS, trad, 'diff', 'error', YEAR, TYPE)
 
-with st.expander("Ecart type de l'erreur de prédiction"):
-    variable_std = [f"std_pvote{bloc}" for bloc in blocs] + ["std_ppar"]
-    col_config_std = {f"std_pvote{bloc}": f"Vote {trad[bloc]}" for bloc in blocs}
-    col_config_std["std_ppar"] = "Participation"
-    st.dataframe(
-        y[y["var"].isin(variable_std)][[str(YEAR)]].T * 100,
-        column_config=col_config_std,
-        hide_index=True,
-    )
+with st.expander("Ecart type de l'erreur de prédiction (sur l'ensemble des communes)"):
+    diff_show(results, BLOCS, trad, 'std', 'ecart_type',  YEAR, TYPE)
 
 st.divider()
 
-show_feature_importance(feature_importance)
+#show_feature_importance(feature_importance)
 
-# st.divider()
+st.divider()
 
-# show_shap_values(st.session_state["data"]["shap_values"])
+#show_shap_values(st.session_state["data"]["shap_values"])

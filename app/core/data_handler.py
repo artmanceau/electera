@@ -80,13 +80,18 @@ class AppData:
         election_type: Literal[
             "leg", "pres", "ref"
         ],
+        columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
+        asset_name: Optional[str] | None = None,
     ):
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
             fs=get_fs().fs,
             formate='parquet',
+            columns=columns,
             filters=filters,
         )
         logger.info(f"{asset} loaded with success!")
-        self.container[asset] = element
+
+        asset_name = asset_name if asset_name is not None else asset
+        self.container[asset_name] = element

@@ -44,7 +44,7 @@ class DataUtils:
                 shutil.rmtree(dir_path)
 
     @staticmethod
-    def _read_parquet(file_path: str, fs: object =None, filters: Optional[List[Tuple]] | None = None) -> pd.DataFrame:
+    def _read_parquet(file_path: str, fs: object =None, columns: Optional[List] | None = None, filters: Optional[List[Tuple]] | None = None) -> pd.DataFrame:
         """Reads a parquet file.
 
         Args:
@@ -58,10 +58,10 @@ class DataUtils:
         if fs is None:
             data = pd.read_parquet(file_path, filters=filters)
         else:
-            data = pd.read_parquet(file_path, filesystem=fs, filters=filters)
+            data = pd.read_parquet(file_path, filesystem=fs, columns=columns, filters=filters)
         return data
 
-    def _read_csv(file_path: str, fs: object = None, filters: Optional[List[Tuple]] | None = None) -> pd.DataFrame:
+    def _read_csv(file_path: str, fs: object = None, columns: Optional[List] | None = None, filters: Optional[List[Tuple]] | None = None) -> pd.DataFrame:
         """Reads a parquet file.
 
         Args:
@@ -166,7 +166,7 @@ class DataLoader:
 
     @staticmethod
     def load_dataset(
-        file_path: str, fs: Optional[object] | None = None, formate: str = "parquet", filters: Optional[List[Tuple]] | None = None
+        file_path: str, fs: Optional[object] | None = None, formate: str = "parquet", columns: Optional[List] | None = None, filters: Optional[List[Tuple]] | None = None
     ) -> pd.DataFrame:
         """Loads a dataset either locally or in S3 depending on the file_path
 
@@ -185,7 +185,7 @@ class DataLoader:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if not DataUtils._exists(file_path, fs):
             raise FileNotFoundError(f"The file {file_path} can't be found.")
-        data = read_method[formate](file_path, fs, filters)
+        data = read_method[formate](file_path, fs, columns, filters)
         logger.debug(f"Dataset loaded: {data.shape}")
         return data
 
