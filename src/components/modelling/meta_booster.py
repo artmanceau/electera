@@ -65,6 +65,10 @@ BOOSTING_PARAM = {
     },
 }
 
+GPU_PARAM = {
+     "xgboost": {"device": 'cuda'}
+     "catboost": {"task_type": 'GPU', "devices": '0'}
+}
 
 class MetaBooster:
     """The MetaBooster is trained on input data."""
@@ -181,6 +185,12 @@ class MetaBooster:
         weights /= np.mean(weights)
         return weights
 
+    def _instantiate_model(self, param, gpu):
+        if gpu:
+            param.update(GPU_PARAM[self.boosting_method])
+
+        return self.boosting_method(**param)
+            
     def _perform_nested_cv(
         self, X, y, weights, n_splits_outer=3, n_splits_inner=3, n_trials=3
     ):
@@ -229,11 +239,7 @@ class MetaBooster:
         logger.debug("Training best models on the entire dataset")
         best_models = []
         for param in best_params_list_outer:
-            boosting_model = (
-                self.boosting_method(**param, device="cuda")
-                if USE_GPU
-                else self.boosting_method(**param)
-            )
+            boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
             boosting_model.fit(X, y, sample_weight=weights)
             best_models.append(boosting_model)
 
@@ -284,11 +290,7 @@ class MetaBooster:
             param = BOOSTING_PARAM[self.method](trial)
 
             # Set parameters
-            boosting_model = (
-                self.boosting_method(**param, device="cuda")
-                if USE_GPU
-                else self.boosting_method(**param)
-            )
+            boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
             # Train
             boosting_model.fit(X_train, y_train, sample_weight=weights_train)
 
@@ -355,11 +357,7 @@ class MetaBooster:
         logger.debug(" evaluating best models from inner folds on the full inner set")
         test_scores = []
         for i, param in enumerate(best_params_list):
-            boosting_model = (
-                self.boosting_method(**param, device="cuda")
-                if USE_GPU
-                else self.boosting_method(**param)
-            )
+            boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
             boosting_model.fit(
                 X_train_outer,
                 y_train_outer,
