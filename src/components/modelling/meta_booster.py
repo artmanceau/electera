@@ -66,9 +66,10 @@ BOOSTING_PARAM = {
 }
 
 GPU_PARAM = {
-     "xgboost": {"device": 'cuda'}
-     "catboost": {"task_type": 'GPU', "devices": '0'}
+    "xgboost": {"device": 'cuda'},
+    "catboost": {"task_type": 'GPU', "devices": '0'}
 }
+
 
 class MetaBooster:
     """The MetaBooster is trained on input data."""
