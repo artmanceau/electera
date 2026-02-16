@@ -4,7 +4,7 @@ import json
 import os
 import pickle
 import shutil
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import pandas as pd
 import s3fs
@@ -44,7 +44,12 @@ class DataUtils:
                 shutil.rmtree(dir_path)
 
     @staticmethod
-    def _read_parquet(file_path: str, fs=None) -> pd.DataFrame:
+    def _read_parquet(
+        file_path: str,
+        fs: object = None,
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
+    ) -> pd.DataFrame:
         """Reads a parquet file.
 
         Args:
@@ -56,12 +61,19 @@ class DataUtils:
         """
         logger.debug(f"Loading dataset from {file_path}...")
         if fs is None:
-            data = pd.read_parquet(file_path)
+            data = pd.read_parquet(file_path, filters=filters)
         else:
-            data = pd.read_parquet(file_path, filesystem=fs)
+            data = pd.read_parquet(
+                file_path, filesystem=fs, columns=columns, filters=filters
+            )
         return data
 
-    def _read_csv(file_path: str, fs=None) -> pd.DataFrame:
+    def _read_csv(
+        file_path: str,
+        fs: object = None,
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
+    ) -> pd.DataFrame:
         """Reads a parquet file.
 
         Args:
@@ -166,7 +178,11 @@ class DataLoader:
 
     @staticmethod
     def load_dataset(
-        file_path: str, fs: Optional[object] | None = None, formate: str = "parquet"
+        file_path: str,
+        fs: Optional[object] | None = None,
+        formate: str = "parquet",
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
     ) -> pd.DataFrame:
         """Loads a dataset either locally or in S3 depending on the file_path
 
@@ -185,12 +201,14 @@ class DataLoader:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if not DataUtils._exists(file_path, fs):
             raise FileNotFoundError(f"The file {file_path} can't be found.")
-        data = read_method[formate](file_path, fs)
+        data = read_method[formate](file_path, fs, columns, filters)
         logger.debug(f"Dataset loaded: {data.shape}")
         return data
 
     @staticmethod
-    def load_geojson(geo_data_path: str, fs: Optional[object] | None = None) -> pd.DataFrame:
+    def load_geojson(
+        geo_data_path: str, fs: Optional[object] | None = None
+    ) -> pd.DataFrame:
         if not fs:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(geo_data_path) else None
         if not DataUtils._exists(geo_data_path, fs):

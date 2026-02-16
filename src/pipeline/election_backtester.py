@@ -73,7 +73,7 @@ MODEL_ARGS = {
         "n_trials": 2,
     },
     "meta_boosting_multiple": {
-        "method": "catboost",
+        "method": "xgboost",
         "objective_metric": mean_absolute_error,
         "weighting": "proportional",
         "features": None,
@@ -149,9 +149,11 @@ class BackTester:
         ]
         str_cols = ["codecommune", "nomcommune"]
         float_cols = ["p" + trend for trend in k_political_trends]
-        int_cols = [
-            trend for trend in k_political_trends if trend != "par"
-        ] + ["inscrits", "votants", "exprimes"]
+        int_cols = [trend for trend in k_political_trends if trend != "par"] + [
+            "inscrits",
+            "votants",
+            "exprimes",
+        ]
         X_true[str_cols] = X_true[str_cols].astype(str)
         X_true[int_cols] = X_true[int_cols].astype(int)
         X_true[float_cols] = X_true[float_cols].astype(float)
@@ -168,18 +170,14 @@ class BackTester:
             key: value
             for key, value in agg_results.items()
             if key
-            in [
-                f"tot_p{trend}"
-                for trend in k_political_trends
-                if trend != "par"
-            ]
+            in [f"tot_p{trend}" for trend in k_political_trends if trend != "par"]
         }
         logger.success(
             f"Total participation : {agg_results['tot_ppar']}. Results : {agg_results_show}"
         )
         return X_pred, X_true
 
-    def save_results(self, model, result, k_year, k_type):
+    def save_results(self, model, result, k_year, k_type, k_political_trends):
         # Create directories
         if not DataUtils._detect_s3(self.config.data_path):
             path = Path.cwd() / "output/"
@@ -195,26 +193,26 @@ class BackTester:
 
         # Post-treatment
         result_all, result_synthetic = result
-        result_synthetic = result_synthetic.T.reset_index()  # pivot
-        result_synthetic.columns = [
-            "var",
-            k_year,
-        ]  # Rename column for easier comparison
+        result_synthetic = result_synthetic
 
         # Save (local or S3)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         # Use version for model lineage rather than timestamp
 
         DataLoader.write_dataset(
-            result_all, result_dir_path + f"results_full_{k_year}_{k_type}_{ts}.parquet"
+            result_all,
+            result_dir_path
+            + f"results_full_{k_year}_{k_type}_{k_political_trends}_{ts}.parquet",
         )
         DataLoader.write_dataset(
             result_synthetic,
-            result_dir_path + f"results_synth_{k_year}_{k_type}_{ts}.parquet",
+            result_dir_path
+            + f"results_synth_{k_year}_{k_type}_{k_political_trends}_{ts}.parquet",
         )
         DataLoader.dump_pickle(
             object_to_pickle=model,
-            file_path=model_dir_path + f"model_{k_year}_{k_type}_{ts}.pkl",
+            file_path=model_dir_path
+            + f"model_{k_year}_{k_type}_{k_political_trends}_{ts}.pkl",
         )
 
     def run_backtest(self, k_year, k_type, k_political_trends, model, model_args):
@@ -238,7 +236,7 @@ class BackTester:
 
             # For trivial model (same as previous election)
             if self.config.model == "trivial_1":
-                model_args['y_prev'] = self.X_test[trend][f'pvotepreviousp{trend}']
+                model_args["y_prev"] = self.X_test[trend][f"pvotepreviousp{trend}"]
 
             instance_model = model(**model_args)
 
@@ -291,9 +289,13 @@ class BackTester:
         X_pred, X_true = self.organize_vote(k_year, k_political_trends)
 
         # 5. Evaluate vote
-        X_result, X_synthetic = self.election_predictor.evaluate_predictions(
-            X_pred, X_true
+        X_result = self.election_predictor.evaluate_predictions(X_pred, X_true)
+        X_synthetic = self.election_predictor.compute_agg_results(
+            X_result,
+            blocs=[trend for trend in k_political_trends if trend != "par"],
+            election_code=f"{k_year}_{k_type}",
         )
+
         winner_pred = self.election_predictor.get_winner(X_pred, self.k_t)
         winner_true = self.election_predictor.get_winner(X_true, self.k_t)
         logger.success(
@@ -306,6 +308,7 @@ class BackTester:
             result=(X_result, X_synthetic),
             k_year=k_year,
             k_type=k_type,
+            k_political_trends=k_political_trends,
         )
 
 
@@ -321,9 +324,15 @@ def main():
     for political_trends in k_political_trends:
         for year in k_year:
             for type_ in k_type:
-                logger.info(f"Running backtest for  : year: {year}, type: {type_}, political_trends: {political_trends}")
+                logger.info(
+                    f"Running backtest for  : year: {year}, type: {type_}, political_trends: {political_trends}"
+                )
                 backtester.run_backtest(
-                    k_year=year, k_type=type_, k_political_trends=political_trends, model=model, model_args=model_args
+                    k_year=year,
+                    k_type=type_,
+                    k_political_trends=political_trends,
+                    model=model,
+                    model_args=model_args,
                 )
 
 

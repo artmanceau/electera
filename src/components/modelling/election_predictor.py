@@ -76,6 +76,71 @@ class ElectionPredictor:
 
         return X_result
 
+    @staticmethod
+    def compute_agg_results(X: pd.DataFrame, blocs: list, election_code: str):
+        index = (
+            ["inscrits", "votants", "exprimes", "ppar", "pexpr"]
+            + blocs
+            + [f"p{b}" for b in blocs]
+        )
+        result = pd.DataFrame(
+            index=index,
+            columns=[
+                f"{election_code}_true",
+                f"{election_code}_pred",
+                f"{election_code}_diff",
+                f"{election_code}_std",
+                f"{election_code}_diff_agg",
+            ],
+        )
+
+        result.loc["inscrits", f"{election_code}_true"] = X["inscrits"].sum()
+        result.loc["exprimes", f"{election_code}_true"] = X["exprimes"].sum()
+
+        for m in ["pred", "true"]:
+            result.loc["votants", f"{election_code}_{m}"] = X[f"votants_{m}"].sum()
+            result.loc["ppar", f"{election_code}_{m}"] = round(
+                result.loc["votants", f"{election_code}_{m}"]
+                / result.loc["inscrits", f"{election_code}_true"]
+                * 100,
+                2,
+            )
+        for x in ["votants", "ppar"]:
+            result.loc[x, f"{election_code}_diff_agg"] = round(
+                result.loc[x, f"{election_code}_true"]
+                - result.loc[x, f"{election_code}_pred"],
+                2,
+            )
+            result.loc[x, f"{election_code}_diff"] = X[f"{x}_diff"].mean()
+            result.loc[x, f"{election_code}_std"] = X[f"{x}_diff"].std()
+        for b in blocs:
+            for m in ["pred", "true"]:
+                result.loc[b, f"{election_code}_{m}"] = X[f"{b}_{m}"].sum()
+                result.loc[b, f"{election_code}_{m}"] = round(
+                    result.loc[b, f"{election_code}_{m}"]
+                    / result.loc["exprimes", f"{election_code}_true"]
+                    * 100,
+                    2,
+                )
+
+            result.loc[b, f"{election_code}_diff_agg"] = (
+                result.loc[b, f"{election_code}_true"]
+                - result.loc[b, f"{election_code}_pred"]
+            )
+            result.loc[b, f"{election_code}_diff"] = X[f"{b}_diff"].mean()
+            result.loc[b, f"{election_code}_std"] = X[f"{b}_diff"].std()
+            result.loc[f"p{b}", f"{election_code}_diff_agg"] = round(
+                result.loc[f"p{b}", f"{election_code}_true"]
+                - result.loc[f"p{b}", f"{election_code}_pred"],
+                2,
+            )
+            result.loc[f"p{b}", f"{election_code}_diff"] = X[f"p{b}_diff"].mean()
+            result.loc[f"p{b}", f"{election_code}_std"] = X[f"p{b}_diff"].std()
+
+        result = result.reset_index()
+
+        return result
+
     def compute_votes_per_circo(self, X):
         circo_mapping = pd.read_csv("config/mappings/circo_mapping.csv")[
             ["COMMUNE_RESID", "circo"]
@@ -133,37 +198,14 @@ class ElectionPredictor:
                 X_merged[f"{col}_pred"] - X_merged[f"{col}_true"]
             )
 
-        diff_cols = [col for col in X_merged.columns if "_diff" in col]
-        diff_cols_p = [col for col in diff_cols if "p" in col]
-        # diff_cols_vote = list(set(diff_cols) - set(diff_cols_p))
-        avg_error_per_trend = X_merged[diff_cols].mean(axis=0)
-        avg_error_per_commune_p = X_merged[diff_cols_p].mean(axis=1)
-        # avg_error_per_commune_vote = (
-        #     X_merged[diff_cols_vote].mean(axis=1) / X_merged["inscrits"]
-        # )
-        avg_error_tot_1 = avg_error_per_trend[diff_cols_p].mean()
-        avg_error_tot_2 = avg_error_per_commune_p.mean()
-        assert np.abs(avg_error_tot_1 - avg_error_tot_2) < 0.1
+        diff_cols = [
+            col for col in X_merged.columns if ("_diff" in col) and ("p" in col)
+        ]
+        mean_error = X_merged[diff_cols].mean(axis=0).mean(axis=0)
 
-        std_error_tot = avg_error_per_commune_p.std()
+        logger.success(f"Evaluation completed! Mean error is {mean_error}")
 
-        X_synthetic = (
-            pd.Series(
-                [avg_error_tot_1, std_error_tot]
-                + [X_merged[f"p{trend}_diff"].mean(axis=0) for trend in self.trends]
-                + [X_merged[f"p{trend}_diff"].std(axis=0) for trend in self.trends],
-                index=["avg_error_tot", "std_error_tot"]
-                + [f"error_p{trend}" for trend in self.trends]
-                + [f"std_p{trend}" for trend in self.trends],
-                name="value",
-            )
-            .to_frame()
-            .T
-        )
-
-        logger.success(f"Evaluation completed! Mean error is {avg_error_tot_1}")
-
-        return X_merged, X_synthetic
+        return X_merged
 
     def add_model(self, trend, model, **kwargs):
         self.models[trend] = model

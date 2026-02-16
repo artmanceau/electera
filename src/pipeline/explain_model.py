@@ -14,6 +14,7 @@ from supertree import SuperTree
 from src.components.data_processing.data_loader import DataLoader, DataUtils
 from src.components.explanability.core_explanability import ExplainCore
 from src.components.explanability.feature_importance import FeatureImportance
+from src.components.modelling.meta_booster import MetaBooster
 from src.components.utils.config import ExplanabilityConfig
 from src.components.utils.read_config import ConfigReader
 
@@ -44,9 +45,16 @@ class Explainer:
         self.n_models = None
         self.models = None
 
-    def _load_model(self, var, year, type_):
-        model_path = f"{self.data_path}output/models/model_{year}_{type_}_{self.model_version}.pkl"
+    def _load_model(self, var, year, type_, vars_):
+        model_path = f"{self.data_path}output/models/model_{year}_{type_}_{str(vars_)}_{self.model_version}.pkl"
         self.model = DataLoader.load_pickle(file_path=model_path)
+        if not isinstance(self.model.models[var], MetaBooster):
+            logger.error(
+                "This pipeline is not configured for this type of model. Only metaboosting models. Raising an error"
+            )
+            raise ValueError(
+                "This pipeline is not configured for this type of model. Only metaboosting models."
+            )
         self.n_models = len(self.model.models[var].best_models)
 
     def generate_feature_importance(self, shap_values, X, y):
@@ -320,7 +328,7 @@ class Explainer:
         data = DataLoader.load_dataset(data_path)
         return data
 
-    def explain(self, var, year, type_):
+    def explain(self, var, year, type_, vars_):
         """Run the explainability pipeline.
         The pipeline consists of multiple explanability tools that can be selected in the config.
 
@@ -344,12 +352,13 @@ class Explainer:
         self.t = 0 if self.type_ == "pres" else 1
         self.var = var
         self.year = year
+        self.vars_ = vars_
         logger.info(
             f"Computing explain model for election: {self.year}|{self.type_} and variable: {self.var}"
         )
 
         # 0. Get model
-        self._load_model(self.var, self.year, self.type_)
+        self._load_model(self.var, self.year, self.type_, self.vars_)
         data = self._load_dataset()
 
         # 1. Get sample data from model
@@ -392,4 +401,4 @@ if __name__ == "__main__":
     for year in years:
         for type_ in types:
             for var in vars_:
-                explainer.explain(var, year, type_)
+                explainer.explain(var, year, type_, vars_)

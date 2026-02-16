@@ -17,10 +17,10 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 # Nice to have : source des sondages
 
-YEARS = ["1988", "2022", '2007', '2012', '2017', '2022', '2027']
+YEARS = ["1988", "2022", "2007", "2012", "2017", "2022", "2027"]
 
 data_path = "s3://arthurmanceau/election_modeling_uhcp/data/polls/"
-#data_path = "data/polls/"
+# data_path = "data/polls/"
 
 links = {
     "2027": "https://fr.wikipedia.org/wiki/Liste_de_sondages_sur_l%27%C3%A9lection_pr%C3%A9sidentielle_fran%C3%A7aise_de_2027",
@@ -93,7 +93,7 @@ table_selector = {
 candidates_list = {
     "2027": [
         "Arthaud (LO)",
-       #"Poutou[a] (NPA)",
+        # "Poutou[a] (NPA)",
         "Mélenchon (LFI)",
         "Roussel (PCF)",
         "Tondelier (LÉ)",
@@ -105,7 +105,7 @@ candidates_list = {
         "Candidat RN",
         "Zemmour[b] (REC)",
         "Autres",
-        #"Poutou[a] (NPA-A)",
+        # "Poutou[a] (NPA-A)",
         "Mélenchon[b] (LFI)",
         "Faure[b] (PS)",
         "Tondelier[b] (LÉ)",
@@ -230,10 +230,10 @@ blocs = {
     "2027": {
         "G": [
             "Arthaud (LO)",
-            #"Poutou[a] (NPA)",
+            # "Poutou[a] (NPA)",
             "Mélenchon (LFI)",
             "Roussel (PCF)",
-            #"Poutou[a] (NPA-A)",
+            # "Poutou[a] (NPA-A)",
             "Mélenchon[b] (LFI)",
         ],
         "CG": [

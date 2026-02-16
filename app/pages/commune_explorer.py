@@ -1,21 +1,50 @@
 import streamlit as st
+from asset.definitions import convert, reverse_convert
+from core.utils import check_home_run, present_results
 
-from core.utils import (
-    blocs,
-    present_results,
-    show_shap_values,
+check_home_run()
+
+
+# User selections
+col1, col2, col3 = st.columns(3)
+with col1:
+    YEAR = st.selectbox(
+        "Année électorale", st.session_state["config"].years_to_display, index=0
+    )
+with col2:
+    t = st.selectbox(
+        "Type d'élection",
+        [convert("type", el) for el in st.session_state["config"].types_to_display],
+        index=0,
+    )
+with col3:
+    b = st.selectbox(
+        "Division politique",
+        [
+            convert("political_division", el)
+            for el in st.session_state["config"].political_divisions_to_dislay
+        ],
+        index=0,
+    )
+
+TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
+
+
+st.header("Resultat au niveau de chaque commune")
+
+st.session_state["data"].load_result(
+    asset="results_full",
+    trends=BLOCS,
+    year=YEAR,
+    election_type=TYPE,
+    columns=["codecommune", "nomcommune"],
+    filters=None,
+    asset_name="communes_list",
 )
+communes_list = st.session_state["data"].container["communes_list"]
 
-if "data" in st.session_state:
-    X = st.session_state["data"]["results_full"]
-else:
-    st.warning("Visit the home page!")
-    st.stop()
-
-st.title("Resultat au niveau de chaque commune")
-
-X["nomcommune"] = (
-    X["nomcommune"]
+communes_list["nomcommune"] = (
+    communes_list["nomcommune"]
     .str.replace("Ã", "É", regex=False)
     .str.replace("Ã", "Â", regex=False)
     .str.replace("Ã", "È", regex=False)
@@ -23,38 +52,41 @@ X["nomcommune"] = (
     .str.replace("Ã", "Ê", regex=False)
     .str.replace("Ã", "À", regex=False)
 )
-communes = X["nomcommune"]
+communes = communes_list["nomcommune"]
 
 selection = st.selectbox("Selectionnez une commune", [""] + communes)
 if selection and selection != "-- none --":
     st.write("Commune selectionée : ", selection)
-    if len(X[X["nomcommune"] == selection]) > 1:
-        arrondissements = X[X["nomcommune"] == selection]["codecommune"]
+    if len(communes_list[communes_list["nomcommune"] == selection]) > 1:
+        arrondissements = communes_list[communes_list["nomcommune"] == selection][
+            "codecommune"
+        ]
         selection_code_commune = st.selectbox(
             "Selectionnez une arrondissement", [""] + arrondissements
         )
     else:
-        selection_code_commune = X[X["nomcommune"] == selection]["codecommune"].iloc[0]
+        selection_code_commune = communes_list[
+            communes_list["nomcommune"] == selection
+        ]["codecommune"].iloc[0]
 
-data_line = X[X["codecommune"] == selection_code_commune].copy(deep=True)
-
-pct_cols = (
-    ["ppar_true"]
-    + [f"pvote{b}_true" for b in blocs]
-    + [f"pvote{b}_pred" for b in blocs]
-    + [f"pvote{b}_diff" for b in blocs]
-    + ["ppar_diff"]
+st.session_state["data"].load_result(
+    asset="results_full",
+    trends=BLOCS,
+    year=YEAR,
+    election_type=TYPE,
+    columns=None,
+    filters=[("codecommune", "==", selection_code_commune)],
+    asset_name="results_commune_selected",
 )
-for col in pct_cols:
-    data_line[col] = round(data_line[col] * 100, 2)
+data_line = st.session_state["data"].container["results_commune_selected"]
 
 st.divider()
 
-present_results(data_line)
+present_results(data_line, year=YEAR, t=TYPE, scale="local")
 
 st.divider()
 
-show_shap_values(
-    st.session_state["data"]["shap_values"],
-    selection_code_commune=selection_code_commune,
-)
+# show_shap_values(
+#     st.session_state["data"]["shap_values"],
+#     selection_code_commune=selection_code_commune,
+# )
