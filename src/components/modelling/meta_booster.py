@@ -18,7 +18,7 @@ from src.components.explanability.feature_importance import FeatureImportance
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-USE_GPU = True
+USE_GPU = False
 if USE_GPU:
     import cupy as cp
 
