@@ -18,7 +18,7 @@ from src.components.explanability.feature_importance import FeatureImportance
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-USE_GPU = False
+USE_GPU = True
 if USE_GPU:
     import cupy as cp
 
@@ -44,7 +44,7 @@ BOOSTING_PARAM = {
         "depth": trial.suggest_int("depth", 4, 10),
         "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
         "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
-        "rsm": trial.suggest_float("rsm", 0.5, 1.0),
+        # "rsm": trial.suggest_float("rsm", 0.5, 1.0), # Not supported on GPU
         "random_strength": trial.suggest_float("random_strength", 1e-3, 10.0, log=True),
         "bootstrap_type": trial.suggest_categorical(
             "bootstrap_type", ["Bayesian", "Bernoulli"]
@@ -66,9 +66,10 @@ BOOSTING_PARAM = {
 }
 
 GPU_PARAM = {
-     "xgboost": {"device": 'cuda'}
-     "catboost": {"task_type": 'GPU', "devices": '0'}
+    "xgboost": {"device": 'cuda'},
+    "catboost": {"task_type": 'GPU', "devices": '0'}
 }
+
 
 class MetaBooster:
     """The MetaBooster is trained on input data."""
@@ -187,14 +188,14 @@ class MetaBooster:
 
     def _instantiate_model(self, param, gpu):
         if gpu:
-            param.update(GPU_PARAM[self.boosting_method])
+            param.update(GPU_PARAM[self.method])
 
         return self.boosting_method(**param)
-            
+
     def _perform_nested_cv(
         self, X, y, weights, n_splits_outer=3, n_splits_inner=3, n_trials=3
     ):
-        xp = cp if USE_GPU else np
+        xp = cp if ((USE_GPU) and (self.method == 'xgboost')) else np
         X = xp.array(X)
         y = xp.array(y)
         weights = xp.array(weights)
@@ -283,7 +284,7 @@ class MetaBooster:
         y_train, y_val = y_train_outer[train_index], y_train_outer[val_index]
         weights_train = weights[train_index]
 
-        if USE_GPU:
+        if ((USE_GPU) and (self.method == 'xgboost')):
             y_val = y_val.get()
 
         def objective(trial):
@@ -333,7 +334,7 @@ class MetaBooster:
         X_train_outer, X_test = X[train_index_outer], X[test_index_outer]
         y_train_outer, y_test = y[train_index_outer], y[test_index_outer]
 
-        if USE_GPU:
+        if ((USE_GPU) and (self.method == 'xgboost')):
             y_test = y_test.get()
 
         best_params_list = []

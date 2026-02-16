@@ -73,7 +73,7 @@ MODEL_ARGS = {
         "n_trials": 2,
     },
     "meta_boosting_multiple": {
-        "method": "catboost",
+        "method": "xgboost",
         "objective_metric": mean_absolute_error,
         "weighting": "proportional",
         "features": None,
