@@ -2,9 +2,9 @@ import pydeck as pdk
 import streamlit as st
 from asset.definitions import COMMUNES_MAP_PATH, convert, reverse_convert
 from core.data_handler import get_fs
-from core.utils import blocs, colors, trad, check_home_run
-from src.components.data_processing.data_loader import DataLoader
+from core.utils import check_home_run, colors, trad
 
+from src.components.data_processing.data_loader import DataLoader
 
 
 @st.cache_data
@@ -21,22 +21,35 @@ with col1:
     )
 with col2:
     t = st.selectbox(
-        "Type d'élection", [convert('type', el) for el in st.session_state["config"].types_to_display], index=0
+        "Type d'élection",
+        [convert("type", el) for el in st.session_state["config"].types_to_display],
+        index=0,
     )
 with col3:
     b = st.selectbox(
-        "Division politique", [convert('political_division', el) for el in st.session_state['config'].political_divisions_to_dislay], index=0
+        "Division politique",
+        [
+            convert("political_division", el)
+            for el in st.session_state["config"].political_divisions_to_dislay
+        ],
+        index=0,
     )
 
-TYPE, BLOCS = reverse_convert('type', t), reverse_convert('political_division', b)
-current_blocs = [bloc.replace('vote', '') for bloc in BLOCS if bloc != 'par']
+TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
+current_blocs = [bloc.replace("vote", "") for bloc in BLOCS if bloc != "par"]
 
 st.header("Carte des résultats électoraux")
 
 # Load data
 with st.spinner("Chargement des données..."):
-    st.session_state['data'].load_result(asset="results_full", year=YEAR, election_type=TYPE, trends=BLOCS, asset_name='results_full')
-    results = st.session_state["data"].container['results_full']
+    st.session_state["data"].load_result(
+        asset="results_full",
+        year=YEAR,
+        election_type=TYPE,
+        trends=BLOCS,
+        asset_name="results_full",
+    )
+    results = st.session_state["data"].container["results_full"]
 
     communes_geojson = load_geojson_page(COMMUNES_MAP_PATH, get_fs().fs)
 
@@ -44,8 +57,16 @@ with st.spinner("Chargement des données..."):
 # Prepare results data
 results_indexed = results.copy()
 results_indexed.index = results_indexed["codecommune"]
-winner_true = results_indexed[[f"pvote{b}_true" for b in current_blocs]].idxmax(axis=1).reset_index()
-winner_pred = results_indexed[[f"pvote{b}_pred" for b in current_blocs]].idxmax(axis=1).reset_index()
+winner_true = (
+    results_indexed[[f"pvote{b}_true" for b in current_blocs]]
+    .idxmax(axis=1)
+    .reset_index()
+)
+winner_pred = (
+    results_indexed[[f"pvote{b}_pred" for b in current_blocs]]
+    .idxmax(axis=1)
+    .reset_index()
+)
 
 # Use current_blocs and colors for consistent color mapping
 label_to_color = {f"pvote{bloc}": colors[i] for i, bloc in enumerate(current_blocs)}
@@ -123,6 +144,7 @@ def prepare_geojson_data(version):
 
     return st.session_state[f"geojson_data_{version}"]
 
+
 pred_data = prepare_geojson_data("pred")
 true_data = prepare_geojson_data("true")
 
@@ -135,68 +157,78 @@ view_state = pdk.ViewState(
 col1, col2 = st.columns(2)
 
 with col1:
-        st.markdown("**Prédiction du Modèle**")
+    st.markdown("**Prédiction du Modèle**")
 
-        # Model prediction layer
-        pred_layer = pdk.Layer(
-            "GeoJsonLayer",
-            data=pred_data,
-            opacity=0.8,
-            stroked=True,
-            filled=True,
-            extruded=False,
-            wireframe=False,
-            get_fill_color="color",
-            get_line_color=[51, 51, 51, 255],
-            get_line_width=0.5,
-            pickable=True,
-            auto_highlight=True,
-        )
+    # Model prediction layer
+    pred_layer = pdk.Layer(
+        "GeoJsonLayer",
+        data=pred_data,
+        opacity=0.8,
+        stroked=True,
+        filled=True,
+        extruded=False,
+        wireframe=False,
+        get_fill_color="color",
+        get_line_color=[51, 51, 51, 255],
+        get_line_width=0.5,
+        pickable=True,
+        auto_highlight=True,
+    )
 
-        # Create prediction deck
-        pred_deck = pdk.Deck(
-            layers=[pred_layer],
-            initial_view_state=view_state,
-            tooltip={
-                "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant prédit:</b> {label}",
-                "style": {"backgroundColor": "steelblue", "color": "white", "fontSize": "14px", "padding": "10px"},
+    # Create prediction deck
+    pred_deck = pdk.Deck(
+        layers=[pred_layer],
+        initial_view_state=view_state,
+        tooltip={
+            "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant prédit:</b> {label}",
+            "style": {
+                "backgroundColor": "steelblue",
+                "color": "white",
+                "fontSize": "14px",
+                "padding": "10px",
             },
-        )
+        },
+    )
 
-        # Render prediction map
-        st.pydeck_chart(pred_deck, use_container_width=True, height=500)
+    # Render prediction map
+    st.pydeck_chart(pred_deck, use_container_width=True, height=500)
 
 with col2:
-        st.markdown("**Résultats Réels**")
+    st.markdown("**Résultats Réels**")
 
-        # True results layer
-        true_layer = pdk.Layer(
-            "GeoJsonLayer",
-            data=true_data,
-            opacity=0.8,
-            stroked=True,
-            filled=True,
-            extruded=False,
-            wireframe=False,
-            get_fill_color="color",
-            get_line_color=[51, 51, 51, 255],
-            get_line_width=0.5,
-            pickable=True,
-            auto_highlight=True,
-        )
+    # True results layer
+    true_layer = pdk.Layer(
+        "GeoJsonLayer",
+        data=true_data,
+        opacity=0.8,
+        stroked=True,
+        filled=True,
+        extruded=False,
+        wireframe=False,
+        get_fill_color="color",
+        get_line_color=[51, 51, 51, 255],
+        get_line_width=0.5,
+        pickable=True,
+        auto_highlight=True,
+    )
 
-        # Create true results deck
-        true_deck = pdk.Deck(
-            layers=[true_layer],
-            initial_view_state=view_state,
-            tooltip={
-                "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant réel:</b> {label}",
-                "style": {"backgroundColor": "darkgreen", "color": "white", "fontSize": "14px", "padding": "10px"},
+    # Create true results deck
+    true_deck = pdk.Deck(
+        layers=[true_layer],
+        initial_view_state=view_state,
+        tooltip={
+            "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant réel:</b> {label}",
+            "style": {
+                "backgroundColor": "darkgreen",
+                "color": "white",
+                "fontSize": "14px",
+                "padding": "10px",
             },
-        )
+        },
+    )
 
-        # Render true results map
-        st.pydeck_chart(true_deck, use_container_width=True, height=500)
+    # Render true results map
+    st.pydeck_chart(true_deck, use_container_width=True, height=500)
 
 
 st.divider()
@@ -217,7 +249,9 @@ pred_winners = [item["label"] for item in pred_data if item["label"] != "No data
 true_winners = [item["label"] for item in true_data if item["label"] != "No data"]
 
 if len(pred_winners) > 0 and len(true_winners) > 0:
-    accuracy = sum(1 for p, t in zip(pred_winners, true_winners) if p == t) / len(pred_winners)
+    accuracy = sum(1 for p, t in zip(pred_winners, true_winners) if p == t) / len(
+        pred_winners
+    )
 
     col1, col2, col3 = st.columns(3)
     with col1:

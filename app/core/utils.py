@@ -1,17 +1,15 @@
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import shap
 import streamlit as st
 
 # colors = {'G':'#bb1840', 'CG': '#ffc0c0', 'C':'#FED700', 'CD':'#0066cc', 'D':'#0D378A'}
-colors = ["#bb1840","#0D378A"]  #["#bb1840", "#ffc0c0", "#FED700", "#0066cc", "#0D378A"]
-blocs = ['TG', 'TD'] #["G", "CG", "C", "CD", "D"]
+colors = [
+    "#bb1840",
+    "#0D378A",
+]  # ["#bb1840", "#ffc0c0", "#FED700", "#0066cc", "#0D378A"]
+blocs = ["TG", "TD"]  # ["G", "CG", "C", "CD", "D"]
 trends = ["par"] + [f"vote{b}" for b in blocs]
-trad = {
-    'TD': 'à gauche',
-    'TG': 'à droite'
-}
+trad = {"TD": "à gauche", "TG": "à droite"}
 # {
 #     "G": "à gauche",
 #     "CD": "pour le centre-droite",
@@ -23,76 +21,70 @@ type_trad = {"pres": "présidentielles", "leg": "leglisatives"}
 
 
 def check_home_run():
-    if ('home_run' in st.session_state):
-        if st.session_state['home_run']:
+    if "home_run" in st.session_state:
+        if st.session_state["home_run"]:
             return None
     st.switch_page("pages/home.py")
 
 
 def diff_show(results, blocs, trad, label, label_show, year, t):
-    col_config_error = {f"{label_show}_pvote{bloc}": f"Vote {trad[bloc]}" for bloc in blocs}
+    col_config_error = {
+        f"{label_show}_pvote{bloc}": f"Vote {trad[bloc]}" for bloc in blocs
+    }
     st.dataframe(
-        results.loc[[f"p{b}" for b in blocs], f'{year}_{t}_{label}'].to_frame().T * 100,
+        results.loc[[f"p{b}" for b in blocs], f"{year}_{t}_{label}"].to_frame().T * 100,
         column_config=col_config_error,
         hide_index=True,
     )
 
 
-def results_loc(data_line, year_type, label, p=''):
-    ind = [f'ppar_{label}'] if p == "p" else [f"votants_{label}", "exprimes"]
+def results_loc(data_line, year_type, label, p=""):
+    ind = [f"ppar_{label}"] if p == "p" else [f"votants_{label}", "exprimes"]
     st.dataframe(
-            data_line[ind].reset_index(drop=True),
-            hide_index=True,
-            column_config={ 
-                "votants_true": "Nombre de votants",
-                "exprimes": "Nombre de suffrage exprimés",
-                },
+        data_line[ind].reset_index(drop=True),
+        hide_index=True,
+        column_config={
+            "votants_true": "Nombre de votants",
+            "exprimes": "Nombre de suffrage exprimés",
+        },
     )
     st.dataframe(
-                data_line[[f"{p}vote{b}_{label}" for b in blocs]].reset_index(drop=True),
-                hide_index=True,
-                column_config={
-                    f"vote{b}_{label}": f"Nombre de vote {trad[b]}" for b in blocs
-                },
+        data_line[[f"{p}vote{b}_{label}" for b in blocs]].reset_index(drop=True),
+        hide_index=True,
+        column_config={f"vote{b}_{label}": f"Nombre de vote {trad[b]}" for b in blocs},
     )
     st.bar_chart(
-                data=(
-                    data_line[[f"{p}vote{b}_{label}" for b in blocs]].reset_index(drop=True)
-                ),
-                color=colors,
-                horizontal=True,
+        data=(data_line[[f"{p}vote{b}_{label}" for b in blocs]].reset_index(drop=True)),
+        color=colors,
+        horizontal=True,
     )
 
 
 def results_glob(data_line, year_type, label, p=""):
-    ind = ['ppar'] if p == "p" else ["votants", "exprimes"]
-    col = f'{year_type}_{label}'
+    ind = ["ppar"] if p == "p" else ["votants", "exprimes"]
+    col = f"{year_type}_{label}"
     st.dataframe(
-                data_line.loc[ind, col].to_frame().T,
-                hide_index=True,
-                column_config={
-                    "votants": "Nombre de votants",
-                    "exprimes": "Nombre de suffrage exprimés",
-                },
+        data_line.loc[ind, col].to_frame().T,
+        hide_index=True,
+        column_config={
+            "votants": "Nombre de votants",
+            "exprimes": "Nombre de suffrage exprimés",
+        },
     )
     st.dataframe(
-                data_line.loc[[f"{p}vote{b}" for b in blocs], col].to_frame().T,
-                hide_index=True,
-                column_config={
-                    f"{p}vote{b}": f"Nombre de vote {trad[b]}" for b in blocs
-                },
+        data_line.loc[[f"{p}vote{b}" for b in blocs], col].to_frame().T,
+        hide_index=True,
+        column_config={f"{p}vote{b}": f"Nombre de vote {trad[b]}" for b in blocs},
     )
     st.bar_chart(
-                data=(
-                    data_line.loc[[f"{p}vote{b}" for b in blocs], col].to_frame().T
-                ),
-                color=colors,
-                horizontal=True,
+        data=(data_line.loc[[f"{p}vote{b}" for b in blocs], col].to_frame().T),
+        color=colors,
+        horizontal=True,
     )
 
 
 def present_results(data_line, year, t, scale):
-    result_func = results_glob if scale == 'global' else results_loc
+    result_func = results_glob if scale == "global" else results_loc
 
     tab1, tab2 = st.tabs(["Nombre de vote", "Pourcentage des suffrages"])
 
@@ -104,15 +96,15 @@ def present_results(data_line, year, t, scale):
                 Résultats de l'élection
             """
             )
-            result_func(data_line, year_type=f'{year}_{t}', label='true', p="")
-            
+            result_func(data_line, year_type=f"{year}_{t}", label="true", p="")
+
         with st.expander("Prédictions"):
             st.write(
                 """
                 Prédictions du modèle pour l'élection
             """
             )
-            result_func(data_line, year_type=f'{year}_{t}', label='true', p="")
+            result_func(data_line, year_type=f"{year}_{t}", label="true", p="")
 
         with st.expander("Erreur"):
             st.write(
@@ -120,21 +112,27 @@ def present_results(data_line, year, t, scale):
                 Erreur de la prédictions du modèle pour l'élection
             """
             )
-            if scale == 'local':
+            if scale == "local":
                 col_config = {
-                    f"vote{b}": f"Différence avec la prédiction du vote {trad[b]}" for b in blocs
+                    f"vote{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    for b in blocs
                 }
                 col_config["votants_diff"] = (
                     "Différence avec la prédiction pour la participation"
                 )
 
                 data_element = data_line[
-                        [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
-                    ].reset_index(drop=True)
+                    [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
+                ].reset_index(drop=True)
             else:
-                data_element = data_line.loc[
-                    [f"vote{b}" for b in blocs] + ["votants"], f'{year}_{t}_diff_agg'
-                ].to_frame().T
+                data_element = (
+                    data_line.loc[
+                        [f"vote{b}" for b in blocs] + ["votants"],
+                        f"{year}_{t}_diff_agg",
+                    ]
+                    .to_frame()
+                    .T
+                )
 
                 col_config = {
                     f"vote{b}": f"Différence avec la prédiction du vote {trad[b]}"
@@ -143,17 +141,13 @@ def present_results(data_line, year, t, scale):
                 col_config["votants"] = (
                     "Différence avec la prédiction pour la participation"
                 )
-    
+
             st.dataframe(
                 data_element,
                 hide_index=True,
                 column_config=col_config,
             )
-            st.bar_chart(
-                data=(
-                    data_element
-                ).T
-            )
+            st.bar_chart(data=(data_element).T)
 
     with tab2:
 
@@ -163,7 +157,7 @@ def present_results(data_line, year, t, scale):
                 Results of the election
             """
             )
-            result_func(data_line, year_type=f'{year}_{t}', label='true', p="p")
+            result_func(data_line, year_type=f"{year}_{t}", label="true", p="p")
 
         with st.expander("Prédictions"):
             st.write(
@@ -171,7 +165,7 @@ def present_results(data_line, year, t, scale):
                 Prédictions du modèle pour l'élection
             """
             )
-            result_func(data_line, year_type=f'{year}_{t}', label='true', p="p")
+            result_func(data_line, year_type=f"{year}_{t}", label="true", p="p")
 
         with st.expander("Erreur"):
             st.write(
@@ -179,22 +173,28 @@ def present_results(data_line, year, t, scale):
                 Erreur de la prédictions du modèle pour l'élection
             """
             )
-            if scale == 'local':
+            if scale == "local":
                 data_element = data_line[
-                        [f"pvote{b}_diff" for b in blocs] + ["votants_diff"]
-                    ].reset_index(drop=True)
-                
+                    [f"pvote{b}_diff" for b in blocs] + ["votants_diff"]
+                ].reset_index(drop=True)
+
                 col_config = {
-                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}" for b in blocs
+                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    for b in blocs
                 }
                 col_config["votants_diff"] = (
                     "Différence avec la prédiction pour la participation"
                 )
             else:
 
-                data_element = data_line.loc[
-                    [f"pvote{b}" for b in blocs] + ["votants"], f'{year}_{t}_diff_agg'
-                ].to_frame().T
+                data_element = (
+                    data_line.loc[
+                        [f"pvote{b}" for b in blocs] + ["votants"],
+                        f"{year}_{t}_diff_agg",
+                    ]
+                    .to_frame()
+                    .T
+                )
 
                 col_config = {
                     f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
@@ -203,17 +203,13 @@ def present_results(data_line, year, t, scale):
                 col_config["votants"] = (
                     "Différence avec la prédiction pour la participation"
                 )
-    
+
             st.dataframe(
                 data_element,
                 hide_index=True,
                 column_config=col_config,
             )
-            st.bar_chart(
-                data=(
-                    data_element
-                ).T
-            )
+            st.bar_chart(data=(data_element).T)
 
 
 def show_feature_importance(importance_df):

@@ -1,7 +1,6 @@
-from typing import List, Tuple, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 
 import s3fs
-import streamlit as st
 from loguru import logger
 
 from src.components.data_processing.data_loader import DataLoader
@@ -37,7 +36,7 @@ def load_fs(client_kwargs, key, secret):
 
 def get_fs():
     if not FileSystem.is_initialized():
-        raise ValueError('Call load_fs first!')
+        raise ValueError("Call load_fs first!")
 
     return FileSystem.instance
 
@@ -51,20 +50,16 @@ class AppData:
 
     def load_explain(
         self,
-        asset: Literal[
-            "feature_importance", "shap_values"
-        ],
-        trends : List[str],
+        asset: Literal["feature_importance", "shap_values"],
+        trends: List[str],
         year: int,
-        election_type: Literal[
-            "leg", "pres", "ref"
-        ],
+        election_type: Literal["leg", "pres", "ref"],
         filters: Optional[List[Tuple]] | None = None,
     ):
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/explain/{asset}_{trends}_{year}_{election_type}_{self.version}.parquet",
             fs=get_fs().fs,
-            formate='parquet',
+            formate="parquet",
             filters=filters,
         )
         logger.info(f"{asset} loaded with success!")
@@ -72,14 +67,10 @@ class AppData:
 
     def load_result(
         self,
-        asset: Literal[
-            "result_full", "result_synth"
-        ],
-        trends : List[str],
+        asset: Literal["result_full", "result_synth"],
+        trends: List[str],
         year: int,
-        election_type: Literal[
-            "leg", "pres", "ref"
-        ],
+        election_type: Literal["leg", "pres", "ref"],
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
@@ -87,7 +78,7 @@ class AppData:
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
             fs=get_fs().fs,
-            formate='parquet',
+            formate="parquet",
             columns=columns,
             filters=filters,
         )

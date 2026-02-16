@@ -4,7 +4,7 @@ import json
 import os
 import pickle
 import shutil
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
 import pandas as pd
 import s3fs
@@ -44,7 +44,12 @@ class DataUtils:
                 shutil.rmtree(dir_path)
 
     @staticmethod
-    def _read_parquet(file_path: str, fs: object =None, columns: Optional[List] | None = None, filters: Optional[List[Tuple]] | None = None) -> pd.DataFrame:
+    def _read_parquet(
+        file_path: str,
+        fs: object = None,
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
+    ) -> pd.DataFrame:
         """Reads a parquet file.
 
         Args:
@@ -58,10 +63,17 @@ class DataUtils:
         if fs is None:
             data = pd.read_parquet(file_path, filters=filters)
         else:
-            data = pd.read_parquet(file_path, filesystem=fs, columns=columns, filters=filters)
+            data = pd.read_parquet(
+                file_path, filesystem=fs, columns=columns, filters=filters
+            )
         return data
 
-    def _read_csv(file_path: str, fs: object = None, columns: Optional[List] | None = None, filters: Optional[List[Tuple]] | None = None) -> pd.DataFrame:
+    def _read_csv(
+        file_path: str,
+        fs: object = None,
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
+    ) -> pd.DataFrame:
         """Reads a parquet file.
 
         Args:
@@ -166,7 +178,11 @@ class DataLoader:
 
     @staticmethod
     def load_dataset(
-        file_path: str, fs: Optional[object] | None = None, formate: str = "parquet", columns: Optional[List] | None = None, filters: Optional[List[Tuple]] | None = None
+        file_path: str,
+        fs: Optional[object] | None = None,
+        formate: str = "parquet",
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
     ) -> pd.DataFrame:
         """Loads a dataset either locally or in S3 depending on the file_path
 

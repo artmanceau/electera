@@ -66,8 +66,8 @@ BOOSTING_PARAM = {
 }
 
 GPU_PARAM = {
-    "xgboost": {"device": 'cuda'},
-    "catboost": {"task_type": 'GPU', "devices": '0'}
+    "xgboost": {"device": "cuda"},
+    "catboost": {"task_type": "GPU", "devices": "0"},
 }
 
 
@@ -195,7 +195,7 @@ class MetaBooster:
     def _perform_nested_cv(
         self, X, y, weights, n_splits_outer=3, n_splits_inner=3, n_trials=3
     ):
-        xp = cp if ((USE_GPU) and (self.method == 'xgboost')) else np
+        xp = cp if ((USE_GPU) and (self.method == "xgboost")) else np
         X = xp.array(X)
         y = xp.array(y)
         weights = xp.array(weights)
@@ -284,7 +284,7 @@ class MetaBooster:
         y_train, y_val = y_train_outer[train_index], y_train_outer[val_index]
         weights_train = weights[train_index]
 
-        if ((USE_GPU) and (self.method == 'xgboost')):
+        if (USE_GPU) and (self.method == "xgboost"):
             y_val = y_val.get()
 
         def objective(trial):
@@ -334,7 +334,7 @@ class MetaBooster:
         X_train_outer, X_test = X[train_index_outer], X[test_index_outer]
         y_train_outer, y_test = y[train_index_outer], y[test_index_outer]
 
-        if ((USE_GPU) and (self.method == 'xgboost')):
+        if (USE_GPU) and (self.method == "xgboost"):
             y_test = y_test.get()
 
         best_params_list = []

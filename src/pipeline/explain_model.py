@@ -10,10 +10,11 @@ from loguru import logger
 from PyALE import ale
 from sklearn.inspection import PartialDependenceDisplay, permutation_importance
 from supertree import SuperTree
-from src.components.modelling.meta_booster import MetaBooster
+
 from src.components.data_processing.data_loader import DataLoader, DataUtils
 from src.components.explanability.core_explanability import ExplainCore
 from src.components.explanability.feature_importance import FeatureImportance
+from src.components.modelling.meta_booster import MetaBooster
 from src.components.utils.config import ExplanabilityConfig
 from src.components.utils.read_config import ConfigReader
 
@@ -48,8 +49,12 @@ class Explainer:
         model_path = f"{self.data_path}output/models/model_{year}_{type_}_{str(vars_)}_{self.model_version}.pkl"
         self.model = DataLoader.load_pickle(file_path=model_path)
         if not isinstance(self.model.models[var], MetaBooster):
-            logger.error('This pipeline is not configured for this type of model. Only metaboosting models. Raising an error')
-            raise ValueError('This pipeline is not configured for this type of model. Only metaboosting models.')
+            logger.error(
+                "This pipeline is not configured for this type of model. Only metaboosting models. Raising an error"
+            )
+            raise ValueError(
+                "This pipeline is not configured for this type of model. Only metaboosting models."
+            )
         self.n_models = len(self.model.models[var].best_models)
 
     def generate_feature_importance(self, shap_values, X, y):
