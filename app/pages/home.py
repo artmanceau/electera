@@ -53,19 +53,19 @@ pages = [
     {
         "name": "Résultat et prédictions",
         "link": "pages/election_results.py",
-        "desc": "xxx",
+        "desc": "Analysez les résultats du modèle à l'echelle nationale",
         "icon": "🇫🇷"
     },
     {
         "name": "Communes",
         "link": "pages/commune_explorer.py",
-        "desc": "xxx",
+        "desc": "Analysez les predictions du modèle commune par commune",
         "icon": "🔍"
     },
     {
         "name": "Cartes",
         "link": "pages/map_explorer.py",
-        "desc": "xxx",
+        "desc": "Comparer les prédictions du modèle aux résultats sur une carte de la France",
         "icon": "🌍"
     },
     {
