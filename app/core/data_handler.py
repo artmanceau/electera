@@ -56,14 +56,19 @@ class AppData:
         election_type: Literal["leg", "pres", "ref"],
         filters: Optional[List[Tuple]] | None = None,
     ):
-        element = DataLoader.load_dataset(
-            f"{self.data_path}/output/explain/{asset}_{trends}_{year}_{election_type}_{self.version}.parquet",
-            fs=get_fs().fs,
-            formate="parquet",
-            filters=filters,
-        )
+        self.container[asset] = {}
+        for trend in trends:
+            print(
+                f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet"
+            )
+            element = DataLoader.load_dataset(
+                f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet",
+                fs=get_fs().fs,
+                formate="parquet",
+                filters=filters,
+            )
+            self.container[asset][trend] = element
         logger.info(f"{asset} loaded with success!")
-        self.container[asset][trends] = element
 
     def load_result(
         self,

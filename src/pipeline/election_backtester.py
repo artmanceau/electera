@@ -68,9 +68,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 2,
-        "n_splits_outer": 2,
-        "n_trials": 2,
+        "n_splits_inner": 3,
+        "n_splits_outer": 3,
+        "n_trials": 3,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
@@ -177,7 +177,7 @@ class BackTester:
         )
         return X_pred, X_true
 
-    def save_results(self, model, result, k_year, k_type, k_political_trends):
+    def save_results(self, model, result, k_year, k_type, k_political_trends, version):
         # Create directories
         if not DataUtils._detect_s3(self.config.data_path):
             path = Path.cwd() / "output/"
@@ -195,27 +195,25 @@ class BackTester:
         result_all, result_synthetic = result
         result_synthetic = result_synthetic
 
-        # Save (local or S3)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Use version for model lineage rather than timestamp
-
         DataLoader.write_dataset(
             result_all,
             result_dir_path
-            + f"results_full_{k_year}_{k_type}_{k_political_trends}_{ts}.parquet",
+            + f"results_full_{k_year}_{k_type}_{k_political_trends}_{version}.parquet",
         )
         DataLoader.write_dataset(
             result_synthetic,
             result_dir_path
-            + f"results_synth_{k_year}_{k_type}_{k_political_trends}_{ts}.parquet",
+            + f"results_synth_{k_year}_{k_type}_{k_political_trends}_{version}.parquet",
         )
         DataLoader.dump_pickle(
             object_to_pickle=model,
             file_path=model_dir_path
-            + f"model_{k_year}_{k_type}_{k_political_trends}_{ts}.pkl",
+            + f"model_{k_year}_{k_type}_{k_political_trends}_{version}.pkl",
         )
 
-    def run_backtest(self, k_year, k_type, k_political_trends, model, model_args):
+    def run_backtest(
+        self, k_year, k_type, k_political_trends, model, model_args, version
+    ):
         """
         Run the backtesting process.
         """
@@ -309,6 +307,7 @@ class BackTester:
             k_year=k_year,
             k_type=k_type,
             k_political_trends=k_political_trends,
+            version=version,
         )
 
 
@@ -318,6 +317,7 @@ def main():
         MODELS[backtester.config.model],
         MODEL_ARGS[backtester.config.model],
     )
+    version = backtester.config.version
     k_year = backtester.config.k_year
     k_type = backtester.config.k_type
     k_political_trends = backtester.config.political_trends
@@ -333,6 +333,7 @@ def main():
                     k_political_trends=political_trends,
                     model=model,
                     model_args=model_args,
+                    version=version,
                 )
 
 

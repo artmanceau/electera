@@ -1,6 +1,13 @@
+import time
+
 import streamlit as st
-from asset.definitions import convert, reverse_convert
-from core.utils import check_home_run, diff_show, present_results
+from asset.definitions import convert, political_align, reverse_convert, trad
+from core.utils import (
+    check_home_run,
+    diff_show,
+    present_results,
+    show_feature_importance,
+)
 
 check_home_run()
 
@@ -32,18 +39,23 @@ st.session_state["data"].load_result(
     asset="results_synth", year=YEAR, election_type=TYPE, trends=BLOCS
 )
 results = st.session_state["data"].container["results_synth"].set_index("index")
-# feature_importance = st.session_state["data"].container['feature_importance']
+
+st.session_state["data"].load_explain(
+    asset="feature_importance", year=YEAR, election_type=TYPE, trends=BLOCS
+)
+feature_importance = st.session_state["data"].container["feature_importance"]
 
 st.header(f"Résultat des {t} de {YEAR} ({b})")
 
-present_results(results, year=YEAR, t=TYPE, scale="global")
+present_results(
+    results, year=YEAR, t=TYPE, blocs=political_align(BLOCS), scale="global"
+)
 
 st.divider()
 
 st.header("Erreur du modèle")
 
 # Create trad adapté à bloc
-trad = {"voteTD": "à gauche", "voteTG": "à droite", "par": "Participation"}
 mean_error = (
     results.loc[[f"p{b}" for b in BLOCS], f"{YEAR}_{TYPE}_diff"].values.mean()
 ) * 100
@@ -61,7 +73,9 @@ with st.expander("Ecart type de l'erreur de prédiction (sur l'ensemble des comm
 
 st.divider()
 
-# show_feature_importance(feature_importance)
+time.sleep(2)
+
+show_feature_importance(feature_importance, political_align(BLOCS))
 
 st.divider()
 

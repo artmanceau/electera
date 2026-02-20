@@ -116,7 +116,7 @@ class ElectionPredictor:
         for b in blocs:
             for m in ["pred", "true"]:
                 result.loc[b, f"{election_code}_{m}"] = X[f"{b}_{m}"].sum()
-                result.loc[b, f"{election_code}_{m}"] = round(
+                result.loc[f"p{b}", f"{election_code}_{m}"] = round(
                     result.loc[b, f"{election_code}_{m}"]
                     / result.loc["exprimes", f"{election_code}_true"]
                     * 100,

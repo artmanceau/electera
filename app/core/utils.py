@@ -1,23 +1,7 @@
 import matplotlib.pyplot as plt
 import shap
 import streamlit as st
-
-# colors = {'G':'#bb1840', 'CG': '#ffc0c0', 'C':'#FED700', 'CD':'#0066cc', 'D':'#0D378A'}
-colors = [
-    "#bb1840",
-    "#0D378A",
-]  # ["#bb1840", "#ffc0c0", "#FED700", "#0066cc", "#0D378A"]
-blocs = ["TG", "TD"]  # ["G", "CG", "C", "CD", "D"]
-trends = ["par"] + [f"vote{b}" for b in blocs]
-trad = {"TD": "à gauche", "TG": "à droite"}
-# {
-#     "G": "à gauche",
-#     "CD": "pour le centre-droite",
-#     "C": "pour le centre",
-#     "D": "à droite",
-#     "CG": "pour le centre-gauche",
-# }
-type_trad = {"pres": "présidentielles", "leg": "leglisatives"}
+from asset.definitions import colors_dict, get_colors, trad
 
 
 def check_home_run():
@@ -38,7 +22,7 @@ def diff_show(results, blocs, trad, label, label_show, year, t):
     )
 
 
-def results_loc(data_line, year_type, label, p=""):
+def results_loc(data_line, year_type, blocs, label, p=""):
     ind = [f"ppar_{label}"] if p == "p" else [f"votants_{label}", "exprimes"]
     st.dataframe(
         data_line[ind].reset_index(drop=True),
@@ -49,18 +33,18 @@ def results_loc(data_line, year_type, label, p=""):
         },
     )
     st.dataframe(
-        data_line[[f"{p}vote{b}_{label}" for b in blocs]].reset_index(drop=True),
+        data_line[[f"{p}{b}_{label}" for b in blocs]].reset_index(drop=True),
         hide_index=True,
-        column_config={f"vote{b}_{label}": f"Nombre de vote {trad[b]}" for b in blocs},
+        column_config={f"{b}_{label}": f"Nombre de vote {trad[b]}" for b in blocs},
     )
     st.bar_chart(
-        data=(data_line[[f"{p}vote{b}_{label}" for b in blocs]].reset_index(drop=True)),
-        color=colors,
+        data=(data_line[[f"{p}{b}_{label}" for b in blocs]].reset_index(drop=True)),
+        color=get_colors(blocs, colors_dict),
         horizontal=True,
     )
 
 
-def results_glob(data_line, year_type, label, p=""):
+def results_glob(data_line, year_type, blocs, label, p=""):
     ind = ["ppar"] if p == "p" else ["votants", "exprimes"]
     col = f"{year_type}_{label}"
     st.dataframe(
@@ -72,18 +56,18 @@ def results_glob(data_line, year_type, label, p=""):
         },
     )
     st.dataframe(
-        data_line.loc[[f"{p}vote{b}" for b in blocs], col].to_frame().T,
+        data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T,
         hide_index=True,
-        column_config={f"{p}vote{b}": f"Nombre de vote {trad[b]}" for b in blocs},
+        column_config={f"{p}{b}": f"Nombre de vote {trad[b]}" for b in blocs},
     )
     st.bar_chart(
-        data=(data_line.loc[[f"{p}vote{b}" for b in blocs], col].to_frame().T),
-        color=colors,
+        data=(data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T),
+        color=get_colors(blocs, colors_dict),
         horizontal=True,
     )
 
 
-def present_results(data_line, year, t, scale):
+def present_results(data_line, year, t, blocs, scale):
     result_func = results_glob if scale == "global" else results_loc
 
     tab1, tab2 = st.tabs(["Nombre de vote", "Pourcentage des suffrages"])
@@ -96,7 +80,9 @@ def present_results(data_line, year, t, scale):
                 Résultats de l'élection
             """
             )
-            result_func(data_line, year_type=f"{year}_{t}", label="true", p="")
+            result_func(
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p=""
+            )
 
         with st.expander("Prédictions"):
             st.write(
@@ -104,7 +90,9 @@ def present_results(data_line, year, t, scale):
                 Prédictions du modèle pour l'élection
             """
             )
-            result_func(data_line, year_type=f"{year}_{t}", label="true", p="")
+            result_func(
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p=""
+            )
 
         with st.expander("Erreur"):
             st.write(
@@ -122,12 +110,12 @@ def present_results(data_line, year, t, scale):
                 )
 
                 data_element = data_line[
-                    [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
+                    [f"{b}_diff" for b in blocs] + ["votants_diff"]
                 ].reset_index(drop=True)
             else:
                 data_element = (
                     data_line.loc[
-                        [f"vote{b}" for b in blocs] + ["votants"],
+                        [f"{b}" for b in blocs] + ["votants"],
                         f"{year}_{t}_diff_agg",
                     ]
                     .to_frame()
@@ -135,7 +123,7 @@ def present_results(data_line, year, t, scale):
                 )
 
                 col_config = {
-                    f"vote{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants"] = (
@@ -157,7 +145,9 @@ def present_results(data_line, year, t, scale):
                 Results of the election
             """
             )
-            result_func(data_line, year_type=f"{year}_{t}", label="true", p="p")
+            result_func(
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="p"
+            )
 
         with st.expander("Prédictions"):
             st.write(
@@ -165,7 +155,9 @@ def present_results(data_line, year, t, scale):
                 Prédictions du modèle pour l'élection
             """
             )
-            result_func(data_line, year_type=f"{year}_{t}", label="true", p="p")
+            result_func(
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="p"
+            )
 
         with st.expander("Erreur"):
             st.write(
@@ -175,11 +167,11 @@ def present_results(data_line, year, t, scale):
             )
             if scale == "local":
                 data_element = data_line[
-                    [f"pvote{b}_diff" for b in blocs] + ["votants_diff"]
+                    [f"{b}_diff" for b in blocs] + ["votants_diff"]
                 ].reset_index(drop=True)
 
                 col_config = {
-                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants_diff"] = (
@@ -189,7 +181,7 @@ def present_results(data_line, year, t, scale):
 
                 data_element = (
                     data_line.loc[
-                        [f"pvote{b}" for b in blocs] + ["votants"],
+                        [f"{b}" for b in blocs] + ["votants"],
                         f"{year}_{t}_diff_agg",
                     ]
                     .to_frame()
@@ -197,7 +189,7 @@ def present_results(data_line, year, t, scale):
                 )
 
                 col_config = {
-                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants"] = (
@@ -212,7 +204,7 @@ def present_results(data_line, year, t, scale):
             st.bar_chart(data=(data_element).T)
 
 
-def show_feature_importance(importance_df):
+def show_feature_importance(importance_df, blocs):
     st.header(
         "Déterminants socio-économiques les plus importants dans le modèle de prédiction"
     )
@@ -222,6 +214,7 @@ def show_feature_importance(importance_df):
         5,
         30,
     )
+    trends = ["par"] + [f"{b}" for b in blocs]
     tabs = st.tabs(["Participation"] + [f"Vote {trad[b]}" for b in blocs])
     for i, tab in enumerate(tabs):
         with tab:
@@ -232,40 +225,41 @@ def show_feature_importance(importance_df):
             ]
             top_gain = top_gain.sort_values("Importance_gain", ascending=False)
             st.bar_chart(top_gain.set_index("Feature_gain")["Importance_gain"])
-            st.write("Importance en valeur de shap")
-            top_shap = df.nlargest(nb_feat, "Importance_shap")[
-                ["Feature_shap", "Importance_shap"]
-            ]
-            top_shap = top_shap.sort_values("Importance_shap", ascending=False)
-            st.bar_chart(top_shap.set_index("Feature_shap")["Importance_shap"])
 
-            if st.button(
-                f"Montrer l'importance en gain total de toutes les variables pour la prédiction de {trends[i]}"
-            ):
-                st.dataframe(
-                    df,
-                    column_config={
-                        "Feature_gain": "Feature",
-                        "Importance_gain": st.column_config.NumberColumn(
-                            "Importance en gain (total)",
-                            help="Quantifie à quel point ce feature permet de purifier l'arbre",
-                            format="percent",
-                        ),
-                        "Feature_perm": "Feature",
-                        "Importance_perm": st.column_config.NumberColumn(
-                            "Importance en permutation",
-                            help="",
-                            format="percent",
-                        ),
-                        "Feature_shap": "Feature",
-                        "Importance_shap": st.column_config.NumberColumn(
-                            "Importance en valeur de shap",
-                            help="Somme en valeur absolue des valeur de shap associé à ce feature pour chaque instance",
-                            format="percent",
-                        ),
-                    },
-                    hide_index=True,
-                )
+            # st.write("Importance en valeur de shap")
+            # top_shap = df.nlargest(nb_feat, "Importance_shap")[
+            #     ["Feature_shap", "Importance_shap"]
+            # ]
+            # top_shap = top_shap.sort_values("Importance_shap", ascending=False)
+            # st.bar_chart(top_shap.set_index("Feature_shap")["Importance_shap"])
+
+            # if st.button(
+            #     f"Montrer l'importance en gain total de toutes les variables pour la prédiction de {trad[trends[i]]}"
+            # ):
+            #     st.dataframe(
+            #         df,
+            #         column_config={
+            #             "Feature_gain": "Feature",
+            #             "Importance_gain": st.column_config.NumberColumn(
+            #                 "Importance en gain (total)",
+            #                 help="Quantifie à quel point ce feature permet de purifier l'arbre",
+            #                 format="percent",
+            #             ),
+            #             # "Feature_perm": "Feature",
+            #             # "Importance_perm": st.column_config.NumberColumn(
+            #             #     "Importance en permutation",
+            #             #     help="",
+            #             #     format="percent",
+            #             # ),
+            #             # "Feature_shap": "Feature",
+            #             # "Importance_shap": st.column_config.NumberColumn(
+            #             #     "Importance en valeur de shap",
+            #             #     help="Somme en valeur absolue des valeur de shap associé à ce feature pour chaque instance",
+            #             #     format="percent",
+            #             # ),
+            #         },
+            #         hide_index=True,
+            #     )
 
 
 def show_shap_values(shap_df, selection_code_commune=None):
@@ -279,7 +273,7 @@ def show_shap_values(shap_df, selection_code_commune=None):
         "Selectionnez un nombre de variable pour visualiser les valeurs de shap", 5, 30
     )
 
-    tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in blocs])
+    tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in BLOCS])
     for i, tab in enumerate(tabs):
         with tab:
             shap_values_df = shap_df[trends[i]].copy()

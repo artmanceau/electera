@@ -1,7 +1,7 @@
 {
-    "model_version": "20260207_110751",
-    "years_to_display": [2022],
-    "types_to_display":["pres"],
-    "political_divisions_to_dislay" : [["voteTG", "voteTD", "par"]],
+    "model_version": "0.0.1.",
+    "years_to_display": [2022, 2017, 2012],
+    "types_to_display":["pres", "leg"],
+    "political_divisions_to_dislay" : [["voteG", "voteD", "voteCG", "voteCD", "voteC", "par"], ["voteTG", "voteTD", "par"], ["voteGCG", "voteDCD", "voteC", "par"]],
     "data_path":"s3://arthurmanceau/election_modeling_uhcp/data"
 }

@@ -37,6 +37,8 @@ class BackTesterConfig(BaseModel):
         "meta_boosting_multiple",
     ] = Field(default="trivial_2", description="Model to use")
 
+    version: str
+
     @validator("political_trends")
     def validate_political_trends(cls, v):
         """Validate that political_trends contains only allowed combinations."""
@@ -276,7 +278,7 @@ class ExplanabilityConfig(BaseModel):
     model_version: str
     years: List[int]
     types: List[str]
-    vars_: List[str]
+    vars_: List[List[str]]
     data_path: str
     steps: List[str]
 

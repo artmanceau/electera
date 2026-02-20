@@ -57,7 +57,7 @@ class Explainer:
             )
         self.n_models = len(self.model.models[var].best_models)
 
-    def generate_feature_importance(self, shap_values, X, y):
+    def generate_feature_importance(self, X, y, shap_values=None):
         """Generate and save feature importance plots using multiple methods."""
         logger.info("Generating feature importance plots...")
 
@@ -91,13 +91,22 @@ class Explainer:
             ).sort_values(by="Importance", ascending=False)
 
         # 3. SHAP-based feature importance
-        logger.info("Calculating SHAP-based feature importance...")
-        shap_importance_df = pd.DataFrame(
-            {
-                "Feature": self.model.features[self.var],
-                "Importance": np.abs(shap_values).mean(axis=0),
-            }
-        ).sort_values(by="Importance", ascending=False)
+        if shap_values:
+            logger.info("Calculating SHAP-based feature importance...")
+            shap_importance_df = pd.DataFrame(
+                {
+                    "Feature": self.model.features[self.var],
+                    "Importance": np.abs(shap_values).mean(axis=0),
+                }
+            ).sort_values(by="Importance", ascending=False)
+        else:
+            logger.warning("Skipping permutation feature importance")
+            shap_importance_df = pd.DataFrame(
+                {
+                    "Feature": self.model.features[self.var],
+                    "Importance": feature_importance_perm,
+                }
+            ).sort_values(by="Importance", ascending=False)
 
         parts = [
             importance_df.add_suffix("_gain"),
@@ -108,7 +117,7 @@ class Explainer:
         global_df.index.name = "feature"
         global_df.reset_index().to_parquet(
             self.output_dir
-            + f"feature_importance_{self.var}_{self.year}_{self.type_}_{self.model_version}.parquet",
+            + f"feature_importance_{self.vars_}_{self.var}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
         )
 
@@ -323,12 +332,11 @@ class Explainer:
         else:
             logger.info("Model does not support tree visualization.")
 
-    def _load_dataset(self):
-        data_path = self.model.data_paths[self.var]
-        data = DataLoader.load_dataset(data_path)
-        return data
+    def _load_dataset(self, data_path):
+        if data_path:
+            return DataLoader.load_dataset(data_path)
 
-    def explain(self, var, year, type_, vars_):
+    def explain(self, var, year, type_, vars_, data):
         """Run the explainability pipeline.
         The pipeline consists of multiple explanability tools that can be selected in the config.
 
@@ -354,12 +362,13 @@ class Explainer:
         self.year = year
         self.vars_ = vars_
         logger.info(
-            f"Computing explain model for election: {self.year}|{self.type_} and variable: {self.var}"
+            f"Computing explain model for election: {self.year}|{self.type_} and variable: {self.var} ({self.vars_})"
         )
 
         # 0. Get model
         self._load_model(self.var, self.year, self.type_, self.vars_)
-        data = self._load_dataset()
+        if data is None:
+            data = self._load_data(self.model.data_paths[self.var])
 
         # 1. Get sample data from model
         X, y, c = ExplainCore(self.model, self.var, self.year, self.t).run(data)
@@ -377,7 +386,9 @@ class Explainer:
 
         # 2.2. Feature Importance
         if "feature_importance" in self.steps:
-            _ = self.generate_feature_importance(shap_values=shap_values, X=X, y=y)
+            if not ("shap_values" in self.steps):
+                shap_values = None
+            _ = self.generate_feature_importance(X=X, y=y, shap_values=shap_values)
 
         # 2.3. Feature Impact
         if "feature_impact" in self.steps:
@@ -398,7 +409,11 @@ if __name__ == "__main__":
     years = explainer.config.years
     types = explainer.config.types
     vars_ = explainer.config.vars_
+    data = explainer._load_dataset(
+        "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet"
+    )
     for year in years:
         for type_ in types:
-            for var in vars_:
-                explainer.explain(var, year, type_, vars_)
+            for vs in vars_:
+                for var in vs:
+                    explainer.explain(var, year, type_, str(vs), data=data)

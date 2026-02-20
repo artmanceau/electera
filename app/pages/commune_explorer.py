@@ -1,5 +1,5 @@
 import streamlit as st
-from asset.definitions import convert, reverse_convert
+from asset.definitions import convert, political_align, reverse_convert
 from core.utils import check_home_run, present_results
 
 check_home_run()
@@ -82,7 +82,9 @@ data_line = st.session_state["data"].container["results_commune_selected"]
 
 st.divider()
 
-present_results(data_line, year=YEAR, t=TYPE, scale="local")
+present_results(
+    data_line, year=YEAR, t=TYPE, blocs=political_align(BLOCS), scale="local"
+)
 
 st.divider()
 

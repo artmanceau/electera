@@ -1,8 +1,14 @@
 import pydeck as pdk
 import streamlit as st
-from asset.definitions import COMMUNES_MAP_PATH, convert, reverse_convert
+from asset.definitions import (
+    COMMUNES_MAP_PATH,
+    colors_dict,
+    convert,
+    reverse_convert,
+    trad,
+)
 from core.data_handler import get_fs
-from core.utils import check_home_run, colors, trad
+from core.utils import check_home_run
 
 from src.components.data_processing.data_loader import DataLoader
 
@@ -69,7 +75,9 @@ winner_pred = (
 )
 
 # Use current_blocs and colors for consistent color mapping
-label_to_color = {f"pvote{bloc}": colors[i] for i, bloc in enumerate(current_blocs)}
+label_to_color = {
+    f"pvote{bloc}": colors_dict[f"vote{bloc}"] for i, bloc in enumerate(current_blocs)
+}
 label_to_color["No data"] = "#dee2e6"
 
 
@@ -237,7 +245,7 @@ legend_html = "<div style='background: white; padding: 15px; border: 1px solid #
 legend_html += "<b>Légende</b><br>"
 for i, bloc in enumerate(current_blocs):
     bloc_label = trad.get(bloc, bloc)
-    legend_html += f"<div style='display:flex;align-items:center;margin:5px 0;'><span style='display:inline-block;width:20px;height:20px;background:{colors[i]};border:1px solid #999;margin-right:8px;'></span><strong>Vote {bloc_label}</strong></div>"
+    legend_html += f"<div style='display:flex;align-items:center;margin:5px 0;'><span style='display:inline-block;width:20px;height:20px;background:{colors_dict[f'vote{bloc}']};border:1px solid #999;margin-right:8px;'></span><strong>Vote {bloc_label}</strong></div>"
 legend_html += "</div>"
 st.markdown(legend_html, unsafe_allow_html=True)
 
