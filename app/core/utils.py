@@ -135,7 +135,7 @@ def present_results(data_line, year, t, blocs, scale):
                 hide_index=True,
                 column_config=col_config,
             )
-            st.bar_chart(data=(data_element).T)
+            st.bar_chart(data=(data_element).T, sort=False)
 
     with tab2:
 
@@ -167,7 +167,7 @@ def present_results(data_line, year, t, blocs, scale):
             )
             if scale == "local":
                 data_element = data_line[
-                    [f"p{b}_diff" for b in blocs] + ["votants_diff"]
+                    [f"p{b}_diff" for b in blocs] + ["ppar_diff"]
                 ].reset_index(drop=True)
 
                 col_config = {
@@ -181,7 +181,7 @@ def present_results(data_line, year, t, blocs, scale):
 
                 data_element = (
                     data_line.loc[
-                        [f"p{b}" for b in blocs] + ["votants"],
+                        [f"p{b}" for b in blocs] + ["ppar"],
                         f"{year}_{t}_diff_agg",
                     ]
                     .to_frame()
@@ -201,7 +201,7 @@ def present_results(data_line, year, t, blocs, scale):
                 hide_index=True,
                 column_config=col_config,
             )
-            st.bar_chart(data=(data_element).T)
+            st.bar_chart(data=(data_element).T, sort=False)
 
 
 def show_feature_importance(importance_df, blocs):
