@@ -91,7 +91,7 @@ def present_results(data_line, year, t, blocs, scale):
             """
             )
             result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p=""
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p=""
             )
 
         with st.expander("Erreur"):
@@ -156,7 +156,7 @@ def present_results(data_line, year, t, blocs, scale):
             """
             )
             result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="p"
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p="p"
             )
 
         with st.expander("Erreur"):
@@ -167,11 +167,11 @@ def present_results(data_line, year, t, blocs, scale):
             )
             if scale == "local":
                 data_element = data_line[
-                    [f"{b}_diff" for b in blocs] + ["votants_diff"]
+                    [f"p{b}_diff" for b in blocs] + ["votants_diff"]
                 ].reset_index(drop=True)
 
                 col_config = {
-                    f"{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"p{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants_diff"] = (
@@ -181,7 +181,7 @@ def present_results(data_line, year, t, blocs, scale):
 
                 data_element = (
                     data_line.loc[
-                        [f"{b}" for b in blocs] + ["votants"],
+                        [f"p{b}" for b in blocs] + ["votants"],
                         f"{year}_{t}_diff_agg",
                     ]
                     .to_frame()
@@ -189,7 +189,7 @@ def present_results(data_line, year, t, blocs, scale):
                 )
 
                 col_config = {
-                    f"{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"p{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants"] = (
