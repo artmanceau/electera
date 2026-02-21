@@ -29,10 +29,9 @@ PyALE
 supertree
 bs4
 lxml
-streamlit
+streamlit>=1.20.0
 geopandas
 folium
 streamlit_folium
 polars
-altair<5
 -e .
