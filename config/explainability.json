@@ -1,5 +1,5 @@
 {
-    "model_version": "0_0_2",
+    "model_version": "0.0.1.",
     "years": [2022, 2017, 2012],
     "types":["pres", "leg"],
     "vars_": [["voteG", "voteD", "voteCG", "voteCD", "voteC", "par"], ["voteTG", "voteTD", "par"], ["voteGCG", "voteDCD", "voteC", "par"]],
