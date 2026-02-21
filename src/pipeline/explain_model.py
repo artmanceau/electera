@@ -65,7 +65,7 @@ class Explainer:
         logger.info("Calculating model-based feature importance...")
         importance_df = FeatureImportance.compute_importance(
             models=self.model.models[self.var].best_models,
-            features=self.model.features[self.var],
+            features=self.model.models[self.var].features,
             _get_importance_method=lambda model: model.feature_importances_,
         )
 

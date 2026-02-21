@@ -1,7 +1,8 @@
+import altair as alt
 import matplotlib.pyplot as plt
 import shap
 import streamlit as st
-from asset.definitions import colors_dict, get_colors, trad
+from asset.definitions import FEATURES_DICT, colors_dict, get_colors, trad
 
 
 def check_home_run():
@@ -219,12 +220,23 @@ def show_feature_importance(importance_df, blocs):
     for i, tab in enumerate(tabs):
         with tab:
             df = importance_df[trends[i]].copy()
+            df["feature_desc"] = df["Feature_gain"].map(FEATURES_DICT)
             st.write("Importance en gain total")
             top_gain = df.nlargest(nb_feat, "Importance_gain")[
-                ["Feature_gain", "Importance_gain"]
+                ["Feature_gain", "Importance_gain", "feature_desc"]
             ]
             top_gain = top_gain.sort_values("Importance_gain", ascending=False)
-            st.bar_chart(top_gain.set_index("Feature_gain")["Importance_gain"])
+            chart = (
+                alt.Chart(top_gain)
+                .mark_bar()
+                .encode(
+                    x=alt.X("Feature_gain:N", title="Feature"),
+                    y=alt.Y("Importance_gain:Q", title="Importance"),
+                    tooltip=["Feature_gain", "Importance_gain", "feature_desc"],
+                )
+                .properties(width=600, height=400)
+            )
+            st.altair_chart(chart, use_container_width=True)
 
             # st.write("Importance en valeur de shap")
             # top_shap = df.nlargest(nb_feat, "Importance_shap")[

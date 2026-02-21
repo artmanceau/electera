@@ -58,9 +58,6 @@ class AppData:
     ):
         self.container[asset] = {}
         for trend in trends:
-            print(
-                f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet"
-            )
             element = DataLoader.load_dataset(
                 f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet",
                 fs=get_fs().fs,
