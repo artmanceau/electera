@@ -1,7 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from asset.definitions import convert, reverse_convert
+from asset.definitions import convert, reverse_convert, political_align, colors_dict, trad
 from core.utils import check_home_run
 
 check_home_run()
@@ -33,7 +33,7 @@ TYPE = reverse_convert("type", t)
 BLOCS = reverse_convert("political_division", b)
 
 # Extract bloc names
-current_blocs = [bloc.replace("vote", "") for bloc in BLOCS if bloc != "par"]
+current_blocs = political_align(BLOCS) #[bloc.replace("vote", "") for bloc in BLOCS if bloc != "par"]
 
 # Multi-select for years
 selected_years = st.multiselect(
@@ -68,7 +68,6 @@ def plot_participation(
     df,
     variables,
     years,
-    colors=None,
     true_suffix="_true",
     pred_suffix="_pred",
     yaxis_title="Taux de participation (%)",
@@ -77,10 +76,9 @@ def plot_participation(
     Plot true and predicted values for one or more variables over years using Plotly in Streamlit.
     Each variable uses its own color for both lines (solid for true, dashed for pred).
     Args:
-        df (pd.DataFrame): DataFrame with index as variable names and columns as '{year}_pres_true' and '{year}_pres_pred'.
+        df (pd.DataFrame): DataFrame with index as variable names and columns as '{year}_{TYPE}true' and '{year}_{TYPE}pred'.
         variables (list or str): List of variables or a single variable to plot.
         years (list): List of years to plot.
-        colors (list): List of color strings, one per variable.
         true_suffix (str): Suffix for true columns.
         pred_suffix (str): Suffix for predicted columns.
         yaxis_title (str): Y-axis label.
@@ -88,36 +86,23 @@ def plot_participation(
     if isinstance(variables, str):
         variables = [variables]
     years_sorted = sorted(years)
-    if colors is None or len(colors) < len(variables):
-        # Default color palette if not enough colors provided
-        default_colors = [
-            "darkgreen",
-            "steelblue",
-            "firebrick",
-            "orange",
-            "purple",
-            "teal",
-            "goldenrod",
-            "brown",
-        ]
-        colors = default_colors[: len(variables)]
 
     fig = go.Figure()
 
     for idx, variable in enumerate(variables):
-        color = colors[idx]
+        color = "#008000" if (variable=='ppar') else colors_dict[variable.replace('p', '')]
         true_vals = [
             (
-                df.loc[variable, f"{year}_pres{true_suffix}"]
-                if f"{year}_pres{true_suffix}" in df.columns
+                df.loc[variable, f"{year}_{TYPE}{true_suffix}"]
+                if f"{year}_{TYPE}{true_suffix}" in df.columns
                 else None
             )
             for year in years_sorted
         ]
         pred_vals = [
             (
-                df.loc[variable, f"{year}_pres{pred_suffix}"]
-                if f"{year}_pres{pred_suffix}" in df.columns
+                df.loc[variable, f"{year}_{TYPE}{pred_suffix}"]
+                if f"{year}_{TYPE}{pred_suffix}" in df.columns
                 else None
             )
             for year in years_sorted
@@ -127,9 +112,9 @@ def plot_participation(
                 x=years_sorted,
                 y=true_vals,
                 mode="lines+markers",
-                name=f"{variable} - Réel",
+                name=f"{trad[variable[1:]]} - Réel" if (variable=='ppar') else f"Vote {trad[variable[1:]]} - Réel",
                 line=dict(color=color, width=3, dash="solid"),
-                marker=dict(size=10, color=color),
+                marker=dict(size=10, color=color, symbol='triangle-down')
             )
         )
         fig.add_trace(
@@ -137,9 +122,9 @@ def plot_participation(
                 x=years_sorted,
                 y=pred_vals,
                 mode="lines+markers",
-                name=f"{variable} - Prédiction",
-                line=dict(color=color, width=3, dash="dash"),
-                marker=dict(size=10, color=color),
+                name=f"{trad[variable[1:]]} - Prédiction" if (variable=='ppar') else f"Vote {trad[variable[1:]]} - Prédiction",
+                line=dict(color=color, width=3, dash="dot"),
+                marker=dict(size=10, color=color, symbol='triangle-up'),
             )
         )
 
@@ -147,7 +132,7 @@ def plot_participation(
         xaxis_title="Année",
         yaxis_title=yaxis_title,
         hovermode="x unified",
-        height=400,
+        height=600,
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
@@ -162,14 +147,11 @@ plot_participation(temporal_data, "ppar", years=selected_years)
 st.divider()
 st.subheader("🗳️ Évolution des Votes par Bloc Politique")
 
-blocs_pol = list(
-    set(list(st.session_state["config"].political_divisions_to_dislay[0]))
-    - set(["par"])
-)
+pblocs = ['p'+b for b in current_blocs]
 selected_blocs = st.multiselect(
     "Sélectionnez les tendances politiques à inclure dans le graphique",
-    blocs_pol,
-    default=blocs_pol,
+    pblocs,
+    default=pblocs,
 )
 
 plot_participation(temporal_data, selected_blocs, years=selected_years)
