@@ -15,10 +15,10 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 from src.components.explanability.core_explanability import ExplainCore
 from src.components.explanability.feature_importance import FeatureImportance
 from src.components.modelling.meta_booster import MetaBooster
-from src.components.utils.config import ExplanabilityConfig
+from src.components.utils.config import ExplanabilityConfig, CFConfig
 from src.components.utils.read_config import ConfigReader
-
-## Add running loop capabilties
+# from src.components.explanability.counterfactuals.cf_data_processing import CounterfactualDataProcessing
+# from src.components.explanability.counterfactuals.cf_generator.generator import CounterfactualGenerator
 
 
 class Explainer:
@@ -131,10 +131,12 @@ class Explainer:
         """Generate SHAP analysis plots."""
         logger.info("Generating SHAP analysis...")
         shap_values_per_model = {}
+        breakpoint()
         for k in range(self.n_models):
             booster = self.model.models[self.var].best_models[k].get_booster()
+            X_features = X[self.model.features[self.var]]
             explainer_k = shap.TreeExplainer(booster)
-            shap_values_per_model[k] = explainer_k(X)
+            shap_values_per_model[k] = explainer_k(X_features)
 
         shap_values = np.zeros(X.shape)
         for k in range(self.n_models):
@@ -369,6 +371,55 @@ class Explainer:
         self._load_model(self.var, self.year, self.type_, self.vars_)
         if data is None:
             data = self._load_data(self.model.data_paths[self.var])
+
+        # 2.5. Counterfacutal explanation
+        if "counterfactuals" in self.steps:
+            cf_config = ConfigReader._read_config(
+                "config/counterfactual_config.json", CFConfig
+            )
+            stat_computer = CounterfactualDataProcessing(self.model.models[self.var].features, cf_config)
+
+            # Modify this line : etiquette = data['rating_adjusted_nb'].apply(CounterfactualDataProcessing._assign_rating_class) if self.config.data_processing_params.use_etiquette else None
+
+            # Compute useful statistics over the dataset
+            (
+                metadata,
+                mean_values,
+                _,
+                mad_values,
+                metadata_gen,
+                mean_values_gen,
+                _,
+                mad_values_gen,
+                correlation_matrix,
+                features_distributions,
+            ) = stat_computer.compute_statistics(data[['codecommune']+self.model.models[self.var].features])
+            transformer_object = stat_computer.get_transformer()
+
+            # Argument sent to the generator (we use the gen version)
+            # We should also include metadata_feature for clipping at the end
+            data_dict = {
+                "data": data[self.model.models[self.var].features + ['pvotep'+self.var]],
+                "metadata": metadata_gen,
+                "features_distributions": features_distributions,
+                "correlation_matrix": correlation_matrix,
+                "mad_values": mad_values_gen,
+                "mean_values": mean_values_gen,
+                "transformer": transformer_object,
+            }
+            # To debug from there
+            generator = CounterfactualGenerator(
+                model=self.model.models[self.var].best_models[0],
+                config=cf_config,
+                data_dict=data_dict
+            )
+            generator.generate_counterfactuals(
+                    query_instances=selected_instances[self.model_features].copy(
+                        deep=True
+                    ),
+                    desired_ranges_scenario=(D_RANGE[scenario], scenario),
+                    etiquette = list(map(CounterfactualDataProcessing._assign_rating_class, list(ratings[instances_idx]))) if self.config.data_processing_params.use_etiquette else None
+                )
 
         # 1. Get sample data from model
         X, y, c = ExplainCore(self.model, self.var, self.year, self.t).run(data)

@@ -56,10 +56,14 @@ def results_glob(data_line, year_type, blocs, label, p=""):
             "exprimes": "Nombre de suffrage exprimés",
         },
     )
+    col_config = {}
+    for b in blocs:
+        col_config[f"{p}{b}"] = st.column_config.NumberColumn(f"Nombre de vote {trad[b]}", format="%.1f%%" if p=="p" else None)
+    
     st.dataframe(
         data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T,
         hide_index=True,
-        column_config={f"{p}{b}": f"Nombre de vote {trad[b]}" for b in blocs},
+        column_config=col_config,
     )
     st.bar_chart(
         data=(data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T),
@@ -71,23 +75,23 @@ def results_glob(data_line, year_type, blocs, label, p=""):
 def present_results(data_line, year, t, blocs, scale):
     result_func = results_glob if scale == "global" else results_loc
 
-    tab1, tab2 = st.tabs(["Nombre de vote", "Pourcentage des suffrages"])
+    tab1, tab2 = st.tabs(["Pourcentage des suffrages", "Nombre de vote"])
 
-    with tab1:
+    with tab2:
 
-        with st.expander("Résultats"):
+        with st.expander("Résultats", expanded=True):
             st.write(
-                """
-                Résultats de l'élection
+            """
+                Résultats
             """
             )
             result_func(
                 data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p=""
             )
 
-        with st.expander("Prédictions"):
+        with st.expander("Prédictions", expanded=True):
             st.write(
-                """
+            """
                 Prédictions du modèle pour l'élection
             """
             )
@@ -95,9 +99,9 @@ def present_results(data_line, year, t, blocs, scale):
                 data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p=""
             )
 
-        with st.expander("Erreur"):
+        with st.expander("Erreur", expanded=True):
             st.write(
-                """
+            """
                 Erreur de la prédictions du modèle pour l'élection
             """
             )
@@ -138,19 +142,19 @@ def present_results(data_line, year, t, blocs, scale):
             )
             st.bar_chart(data=(data_element).T, sort=False)
 
-    with tab2:
+    with tab1:
 
-        with st.expander("Résultats"):
+        with st.expander("Résultats", expanded=True):
             st.write(
-                """
-                Results of the election
+            """
+                Résultats
             """
             )
             result_func(
                 data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="p"
             )
 
-        with st.expander("Prédictions"):
+        with st.expander("Prédictions", expanded=True):
             st.write(
                 """
                 Prédictions du modèle pour l'élection
@@ -160,7 +164,7 @@ def present_results(data_line, year, t, blocs, scale):
                 data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p="p"
             )
 
-        with st.expander("Erreur"):
+        with st.expander("Erreur", expanded=True):
             st.write(
                 """
                 Erreur de la prédictions du modèle pour l'élection

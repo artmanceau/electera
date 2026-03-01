@@ -13,6 +13,7 @@ from loguru import logger
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 from xgboost import XGBRegressor
+from sklearn.linear_model import LinearRegression
 
 from src.components.explanability.feature_importance import FeatureImportance
 
@@ -83,6 +84,7 @@ class MetaBooster:
         n_splits_outer=2,
         n_splits_inner=2,
         n_trials=2,
+        poll_adj=False
     ):
         self.method = method
         self.boosting_method = BOOSTING_ALG[self.method]
@@ -92,11 +94,14 @@ class MetaBooster:
         self.n_splits_inner = n_splits_inner
         self.n_trials = n_trials
         self.features = features
+        self.poll_adj = poll_adj
 
         # Container
         self.best_models = None
         self.best_params_list_outer = None
         self.best_test_scores_list_outer = None
+        self.adjustment_model = None
+        self.poll_feature = None
 
     def _check_feature_consistency(self, X, features=None):
         if features is None:
@@ -111,7 +116,7 @@ class MetaBooster:
 
         return X_train
 
-    def train(self, X, y, use_feature_selection=True):
+    def train(self, X, y, use_feature_selection=False):
         logger.info("Training meta-booster model")
         weights = self._compute_weights(X, y)
 
@@ -136,10 +141,32 @@ class MetaBooster:
             f"Fit completed. Meta-Booster consist of {len(self.best_models)} models."
         )
 
+        # Train an adjusted model f(x_i) = alpha * b_i + beta * p_i + gamma.
+        if self.poll_adj:
+            preds = self.infer(X, with_adjustment=False)
+
+            features_list = X.columns.to_list()
+            poll_features = [item for item in features_list if "poll" in item]
+            if len(poll_features) == 1:
+                self.poll_feature = [item for item in features_list if "poll" in item][0]
+                polls = np.array(X[self.poll_feature]) / 100
+
+                X_linear = np.column_stack([preds, polls])
+                y_linear = np.array(y)
+
+                self.adjustment_model = LinearRegression()
+                self.adjustment_model.fit(X_linear, y_linear)
+                logger.info('Linear model adjusted with polling data and model prediction')
+                logger.debug(f"Coefficients: {self.adjustment_model.coef_}")
+                logger.debug(f"Intercept: {self.adjustment_model.intercept_}")
+                logger.debug(f"R^2 score: {self.adjustment_model.score(X_linear, y_linear)}")
+            else:
+                logger.warning('No poll feature for this election/political trend')
+
     def get_features(self):
         return self.features
 
-    def infer(self, X):
+    def infer(self, X, with_adjustment=True):
         if self.best_models is None:
             raise ValueError("Train method not ran before")
         else:
@@ -152,6 +179,15 @@ class MetaBooster:
                 model = self.best_models[k]
                 preds += model.predict(X)
             preds /= n_models
+
+            if with_adjustment & self.poll_adj & (self.adjustment_model is not None):
+                if self.poll_feature in X:
+                    polls = np.array(X[self.poll_feature]) / 100
+
+                    X = np.column_stack([preds, polls])
+                    adj_preds = self.adjustment_model.predict(X)
+                    return adj_preds
+
             return preds
 
     def feature_selection(self, X, y, threshold=0.95):

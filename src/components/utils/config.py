@@ -1,5 +1,5 @@
-from typing import List, Literal
-
+from typing import List, Literal, Optional, Any
+from loguru import logger
 from pydantic import BaseModel, Field, HttpUrl, validator
 
 
@@ -283,17 +283,130 @@ class ExplanabilityConfig(BaseModel):
     steps: List[str]
 
 
-class CounterfactualConfig(BaseModel):
-    model_version: str
-    year: int
-    type_: str
-    var: str
-    data_path: str
-
-
 class AppConfig(BaseModel):
     model_version: str
     years_to_display: List[int]
     types_to_display: List[str]
     political_divisions_to_dislay: List[List[str]]
     data_path: str
+
+
+class CFSelectorParams(BaseModel):
+    """"""
+
+    max_iterations: Optional[int] = 500
+    threshold: Optional[float] = 0.01
+    lambda_validation: Optional[float] = 0.0
+    lambda_proximity: Optional[float] = 0.0
+    lambda_sparse: Optional[float] = 0.0
+    lambda_diversity: Optional[float] = 0.0
+    lambda_likelihood: Optional[float] = 0.0
+    lambda_instability: Optional[float] = 0.0
+    lambda_disc_power: Optional[float] = 0.0
+    yloss_type: Optional[Literal["hinge_loss"]] = "hinge_loss"
+    diversity_loss_type: Optional[Literal["L-p", "dpp_style:inverse_dist"]] = (
+        "dpp_style:inverse_dist"
+    )
+    epsilon_mutation: Optional[float] = 0.05
+
+
+class CFGeneratorParams(BaseModel):
+    """Parameters of the random sampling"""
+
+    enforce_feasibility: bool
+    selected_feature_with_importance: Literal["deactivate", "gain", "cover", "weight"]
+    data_guided: bool
+    use_monotonic_constraints: bool
+    sample_size: int
+    population_size_x: Optional[int] = 1
+    soften_parameter: Optional[float] = 1.0
+
+
+class CFDataProcessingParams(BaseModel):
+    """Parameters for the data processing"""
+
+    winsor: bool
+    use_etiquette: bool = False
+    num_bins: Optional[int] = 100
+    lim: Optional[float] = 0.05
+
+
+class CFPresentationParams(BaseModel):
+    close: bool
+    not_significant: bool
+    selected_features: bool
+    key_features_list_path: Optional[str] = ""
+    key_features_list: Optional[list[str]] = None
+
+
+class CFConfig(BaseModel):
+    """"""
+
+    model_pkl_path: str
+    model_id: Optional[int] = -1
+    target_name: str
+    save_path: str
+    total_cfs: Optional[int] = 5
+    features_to_vary_list_path: Optional[str] = ""
+    features_to_vary_list: Optional[list[str]] = None
+    features_weights: Optional[list[str]] = None
+    companies: Optional[int] = None
+    margin: Optional[float] = None
+    random_seed: Optional[int] = 42
+    mapping_group: Optional[str] = ""
+    space: Literal[
+        "feature", "latent-pca", "latent-cholesky", "latent-zca", "latent-pca_sklearn"
+    ]
+    is_diff: bool
+    selector: Literal["sample", "loss", "loss-batch", "pareto-batch", "genetic"]
+    data_processing_params: CFDataProcessingParams
+    generator_params: CFGeneratorParams
+    selector_params: CFSelectorParams
+    presentation_params: CFPresentationParams
+
+    @property
+    def is_latent(self) -> bool:
+        """"""
+        return self.space.split("-")[0] == "latent"
+
+    @property
+    def whitening_method(self) -> bool:
+        return self.space.split("-")[1] if self.space != "feature" else None
+
+    @property
+    def selection_method(self) -> str:
+        return self.selector.split("-")[0]
+
+    def model_post_init(self, __context: Any):
+        if self.is_latent and (
+            self.generator_params.selected_feature_with_importance,
+            self.generator_params.enforce_feasibility,
+            self.generator_params.use_monotonic_constraints,
+        ) != ("deactivate", False, False):
+            self.generator_params.selected_feature_with_importance = "deactivate"
+            self.generator_params.enforce_feasibility = False
+            self.generator_params.use_monotonic_constraints = False
+            logger.warning(
+                "Latent configuration exclude feature selection, enforce feasibility and monotonic constraints."
+            )
+        if (
+            self.selector in ["genetic", "pareto-batch", "loss-batch"]
+            and self.generator_params.population_size_x < 2
+        ):
+            # In these modes we want to select from a larger generated population
+            # In other cases, we should restrict the generation size
+            # as the larger it is the less sparse it becomes
+            self.generator_params.population_size_x += 1
+            logger.warning(
+                f"Selection method {self.selector} requires a larger population size ({self.generator_params.population_size_x}x)."
+            )
+        if (
+            self.margin
+            and self.generator_params.data_guided
+            and (not self.data_processing_params.winsor)
+        ):
+            # Be aware that this can generate out-of-margin cases (if bins are wrongly distributed)
+            self.data_processing_params.winsor = True
+            logger.warning(
+                "Using margins and data-guided sampling needs winsorization."
+            )

@@ -68,9 +68,10 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 3,
-        "n_splits_outer": 3,
-        "n_trials": 3,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
+        "poll_adj": True
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
@@ -80,6 +81,7 @@ MODEL_ARGS = {
         "n_splits_inner": 2,
         "n_splits_outer": 2,
         "n_trials": 2,
+        "poll_adj": False,
         "ponderation": [0.7, 0.3],
     },
 }
@@ -143,10 +145,10 @@ class BackTester:
             + f"raw/elections/presidentiel/{k_year}/pres{k_year}_csv/pres{k_year}comm.parquet"
         )
         X_true = DataLoader.load_dataset(ground_truth_data_path)[
-            ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-            + [trend for trend in k_political_trends if trend != "par"]
-            + ["p" + trend for trend in k_political_trends]
-        ]
+                ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
+                + [trend for trend in k_political_trends if trend != "par"]
+                + ["p" + trend for trend in k_political_trends]
+            ]
         str_cols = ["codecommune", "nomcommune"]
         float_cols = ["p" + trend for trend in k_political_trends]
         int_cols = [trend for trend in k_political_trends if trend != "par"] + [
@@ -177,6 +179,29 @@ class BackTester:
         )
         return X_pred, X_true
 
+    def add_poll_predictions(self, result_synthetic, k_year, k_type, k_political_trends):
+        # Try adding polling results if possible
+        result_synthetic = result_synthetic.copy()
+        result_synthetic = result_synthetic.set_index('index')
+        election_type = "presidentiel" if k_type == 'pres' else "legislative"
+        poll_data_path = self.config.data_path + f"polls/{election_type}/{k_year}/polls_t1.parquet"
+        if DataUtils._exists(poll_data_path, fs=DataUtils._create_fs() if DataUtils._detect_s3(poll_data_path) else None):
+            X_poll = DataLoader.load_dataset(poll_data_path)[
+                [trend.replace("vote", "") for trend in k_political_trends if trend != "par"]
+            ]
+            poll_results = X_poll.mean() # Could be a better formula to aggregate polls
+            for trend in k_political_trends:
+                if trend != 'par':
+                    letter = trend.replace("vote", "")
+                    result_synthetic.loc['p'+trend, f'{k_year}_{k_type}_poll'] = round(poll_results[letter], 2)
+        else:
+            logger.warning('No poll data for this election, skipping')
+
+        result_synthetic.reset_index()
+
+        return result_synthetic
+
+
     def save_results(self, model, result, k_year, k_type, k_political_trends, version):
         # Create directories
         if not DataUtils._detect_s3(self.config.data_path):
@@ -193,7 +218,7 @@ class BackTester:
 
         # Post-treatment
         result_all, result_synthetic = result
-        result_synthetic = result_synthetic
+        result_synthetic = self.add_poll_predictions(result_synthetic, k_year, k_type, k_political_trends)
 
         DataLoader.write_dataset(
             result_all,

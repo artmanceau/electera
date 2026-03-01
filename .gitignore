@@ -26,6 +26,9 @@ election_modeling_uhcp.egg-info
 # Notebooks results
 notebooks/ml/results
 
+# Counterfactuals (hidden)
+src/components/explanability/counterfactuals/
+
 # Secrets
 app/.streamlit/secrets.toml
 

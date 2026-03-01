@@ -1,6 +1,44 @@
 {
-    "model_path": "results/model_2022_pres_20251223_154502.pkl",
-    "year": 2022,
-    "type_":"pres",
-    "var": "par"
+    "model_pkl_path" : "s3://arthurmanceau/election_modeling_uhcp/data/output/models/model_2012_leg_['voteG', 'voteD', 'voteCG', 'voteCD', 'voteC', 'par']_0.0.1..pkl",
+    "target_name": "rating_adjusted_nb",
+    "save_path": "data/counterfactuals_generation2/",
+    "total_cfs":5,
+    "features_to_vary_list": [
+        "revdepartements/revmoyfoy_lag", "basesfiscalescommunes/recettehabitationtot_lag", "naticommunes/perimmigre", "cspcommunes/capi_pct_change", "cspcommunes/aica_pct_change"
+    ],
+    "companies": 1,
+    "mapping_group": "config/explainability/Features - Category Mapping.xlsx",
+    "space": "feature",
+    "is_diff" : true,
+    "selector": "loss-batch",
+    "post_hoc": false,
+    "data_processing_params":{"winsor":true, "lim":0.05
+},
+    "generator_params": {
+        "enforce_feasibility": true,
+        "selected_feature_with_importance":"gain",
+        "soften_parameters":0.5,
+        "data_guided": true,
+        "use_etiquette": true,
+        "use_monotonic_constraints":true,
+        "sample_size": 5000,
+        "population_size_x": 10
+    },
+    "selector_params":{
+        "max_iterations":500,
+        "lambda_validation": 1.0,
+        "lambda_proximity":1.0,
+        "lambda_sparse":1.0,
+        "lambda_diversity": 0.0,
+        "lambda_likelihood": 0.0,
+        "lambda_instability": 0.0,
+        "lambda_disc_power":0.0,
+        "epsilon_mutation": 0.025,
+        "threshold" : 0.01
+    },
+    "presentation_params":{
+        "close":true,
+        "not_significant": false,
+        "selected_features":false
+    }
 }
