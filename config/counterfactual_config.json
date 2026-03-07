@@ -1,6 +1,7 @@
 {
     "model_pkl_path" : "s3://arthurmanceau/election_modeling_uhcp/data/output/models/model_2012_leg_['voteG', 'voteD', 'voteCG', 'voteCD', 'voteC', 'par']_0.0.1..pkl",
     "model_id":0,
+    "target_name": "pvoteG",
     "total_cfs":5,
     "features_to_vary_list": [
         "revdepartements/revmoyfoy_lag", "basesfiscalescommunes/recettehabitationtot_lag", "naticommunes/perimmigre", "cspcommunes/capi_pct_change", "cspcommunes/aica_pct_change"
