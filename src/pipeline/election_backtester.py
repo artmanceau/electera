@@ -69,9 +69,9 @@ MODEL_ARGS = {
         "weighting": "proportional",
         "features": None,
         "n_splits_inner": 2,
-        "n_splits_outer": 2,
+        "n_splits_outer": 1,
         "n_trials": 2,
-        "poll_adj": True
+        "poll_adj": False
     },
     "meta_boosting_multiple": {
         "method": "xgboost",

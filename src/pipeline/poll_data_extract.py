@@ -17,7 +17,7 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 # Nice to have : source des sondages
 
-YEARS = ["1988", "2022", "2007", "2012", "2017", "2022", "2027"]
+YEARS = ["2022", "2007", "2012", "2017", "2022", "2027"] #, "1988"]  Bug with 1988
 
 data_path = "s3://arthurmanceau/election_modeling_uhcp/data/polls/"
 # data_path = "data/polls/"
@@ -365,7 +365,7 @@ blocs = {
 
 
 blocs_level_1 = ["G", "CG", "CD", "C", "D"]
-blocs_level_2 = ["GCG", "DCD", "C_"]
+blocs_level_2 = ["GCG", "DCD", "C"]
 blocs_level_3 = ["TG", "TD"]
 
 
@@ -655,16 +655,28 @@ class PollFetcher:
         bloc = blocs[year]
         X = X.copy(deep=True)
         for b, canditates in bloc.items():
-            X[b] = X[canditates].sum(axis=1)
+            X[f'{b}_raw'] = X[canditates].sum(axis=1)
 
-        X["GCG"] = X["G"] + X["CG"] / 2
-        X["C_"] = X["C"] + +X["CG"] / 2 + +X["CD"] / 2
-        X["DCD"] = X["D"] + X["CD"] / 2
-        X["TG"] = X["G"] + X["CG"] + X["C"] / 2
-        X["TD"] = X["D"] + X["CD"] + X["C"] / 2
-        assert X[blocs_level_1].sum(axis=1).mean() > 0.95
-        assert X[blocs_level_2].sum(axis=1).mean() > 0.95
-        assert X[blocs_level_3].sum(axis=1).mean() > 0.95
+        X["GCG_raw"] = X["G_raw"] + X["CG_raw"] / 2
+        X["DCD_raw"] = X["D_raw"] + X["CD_raw"] / 2
+        X["TG_raw"] = X["G_raw"] + X["CG_raw"] + X["C_raw"] / 2
+        X["TD_raw"] = X["D_raw"] + X["CD_raw"] + X["C_raw"] / 2
+
+        assert 50 < X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean() < 100
+        assert 50 < X[[f'{b}_raw' for b in blocs_level_2]].sum(axis=1).mean() < 100
+        assert 50 < X[[f'{b}_raw' for b in blocs_level_3]].sum(axis=1).mean() < 100
+        
+        # Adjust to make them sum to 1
+        delta_1 = 100 - X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean() / len(blocs_level_1)
+        for bloc in blocs_level_1:
+            X[bloc] = X[f'{b}_raw'] + delta_1
+        delta_2 = 100 - X[[f'{b}_raw' for b in blocs_level_2]].sum(axis=1).mean() / len(blocs_level_2)
+        for bloc in blocs_level_2:
+            X[bloc] = X[f'{b}_raw'] + delta_2
+        delta_3 = 100 - X[[f'{b}_raw' for b in blocs_level_3]].sum(axis=1).mean() / len(blocs_level_3)
+        for bloc in blocs_level_3:
+            X[bloc] = X[f'{b}_raw'] + delta_3
+
         return X
 
     def _note_col_handling(self, X):

@@ -5,6 +5,6 @@
     "random_seed": 42,
     "k_year": [2022],
     "k_type": ["pres"],
-    "model" : "trivial_1",
+    "model" : "meta_boosting",
     "version" : "test"
 }

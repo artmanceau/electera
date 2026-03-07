@@ -4,5 +4,5 @@
     "types":["pres"],
     "vars_": [["voteG", "voteD", "voteCG", "voteCD", "voteC", "par"]],
     "data_path":"s3://arthurmanceau/election_modeling_uhcp/data/",
-    "steps":["counterfactuals"]
+    "steps":["shap_values"]
 }

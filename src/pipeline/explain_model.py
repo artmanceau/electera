@@ -17,8 +17,6 @@ from src.components.explanability.feature_importance import FeatureImportance
 from src.components.modelling.meta_booster import MetaBooster
 from src.components.utils.config import ExplanabilityConfig, CFConfig
 from src.components.utils.read_config import ConfigReader
-# from src.components.explanability.counterfactuals.cf_data_processing import CounterfactualDataProcessing
-# from src.components.explanability.counterfactuals.cf_generator.generator import CounterfactualGenerator
 
 
 class Explainer:
@@ -44,18 +42,6 @@ class Explainer:
 
         self.n_models = None
         self.models = None
-
-    def _load_model(self, var, year, type_, vars_):
-        model_path = f"{self.data_path}output/models/model_{year}_{type_}_{str(vars_)}_{self.model_version}.pkl"
-        self.model = DataLoader.load_pickle(file_path=model_path)
-        if not isinstance(self.model.models[var], MetaBooster):
-            logger.error(
-                "This pipeline is not configured for this type of model. Only metaboosting models. Raising an error"
-            )
-            raise ValueError(
-                "This pipeline is not configured for this type of model. Only metaboosting models."
-            )
-        self.n_models = len(self.model.models[var].best_models)
 
     def generate_feature_importance(self, X, y, shap_values=None):
         """Generate and save feature importance plots using multiple methods."""
@@ -131,12 +117,12 @@ class Explainer:
         """Generate SHAP analysis plots."""
         logger.info("Generating SHAP analysis...")
         shap_values_per_model = {}
-        breakpoint()
         for k in range(self.n_models):
-            booster = self.model.models[self.var].best_models[k].get_booster()
-            X_features = X[self.model.features[self.var]]
-            explainer_k = shap.TreeExplainer(booster)
-            shap_values_per_model[k] = explainer_k(X_features)
+            predict_function = self.model.models[self.var].best_models[k].predict
+            X_features = X[self.model.models[self.var].features]
+            n_features_in = len(self.model.models[self.var].features)
+            explainer_k = shap.Explainer(predict_function, X_features)
+            shap_values_per_model[k] = explainer_k(X_features, max_evals=2*n_features_in+1)
 
         shap_values = np.zeros(X.shape)
         for k in range(self.n_models):
@@ -334,11 +320,7 @@ class Explainer:
         else:
             logger.info("Model does not support tree visualization.")
 
-    def _load_dataset(self, data_path):
-        if data_path:
-            return DataLoader.load_dataset(data_path)
-
-    def explain(self, var, year, type_, vars_, data):
+    def explain(self, var, year, type_, vars_):
         """Run the explainability pipeline.
         The pipeline consists of multiple explanability tools that can be selected in the config.
 
@@ -367,62 +349,14 @@ class Explainer:
             f"Computing explain model for election: {self.year}|{self.type_} and variable: {self.var} ({self.vars_})"
         )
 
+        ec = ExplainCore(self.var, self.year, self.t)
+
         # 0. Get model
-        self._load_model(self.var, self.year, self.type_, self.vars_)
-        if data is None:
-            data = self._load_data(self.model.data_paths[self.var])
-
-        # 2.5. Counterfacutal explanation
-        if "counterfactuals" in self.steps:
-            cf_config = ConfigReader._read_config(
-                "config/counterfactual_config.json", CFConfig
-            )
-            stat_computer = CounterfactualDataProcessing(self.model.models[self.var].features, cf_config)
-
-            # Modify this line : etiquette = data['rating_adjusted_nb'].apply(CounterfactualDataProcessing._assign_rating_class) if self.config.data_processing_params.use_etiquette else None
-
-            # Compute useful statistics over the dataset
-            (
-                metadata,
-                mean_values,
-                _,
-                mad_values,
-                metadata_gen,
-                mean_values_gen,
-                _,
-                mad_values_gen,
-                correlation_matrix,
-                features_distributions,
-            ) = stat_computer.compute_statistics(data[['codecommune']+self.model.models[self.var].features])
-            transformer_object = stat_computer.get_transformer()
-
-            # Argument sent to the generator (we use the gen version)
-            # We should also include metadata_feature for clipping at the end
-            data_dict = {
-                "data": data[self.model.models[self.var].features + ['pvotep'+self.var]],
-                "metadata": metadata_gen,
-                "features_distributions": features_distributions,
-                "correlation_matrix": correlation_matrix,
-                "mad_values": mad_values_gen,
-                "mean_values": mean_values_gen,
-                "transformer": transformer_object,
-            }
-            # To debug from there
-            generator = CounterfactualGenerator(
-                model=self.model.models[self.var].best_models[0],
-                config=cf_config,
-                data_dict=data_dict
-            )
-            generator.generate_counterfactuals(
-                    query_instances=selected_instances[self.model_features].copy(
-                        deep=True
-                    ),
-                    desired_ranges_scenario=(D_RANGE[scenario], scenario),
-                    etiquette = list(map(CounterfactualDataProcessing._assign_rating_class, list(ratings[instances_idx]))) if self.config.data_processing_params.use_etiquette else None
-                )
-
+        self.model, self.n_models = ec._load_model(data_path=self.data_path, var=self.var, year=self.year, type_=self.type_, vars_=self.vars_, model_version=self.model_version)
+        data = DataLoader.load_dataset(self.model.data_paths[self.var],  fs=None, formate='parquet', columns=None, filters=[("type", "==", self.t)])
+        
         # 1. Get sample data from model
-        X, y, c = ExplainCore(self.model, self.var, self.year, self.t).run(data)
+        X, y, c = ec.run(data)
 
         # 2. build step factory
 
@@ -460,11 +394,8 @@ if __name__ == "__main__":
     years = explainer.config.years
     types = explainer.config.types
     vars_ = explainer.config.vars_
-    data = explainer._load_dataset(
-        "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet"
-    )
     for year in years:
         for type_ in types:
             for vs in vars_:
                 for var in vs:
-                    explainer.explain(var, year, type_, str(vs), data=data)
+                    explainer.explain(var, year, type_, str(vs))

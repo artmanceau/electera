@@ -1,16 +1,31 @@
 from sklearn.model_selection import train_test_split
-
+from src.components.data_processing.data_loader import DataLoader
+from loguru import logger
 from src.components.modelling.data_split import Splitter
+from src.components.modelling.meta_booster import MetaBooster
 
 
 class ExplainCore:
     """Core Explanability Module"""
 
-    def __init__(self, model, var, year, t):
-        self.model = model
+    def __init__(self, var, year, t):
         self.var = var
         self.year = year
         self.t = t
+
+    @staticmethod
+    def _load_model(data_path, var, year, type_, vars_, model_version):
+        model_path = f"{data_path}output/models/model_{year}_{type_}_{str(vars_)}_{model_version}.pkl"
+        model = DataLoader.load_pickle(file_path=model_path)
+        if not isinstance(model.models[var], MetaBooster):
+            logger.error(
+                "This pipeline is not configured for this type of model. Only metaboosting models. Raising an error"
+            )
+            raise ValueError(
+                "This pipeline is not configured for this type of model. Only metaboosting models."
+            )
+        n_models = len(model.models[var].best_models)
+        return model, n_models
 
     def _data_processing(self, data):
         st = Splitter("p" + self.var)

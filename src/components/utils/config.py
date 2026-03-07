@@ -344,13 +344,10 @@ class CFConfig(BaseModel):
 
     model_pkl_path: str
     model_id: Optional[int] = -1
-    target_name: str
-    save_path: str
     total_cfs: Optional[int] = 5
     features_to_vary_list_path: Optional[str] = ""
     features_to_vary_list: Optional[list[str]] = None
     features_weights: Optional[list[str]] = None
-    companies: Optional[int] = None
     margin: Optional[float] = None
     random_seed: Optional[int] = 42
     mapping_group: Optional[str] = ""
