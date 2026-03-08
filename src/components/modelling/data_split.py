@@ -21,7 +21,7 @@ class Splitter:
     def is_stationnary_feature(feature):
         return ('pct_change' in feature) | ('delta' in feature) | ('rank' in feature)
 
-    def clean_features_list(self, X_train, X_val, X_test, nan_threshold=0.3, keep_stationnary=True, remove_correlated=True):
+    def clean_features_list(self, X_train, X_val, X_test, nan_threshold=0.3, keep_stationnary=True, remove_correlated=True, features_to_save=[]):
         """
         Models are faster to adjust with less features.
         We want to avoid training with features that don't exist in both X_train, X_val, X_test.
@@ -63,11 +63,11 @@ class Splitter:
             to_drop_correlated = set()
             for X in [X_train, X_test, X_val]:
                 to_drop_correlated = to_drop_correlated.union(self._find_correlated_in(X[socio_eco_features]))
-    
+
             socio_eco_features = list(set(socio_eco_features)-to_drop_correlated)
 
         features = non_socio_eco_features + socio_eco_features
-        breakpoint()
+        features = list(set(features).union(set(feature_to_save)))
         return X_train[features], X_val[features], X_test[features]
 
     def get_Xy(self, data, predict_delta=False, selected_features=None):
