@@ -11,32 +11,64 @@ class Splitter:
         self.var = var
         self.vote_variable = f"pvote{self.var}"
 
-    def clean_features_list(self, X_train, X_val, X_test, threshold=0.8):
+    @staticmethod
+    def _find_correlated_in(X, threshold=0.95):
+        corr = X.corr(method="pearson")
+        upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(np.bool))
+        return set([column for column in upper.columns if any(upper[column] > threshold)])
+
+    @staticmethod
+    def is_stationnary_feature(feature):
+        return ('pct_change' in feature) | ('delta' in feature) | ('rank' in feature)
+
+    def clean_features_list(self, X_train, X_val, X_test, nan_threshold=0.3, keep_stationnary=True, remove_correlated=True):
         """
         Models are faster to adjust with less features.
-        We may have columns not available for both X_train, X_val, X_test.
-        Remove them here.
+        We want to avoid training with features that don't exist in both X_train, X_val, X_test.
+        Features under threshold in at least on of the three dataset is removed.
         """
-        nan_train = X_train.isnull().mean()
-        nan_val = X_val.isnull().mean()
-        nan_test = X_test.isnull().mean()
+        nan_cols = set()
+        for X in [X_train, X_test, X_val]:
+            nan_X = X.isnull().mean()
+            nan_cols_X = set(nan_X[nan_X > nan_threshold].index.tolist())
+            nan_cols = nan_cols.union(nan_cols_X)
 
-        nan_train_cols = nan_train[nan_train > threshold].index.tolist()
-        nan_val_cols = nan_val[nan_val > threshold].index.tolist()
-        nan_test_cols = nan_test[nan_test > threshold].index.tolist()
-
-        nan_cols = list(set(nan_train_cols) & set(nan_test_cols) & set(nan_val_cols))
-        n_cols = len(nan_cols)
+        nan_cols_list = list(nan_cols)
+        n_cols = len(nan_cols_list)
 
         if n_cols > 0:
             logger.warning(
-                f"The following columns ({n_cols}) are removed because they are not populated (enough, i.e. more NaNs than {threshold*100}%) in both three datasets (train, val, test): {nan_cols}"
+                f"The following columns ({n_cols}) are removed because they are not populated (enough, i.e. more NaNs than {nan_threshold*100}%) in both three datasets (train, val, test)."
             )
             X_train = X_train.drop(columns=nan_cols)
             X_val = X_val.drop(columns=nan_cols)
             X_test = X_test.drop(columns=nan_cols)
 
-        return X_train, X_val, X_test
+        assert set(X_train.columns) == set(X_test.columns) == set(X_val.columns)
+        columns = X_train.columns.to_list()
+
+        non_socio_eco_features = [col for col in columns if '/' not in col]
+        socio_eco_features = [col for col in columns if '/' in col]
+        assert len(non_socio_eco_features) + len(socio_eco_features) == len(columns)
+
+        if keep_stationnary:
+            # Stationnary features are pct_change, rank and delta
+            logger.info('Selecting only stationnary features')
+            socio_eco_features_stationnary = [col for col in socio_eco_features if self.is_stationnary_feature(col)]
+            socio_eco_features = socio_eco_features_stationnary
+
+        if remove_correlated:
+            # Pearson correlation 
+            logger.info('Removing most correlated features')
+            to_drop_correlated = set()
+            for X in [X_train, X_test, X_val]:
+                to_drop_correlated = to_drop_correlated.union(self._find_correlated_in(X[socio_eco_features]))
+    
+            socio_eco_features = list(set(socio_eco_features)-to_drop_correlated)
+
+        features = non_socio_eco_features + socio_eco_features
+        breakpoint()
+        return X_train[features], X_val[features], X_test[features]
 
     def get_Xy(self, data, predict_delta=False, selected_features=None):
         if predict_delta:

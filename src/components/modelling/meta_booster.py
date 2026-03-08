@@ -11,6 +11,7 @@ import pandas as pd
 from catboost import CatBoostRegressor
 from loguru import logger
 from sklearn.metrics import mean_squared_error
+from sklearn.inspection import permutation_importance
 from sklearn.model_selection import KFold
 from xgboost import XGBRegressor
 from sklearn.linear_model import LinearRegression
@@ -190,22 +191,30 @@ class MetaBooster:
 
             return preds
 
-    def feature_selection(self, X, y, threshold=0.95):
+    def feature_selection(self, X, y, threshold=0.8, method='total_gain'):
         logger.info(
             "Performing feature selection. Method: threshold best features in gain"
         )
-        # Train a model to get top features in gain
         sample_model = BOOSTING_ALG[self.method]()
         sample_model.fit(X=X, y=y)
 
-        features_imp_df = FeatureImportance.compute_importance(
-            models=[sample_model],
-            features=X.columns,
-            _get_importance_method=lambda model: model.feature_importances_,
-        )
-        self.features = features_imp_df[
-            features_imp_df.cumsum()["Importance"] < threshold
-        ]["Feature"].to_list()
+        if method == 'total_gain':
+            features_imp_df = FeatureImportance.compute_importance(
+                models=[sample_model],
+                features=X.columns,
+                _get_importance_method=lambda x : x.feature_importances_,
+            )
+            self.features = features_imp_df[
+                features_imp_df.cumsum()["Importance"] < threshold
+            ]["Feature"].to_list()
+
+        elif method == "permuation":
+            r = permutation_importance(sample_model, X, y, n_repeats=10, random_state=0)
+            self.features = r.importances_mean[:30]
+
+        else:
+            raise Exception("Feature selection method not implemented")
+
         logger.success(f"{len(self.features)} features are selected: {self.features}")
 
     def _compute_weights(self, X, y):

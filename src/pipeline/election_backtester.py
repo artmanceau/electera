@@ -252,6 +252,7 @@ class BackTester:
 
         # 2. Test and split
         self.process_and_split_dataset(data, k_year, k_political_trends)
+        breakpoint()
 
         # 3. Train model
         for trend in k_political_trends:
