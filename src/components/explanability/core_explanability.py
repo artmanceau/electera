@@ -14,9 +14,9 @@ class ExplainCore:
         self.t = t
 
     @staticmethod
-    def _load_model(data_path, var, year, type_, vars_, model_version):
+    def _load_model(data_path, var, year, type_, vars_, model_version, fs):
         model_path = f"{data_path}output/models/model_{year}_{type_}_{str(vars_)}_{model_version}.pkl"
-        model = DataLoader.load_pickle(file_path=model_path)
+        model = DataLoader.load_pickle(file_path=model_path, fs=fs)
         if not isinstance(model.models[var], MetaBooster):
             logger.error(
                 "This pipeline is not configured for this type of model. Only metaboosting models. Raising an error"

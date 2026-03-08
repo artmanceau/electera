@@ -68,9 +68,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 2,
-        "n_splits_outer": 1,
-        "n_trials": 2,
+        "n_splits_inner": 3,
+        "n_splits_outer": 3,
+        "n_trials": 3,
         "poll_adj": False
     },
     "meta_boosting_multiple": {
@@ -252,7 +252,6 @@ class BackTester:
 
         # 2. Test and split
         self.process_and_split_dataset(data, k_year, k_political_trends)
-        breakpoint()
 
         # 3. Train model
         for trend in k_political_trends:
@@ -281,7 +280,7 @@ class BackTester:
                     self.X_train[trend], self.y_train[trend]
                 ),
                 "meta_boosting": lambda: instance_model.train(
-                    self.X_train[trend], self.y_train[trend]
+                    self.X_train[trend], self.y_train[trend], use_feature_selection=True, val_set=(self.X_val[trend], self.y_val[trend])
                 ),
                 "meta_boosting_multiple": lambda: instance_model.train(
                     election_datasets=[

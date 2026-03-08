@@ -117,12 +117,13 @@ class MetaBooster:
 
         return X_train
 
-    def train(self, X, y, use_feature_selection=False):
+    def train(self, X, y, use_feature_selection=True, val_set=None):
         logger.info("Training meta-booster model")
         weights = self._compute_weights(X, y)
 
         if use_feature_selection:
-            self.feature_selection(X, y)
+            X_val, y_val = (X, y) if val_set is None else val_set
+            self.feature_selection(X_val, y_val)
 
         X = self._check_feature_consistency(X, self.features)
 

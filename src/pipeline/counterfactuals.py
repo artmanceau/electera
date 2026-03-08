@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from loguru import logger
 from src.components.explanability.core_explanability import ExplainCore
@@ -12,7 +11,7 @@ from src.components.explanability.counterfactuals.cf_generator.generator import 
 class CounterfactualPipeline:
     """Build as an interface between electera and counterfactuals generation process"""
 
-    def __init__(self, var, year, type_, vars_, version, data_path):
+    def __init__(self, var, year, type_, vars_, version, data_path, fs=None):
         """Initialize the explainability pipeline with a configuration."""
         self.cf_config = ConfigReader._read_config(
                 "config/counterfactual_config.json", CFConfig
@@ -23,23 +22,20 @@ class CounterfactualPipeline:
         self.vars_ = vars_
         self.type_ = type_
         self.t = 0 if self.type_ == "pres" else 1
-
-        self.output_dir = "results/cfs/"
-        os.makedirs(self.output_dir, exist_ok=True)
-
         self.data_path = data_path
+        self.fs = fs
 
     def run(self, codecommune, variation=0.2):
         """Generate counterfactual explanation using the infer method of a model"""
         ec = ExplainCore(self.var, self.year, self.t)
 
         # 0. Get model
-        self.model, self.n_models = ec._load_model(data_path=self.data_path, var=self.var, year=self.year, type_=self.type_, vars_=self.vars_, model_version=self.model_version)
+        self.model, self.n_models = ec._load_model(data_path=self.data_path, var=self.var, year=self.year, type_=self.type_, vars_=self.vars_, model_version=self.model_version, fs=self.fs)
         
         ## Assumes a choice for the data distribution:
         ##  1. Evolution : same commune over time. Use diff (over codecommune)
         ##  2. Neighborood : same election (same codecommune) but don't use diff.
-        data = DataLoader.load_dataset(self.model.data_paths[self.var],  fs=None, formate='parquet', columns=None, filters=[("annee", "==", float(self.year)), ("type", "==", self.t)])
+        data = DataLoader.load_dataset(self.model.data_paths[self.var],  fs=self.fs, formate='parquet', columns=None, filters=[("annee", "==", float(self.year)), ("type", "==", self.t)])
         
         # 1. Counterfactual generation preparation
         stat_computer = CounterfactualDataProcessing(self.model.models[self.var].features, self.cf_config)

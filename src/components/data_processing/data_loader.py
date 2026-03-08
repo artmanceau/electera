@@ -235,8 +235,9 @@ class DataLoader:
                 pickle.dump(object_to_pickle, file)
 
     @staticmethod
-    def load_pickle(file_path: str) -> None:
-        fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
+    def load_pickle(file_path: str, fs: Optional[object] | None = None) -> None:
+        if not fs:
+            fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if fs:
             with fs.open(file_path, "rb") as file:
                 return pickle.load(file)

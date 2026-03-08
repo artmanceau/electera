@@ -1,9 +1,10 @@
 import streamlit as st
 from asset.definitions import convert, political_align, reverse_convert
 from core.utils import check_home_run, present_results
+#from src.pipeline.counterfactuals import CounterfactualPipeline
+from core.data_handler import get_fs
 
 check_home_run()
-
 
 # User selections
 col1, col2, col3 = st.columns(3)
@@ -92,3 +93,21 @@ st.divider()
 #     st.session_state["data"]["shap_values"],
 #     selection_code_commune=selection_code_commune,
 # )
+
+
+st.divider()
+
+VAR = st.selectbox(
+        "Tendance politique", BLOCS, index=0
+    )
+
+delta = st.slider(
+        "Changer le score de la tendance politique de x%",
+        -0.5,
+        0.5,
+    )
+
+# Donner l'accès au service account à tout data
+#cf_generator = CounterfactualPipeline(VAR, YEAR, TYPE, BLOCS, st.session_state["config"].model_version, st.session_state["config"].data_path+'/', fs=get_fs().fs)
+#counterfactuals_list = cf_generator.run(codecommune=selection_code_commune, variation=delta)
+# Presentation of counterfactuals

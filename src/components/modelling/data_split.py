@@ -58,7 +58,7 @@ class Splitter:
             socio_eco_features = socio_eco_features_stationnary
 
         if remove_correlated:
-            # Pearson correlation 
+            # Pearson correlation
             logger.info('Removing most correlated features')
             to_drop_correlated = set()
             for X in [X_train, X_test, X_val]:
@@ -67,7 +67,7 @@ class Splitter:
             socio_eco_features = list(set(socio_eco_features)-to_drop_correlated)
 
         features = non_socio_eco_features + socio_eco_features
-        features = list(set(features).union(set(feature_to_save)))
+        features = list(set(features).union(set(features_to_save)))
         return X_train[features], X_val[features], X_test[features]
 
     def get_Xy(self, data, predict_delta=False, selected_features=None):

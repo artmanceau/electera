@@ -1,10 +1,10 @@
 {
-    "political_trends": [["voteTG", "voteTD", "par"]],
+    "political_trends": [["par", "voteG", "voteD", "voteC", "voteCD", "voteCG"]],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "dataset_path": "derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet",
     "random_seed": 42,
-    "k_year": [2022],
-    "k_type": ["pres"],
+    "k_year": [2022, 2017, 2027, 2012],
+    "k_type": ["pres", "leg"],
     "model" : "meta_boosting",
-    "version" : "test"
+    "version" : "0.0.2"
 }
