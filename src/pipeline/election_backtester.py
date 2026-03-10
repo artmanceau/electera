@@ -68,9 +68,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 3,
-        "n_splits_outer": 3,
-        "n_trials": 3,
+        "n_splits_inner": 10,
+        "n_splits_outer": 10,
+        "n_trials": 10,
         "poll_adj": False
     },
     "meta_boosting_multiple": {
@@ -197,7 +197,8 @@ class BackTester:
         else:
             logger.warning('No poll data for this election, skipping')
 
-        result_synthetic.reset_index()
+        result_synthetic['index'] = result_synthetic.index
+        result_synthetic.reset_index(drop=True)
 
         return result_synthetic
 
@@ -219,21 +220,25 @@ class BackTester:
         # Post-treatment
         result_all, result_synthetic = result
         result_synthetic = self.add_poll_predictions(result_synthetic, k_year, k_type, k_political_trends)
+        
+        # Alphabetic sort
+        k_political_trends.sort()
+        vars_ = k_political_trends
 
         DataLoader.write_dataset(
             result_all,
             result_dir_path
-            + f"results_full_{k_year}_{k_type}_{k_political_trends}_{version}.parquet",
+            + f"results_full_{k_year}_{k_type}_{vars_}_{version}.parquet",
         )
         DataLoader.write_dataset(
             result_synthetic,
             result_dir_path
-            + f"results_synth_{k_year}_{k_type}_{k_political_trends}_{version}.parquet",
+            + f"results_synth_{k_year}_{k_type}_{vars_}_{version}.parquet",
         )
         DataLoader.dump_pickle(
             object_to_pickle=model,
             file_path=model_dir_path
-            + f"model_{k_year}_{k_type}_{k_political_trends}_{version}.pkl",
+            + f"model_{k_year}_{k_type}_{vars_}_{version}.pkl",
         )
 
     def run_backtest(

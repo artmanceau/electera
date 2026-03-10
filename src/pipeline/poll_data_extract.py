@@ -665,17 +665,20 @@ class PollFetcher:
         assert 50 < X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean() < 100
         assert 50 < X[[f'{b}_raw' for b in blocs_level_2]].sum(axis=1).mean() < 100
         assert 50 < X[[f'{b}_raw' for b in blocs_level_3]].sum(axis=1).mean() < 100
-        
+
         # Adjust to make them sum to 1
-        delta_1 = 100 - X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean() / len(blocs_level_1)
+        delta_1 = (100 - X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean()) / len(blocs_level_1)
         for bloc in blocs_level_1:
-            X[bloc] = X[f'{b}_raw'] + delta_1
-        delta_2 = 100 - X[[f'{b}_raw' for b in blocs_level_2]].sum(axis=1).mean() / len(blocs_level_2)
-        for bloc in blocs_level_2:
-            X[bloc] = X[f'{b}_raw'] + delta_2
-        delta_3 = 100 - X[[f'{b}_raw' for b in blocs_level_3]].sum(axis=1).mean() / len(blocs_level_3)
-        for bloc in blocs_level_3:
-            X[bloc] = X[f'{b}_raw'] + delta_3
+            X[bloc] = X[f'{bloc}_raw'] + delta_1
+    
+        X["GCG"] = X["G"] + X["CG"]
+        X["DCD"] = X["D"] + X["CD"]
+        X["TG"] = X["G"] + X["CG"] + X["C"] / 2
+        X["TD"] = X["D"] + X["CD"] + X["C"] / 2
+
+        assert np.isclose(X[blocs_level_1].sum(axis=1).mean(), 100)
+        assert np.isclose(X[blocs_level_2].sum(axis=1).mean(), 100)
+        assert np.isclose(X[blocs_level_3].sum(axis=1).mean(), 100)
 
         return X
 

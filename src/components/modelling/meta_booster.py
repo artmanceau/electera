@@ -192,7 +192,7 @@ class MetaBooster:
 
             return preds
 
-    def feature_selection(self, X, y, threshold=0.8, method='total_gain'):
+    def feature_selection(self, X, y, threshold=0.8, method='permuation'):
         logger.info(
             "Performing feature selection. Method: threshold best features in gain"
         )
@@ -210,8 +210,8 @@ class MetaBooster:
             ]["Feature"].to_list()
 
         elif method == "permuation":
-            r = permutation_importance(sample_model, X, y, n_repeats=10, random_state=0)
-            self.features = r.importances_mean[:30]
+            perm = permutation_importance(sample_model, X, y, n_repeats=10, random_state=0)
+            self.features = X.columns[perm.importances_mean.argsort()[::-1][:30]].to_list()
 
         else:
             raise Exception("Feature selection method not implemented")

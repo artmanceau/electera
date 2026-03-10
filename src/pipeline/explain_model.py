@@ -352,7 +352,7 @@ class Explainer:
         ec = ExplainCore(self.var, self.year, self.t)
 
         # 0. Get model
-        self.model, self.n_models = ec._load_model(data_path=self.data_path, var=self.var, year=self.year, type_=self.type_, vars_=self.vars_, model_version=self.model_version)
+        self.model, self.n_models = ec._load_model(data_path=self.data_path, var=self.var, year=self.year, type_=self.type_, vars_=self.vars_, model_version=self.model_version, fs=None)
         data = DataLoader.load_dataset(self.model.data_paths[self.var],  fs=None, formate='parquet', columns=None, filters=[("type", "==", self.t)])
         
         # 1. Get sample data from model

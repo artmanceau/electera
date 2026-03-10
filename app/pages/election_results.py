@@ -35,11 +35,17 @@ with col3:
 
 TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
 
+# Quickfix conversion for list
+# Better logic infer order from looking in S3
+# TODO: Sort blocs by alphabetic order in saving files, keep the index?
+# if BLOCS == ['voteG', 'voteD', 'voteCG', 'voteCD', 'voteC', 'par']:
+#     BLOCS = ['par', 'voteG', 'voteD', 'voteC', 'voteCD', 'voteCG']
+
 st.session_state["data"].load_result(
     asset="results_synth", year=YEAR, election_type=TYPE, trends=BLOCS
 )
 results = st.session_state["data"].container["results_synth"].set_index("index")
-
+st.write(results)
 st.session_state["data"].load_explain(
     asset="feature_importance", year=YEAR, election_type=TYPE, trends=BLOCS
 )
