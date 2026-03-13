@@ -1,60 +1,29 @@
-import time
-
 import streamlit as st
-from asset.definitions import convert, political_align, reverse_convert, trad
+from asset.definitions import trad
 from core.utils import (
     check_home_run,
     diff_show,
     present_results,
     show_feature_importance,
+    show_shap_values
 )
 
 check_home_run()
 
-# User selections
-col1, col2, col3 = st.columns(3)
-with col1:
-    YEAR = st.selectbox(
-        "Année électorale", st.session_state["config"].years_to_display, index=0
-    )
-with col2:
-    t = st.selectbox(
-        "Type d'élection",
-        [convert("type", el) for el in st.session_state["config"].types_to_display],
-        index=0,
-    )
-with col3:
-    b = st.selectbox(
-        "Division politique",
-        [
-            convert("political_division", el)
-            for el in st.session_state["config"].political_divisions_to_dislay
-        ],
-        index=0,
-    )
-
-TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
-
-# Quickfix conversion for list
-# Better logic infer order from looking in S3
-# TODO: Sort blocs by alphabetic order in saving files, keep the index?
-# if BLOCS == ['voteG', 'voteD', 'voteCG', 'voteCD', 'voteC', 'par']:
-#     BLOCS = ['par', 'voteG', 'voteD', 'voteC', 'voteCD', 'voteCG']
+st.session_state['state'].selection_box()
 
 st.session_state["data"].load_result(
-    asset="results_synth", year=YEAR, election_type=TYPE, trends=BLOCS
+    asset="results_synth",
+    year=st.session_state['state'].year,
+    election_type=st.session_state['state'].get_type(as_type='code'), 
+    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
 )
 results = st.session_state["data"].container["results_synth"].set_index("index")
-st.write(results)
-st.session_state["data"].load_explain(
-    asset="feature_importance", year=YEAR, election_type=TYPE, trends=BLOCS
-)
-feature_importance = st.session_state["data"].container["feature_importance"]
 
-st.header(f"Résultat des {t} de {YEAR} ({b})")
+st.header(f"Résultat des {st.session_state['state'].get_type(as_type='verbose')} de {st.session_state['state'].year} ({st.session_state['state'].get_blocs(as_type='verbose')})")
 
 present_results(
-    results, year=YEAR, t=TYPE, blocs=political_align(BLOCS), scale="global"
+    results, year=st.session_state['state'].year, t=st.session_state['state'].get_type(as_type='code'), blocs=st.session_state['state'].get_blocs(as_type='code', order='political'), scale="global"
 )
 
 st.divider()
@@ -63,26 +32,38 @@ st.header("Erreur du modèle")
 
 # Create trad adapté à bloc
 mean_error = (
-    results.loc[[f"p{b}" for b in BLOCS], f"{YEAR}_{TYPE}_diff"].values.mean()
+    results.loc[[f"p{b}" for b in st.session_state['state'].get_blocs(as_type='code', order='alpha')], f"{st.session_state['state'].year}_{st.session_state['state'].get_type(as_type='code')}_diff"].values.mean()
 ) * 100
 std_error = (
-    results.loc[[f"p{b}" for b in BLOCS], f"{YEAR}_{TYPE}_diff"].values.std()
+    results.loc[[f"p{b}" for b in st.session_state['state'].get_blocs(as_type='code', order='alpha')], f"{st.session_state['state'].year}_{st.session_state['state'].get_type(as_type='code')}_diff"].values.std()
 ) * 100
 st.write(f"Erreur moyenne des prédictions: {mean_error:1f}%")
 st.write(f"Ecart type de l'erreur de prédiction: {std_error:1f}%")
 
 with st.expander("Erreurs moyenne des prédictions (sur l'ensemble des communes)"):
-    diff_show(results, BLOCS, trad, "diff", "error", YEAR, TYPE)
+    diff_show(results, st.session_state['state'].get_blocs(as_type='code', order='alpha'), trad, "diff", "error", st.session_state['state'].year, st.session_state['state'].get_type(as_type='code'))
 
 with st.expander("Ecart type de l'erreur de prédiction (sur l'ensemble des communes)"):
-    diff_show(results, BLOCS, trad, "std", "ecart_type", YEAR, TYPE)
+    diff_show(results, st.session_state['state'].get_blocs(as_type='code', order='alpha'), trad, "std", "ecart_type", st.session_state['state'].year, st.session_state['state'].get_type(as_type='code'))
 
 st.divider()
 
-time.sleep(2)
+st.session_state["data"].load_explain(
+    asset="feature_importance",
+    year=st.session_state['state'].year, 
+    election_type=st.session_state['state'].get_type(as_type='code'), 
+    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
+)
 
-show_feature_importance(feature_importance, political_align(BLOCS))
+show_feature_importance(st.session_state["data"].container["feature_importance"], st.session_state['state'].get_blocs(as_type='code', order='political'))
 
 st.divider()
 
-# show_shap_values(st.session_state["data"]["shap_values"])
+st.session_state["data"].load_explain(
+    asset="shap_values",
+    year=st.session_state['state'].year, 
+    election_type=st.session_state['state'].get_type(as_type='code'),
+    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
+)
+
+show_shap_values(st.session_state["data"].container["shap_values"], BLOCS=st.session_state['state'].get_blocs(as_type='code', order='political'))

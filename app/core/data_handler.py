@@ -54,14 +54,23 @@ class AppData:
         trends: List[str],
         year: int,
         election_type: Literal["leg", "pres", "ref"],
+        columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
+        asset_name: Optional[str] | None = None,
     ):
         self.container[asset] = {}
+
         for trend in trends:
+            if asset == "shap_values":
+                file_path = f"{self.data_path}/output/explain/{asset}_{trend}_{year}_{election_type}_{self.version}.parquet"
+            else:
+                file_path = f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet"
+            
             element = DataLoader.load_dataset(
-                f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet",
+                file_path,
                 fs=get_fs().fs,
                 formate="parquet",
+                columns=columns,
                 filters=filters,
             )
             self.container[asset][trend] = element
@@ -77,9 +86,32 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
-        print(f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet")
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
+            fs=get_fs().fs,
+            formate="parquet",
+            columns=columns,
+            filters=filters,
+        )
+        logger.info(f"{asset} loaded with success!")
+
+        asset_name = asset_name if asset_name is not None else asset
+        self.container[asset_name] = element
+
+    def load_data_sample(
+        self,
+        asset: Literal["data_sample", "data_distribution"],
+        trends: List[str],
+        year: int,
+        election_type: Literal["leg", "pres", "ref"],
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
+        asset_name: Optional[str] | None = None,
+    ):
+        # TODO: load a data sample for the shap values
+        # Self.derived_data_path
+        element = DataLoader.load_dataset(
+            f"{self.data_path}/data/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
             fs=get_fs().fs,
             formate="parquet",
             columns=columns,

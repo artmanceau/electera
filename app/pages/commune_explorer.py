@@ -1,111 +1,66 @@
 import streamlit as st
-from asset.definitions import convert, political_align, reverse_convert
-from core.utils import check_home_run, present_results
+from core.utils import check_home_run, present_results, show_shap_values
 #from src.pipeline.counterfactuals import CounterfactualPipeline
-from core.data_handler import get_fs
+#from core.data_handler import get_fs
 
 check_home_run()
 
-# User selections
-col1, col2, col3 = st.columns(3)
-with col1:
-    YEAR = st.selectbox(
-        "Année électorale", st.session_state["config"].years_to_display, index=0
-    )
-with col2:
-    t = st.selectbox(
-        "Type d'élection",
-        [convert("type", el) for el in st.session_state["config"].types_to_display],
-        index=0,
-    )
-with col3:
-    b = st.selectbox(
-        "Division politique",
-        [
-            convert("political_division", el)
-            for el in st.session_state["config"].political_divisions_to_dislay
-        ],
-        index=0,
-    )
-
-TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
-
+st.session_state['state'].selection_box()
 
 st.header("Resultat au niveau de chaque commune")
 
-st.session_state["data"].load_result(
-    asset="results_full",
-    trends=BLOCS,
-    year=YEAR,
-    election_type=TYPE,
-    columns=["codecommune", "nomcommune"],
-    filters=None,
-    asset_name="communes_list",
-)
-communes_list = st.session_state["data"].container["communes_list"]
+st.session_state['state'].commune_selector()
+st.write(f'Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})')
 
-communes_list["nomcommune"] = (
-    communes_list["nomcommune"]
-    .str.replace("Ã", "É", regex=False)
-    .str.replace("Ã", "Â", regex=False)
-    .str.replace("Ã", "È", regex=False)
-    .str.replace("Ã", "Ô", regex=False)
-    .str.replace("Ã", "Ê", regex=False)
-    .str.replace("Ã", "À", regex=False)
-)
-communes = communes_list["nomcommune"]
-
-selection = st.selectbox("Selectionnez une commune", [""] + communes)
-if selection and selection != "-- none --":
-    st.write("Commune selectionée : ", selection)
-    if len(communes_list[communes_list["nomcommune"] == selection]) > 1:
-        arrondissements = communes_list[communes_list["nomcommune"] == selection][
-            "codecommune"
-        ]
-        selection_code_commune = st.selectbox(
-            "Selectionnez une arrondissement", [""] + arrondissements
-        )
-    else:
-        selection_code_commune = communes_list[
-            communes_list["nomcommune"] == selection
-        ]["codecommune"].iloc[0]
+st.divider()
 
 st.session_state["data"].load_result(
     asset="results_full",
-    trends=BLOCS,
-    year=YEAR,
-    election_type=TYPE,
+    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
+    year=st.session_state['state'].year,
+    election_type=st.session_state['state'].get_type(as_type='code'),
     columns=None,
-    filters=[("codecommune", "==", selection_code_commune)],
+    filters=[("codecommune", "==", st.session_state['state'].codecommune)],
     asset_name="results_commune_selected",
 )
-data_line = st.session_state["data"].container["results_commune_selected"]
-
-st.divider()
 
 present_results(
-    data_line, year=YEAR, t=TYPE, blocs=political_align(BLOCS), scale="local"
+    st.session_state["data"].container["results_commune_selected"],
+    year=st.session_state['state'].year,
+    t=st.session_state['state'].get_type(as_type='code'),
+    blocs=st.session_state['state'].get_blocs(as_type='code', order='political'),
+    scale="local"
 )
 
 st.divider()
 
-# show_shap_values(
-#     st.session_state["data"]["shap_values"],
-#     selection_code_commune=selection_code_commune,
-# )
+st.session_state["data"].load_explain(
+    asset="shap_values",
+    year=st.session_state['state'].year,
+    election_type=st.session_state['state'].get_type(as_type='code'),
+    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
+    columns=None,
+    filters=[("codecommune", "==", st.session_state['state'].codecommune)],
+    asset_name="results_commune_selected"
+)
 
+show_shap_values(
+    st.session_state["data"].container["shap_values"],
+    BLOCS=st.session_state['state'].get_blocs(as_type='code', order='political'),
+    selection_code_commune=st.session_state['state'].codecommune,
+)
 
-st.divider()
+# st.divider()
 
-VAR = st.selectbox(
-        "Tendance politique", BLOCS, index=0
-    )
+# VAR = st.selectbox(
+#         "Tendance politique", BLOCS, index=0
+#     )
 
-delta = st.slider(
-        "Changer le score de la tendance politique de x%",
-        -0.5,
-        0.5,
-    )
+# delta = st.slider(
+#         "Changer le score de la tendance politique de x%",
+#         -0.5,
+#         0.5,
+#     )
 
 # Donner l'accès au service account à tout data
 #cf_generator = CounterfactualPipeline(VAR, YEAR, TYPE, BLOCS, st.session_state["config"].model_version, st.session_state["config"].data_path+'/', fs=get_fs().fs)

@@ -30,6 +30,7 @@ class Explainer:
         self.data_path = self.config.data_path
         self.model_version = self.config.model_version
         self.steps = self.config.steps
+        self.shap_values_computed = False
 
         self.output_dir = f"{self.data_path}output/explain/"
         if not DataUtils._detect_s3(self.data_path):
@@ -56,13 +57,13 @@ class Explainer:
         )
 
         # 2. Permutation feature importance
-        feature_importance_perm = np.zeros((len(self.model.features[self.var])))
+        feature_importance_perm = np.zeros((len(self.model.models[self.var].features)))
         PERMUTATION = False
         if PERMUTATION:
             logger.info("Calculating permutation feature importance...")
             perm_importance_df = FeatureImportance.compute_importance(
                 models=self.model.models[self.var].best_models,
-                features=self.model.features[self.var],
+                features=self.model.models[self.var].features,
                 _get_importance_method=lambda model: permutation_importance(
                     model, X, y, n_repeats=2, random_state=42
                 ),
@@ -71,17 +72,17 @@ class Explainer:
             logger.warning("Skipping permutation feature importance")
             perm_importance_df = pd.DataFrame(
                 {
-                    "Feature": self.model.features[self.var],
+                    "Feature": self.model.models[self.var].features,
                     "Importance": feature_importance_perm,
                 }
             ).sort_values(by="Importance", ascending=False)
 
         # 3. SHAP-based feature importance
-        if shap_values:
+        if self.shap_values_computed:
             logger.info("Calculating SHAP-based feature importance...")
             shap_importance_df = pd.DataFrame(
                 {
-                    "Feature": self.model.features[self.var],
+                    "Feature": self.model.models[self.var].features,
                     "Importance": np.abs(shap_values).mean(axis=0),
                 }
             ).sort_values(by="Importance", ascending=False)
@@ -89,7 +90,7 @@ class Explainer:
             logger.warning("Skipping permutation feature importance")
             shap_importance_df = pd.DataFrame(
                 {
-                    "Feature": self.model.features[self.var],
+                    "Feature": self.model.models[self.var].features,
                     "Importance": feature_importance_perm,
                 }
             ).sort_values(by="Importance", ascending=False)
@@ -117,27 +118,27 @@ class Explainer:
         """Generate SHAP analysis plots."""
         logger.info("Generating SHAP analysis...")
         shap_values_per_model = {}
+        X_features = X[self.model.models[self.var].features]
         for k in range(self.n_models):
             predict_function = self.model.models[self.var].best_models[k].predict
-            X_features = X[self.model.models[self.var].features]
             n_features_in = len(self.model.models[self.var].features)
             explainer_k = shap.Explainer(predict_function, X_features)
             shap_values_per_model[k] = explainer_k(X_features, max_evals=2*n_features_in+1)
 
-        shap_values = np.zeros(X.shape)
+        shap_values = np.zeros(X_features.shape)
         for k in range(self.n_models):
             shap_values += (
                 np.asarray(shap_values_per_model[k].values, dtype=float) / self.n_models
             )
-
-        return shap_values
+        self.shap_values_computed = True
+        return shap_values, X_features.columns
 
     def save_shap_values(self, entities, features, shap_values):
         """Save shape values along with feature names and commune name"""
         shap_values_aug = pd.DataFrame(shap_values, index=entities, columns=features)
         shap_values_aug.reset_index().to_parquet(
             self.output_dir
-            + f"shap_values_{self.var}_{self.year}_{self.type_}_{self.model_version}.parquet",
+            + f"shap_values_{self.vars_}_{self.var}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
         )
 
@@ -362,9 +363,9 @@ class Explainer:
 
         # 2.1. Shap values
         if "shap_values" in self.steps:
-            shap_values = self.compute_shap_values(X)
+            shap_values, features = self.compute_shap_values(X)
             self.save_shap_values(
-                entities=c, features=X.columns, shap_values=shap_values
+                entities=c, features=features, shap_values=shap_values
             )
         if "plot_shap_values" in self.steps:
             self.plot_shap_summary(shap_values=shap_values)

@@ -42,6 +42,7 @@ with col3:
     )
 
 TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
+BLOCS.sort()
 current_blocs = [bloc.replace("vote", "") for bloc in BLOCS if bloc != "par"]
 
 st.header("Carte des résultats électoraux")

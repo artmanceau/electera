@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import shap
 import streamlit as st
 from asset.definitions import FEATURES_DICT, colors_dict, get_colors, trad
-
+import plotly.graph_objects as go
 
 def check_home_run():
     if "home_run" in st.session_state:
@@ -75,6 +75,7 @@ def results_glob(data_line, year_type, blocs, label, p=""):
 def present_results(data_line, year, t, blocs, scale):
     result_func = results_glob if scale == "global" else results_loc
 
+
     tab1, tab2 = st.tabs(["Pourcentage des suffrages", "Nombre de vote"])
 
     with tab2:
@@ -142,6 +143,7 @@ def present_results(data_line, year, t, blocs, scale):
             )
             st.bar_chart(data=(data_element).T, sort=False)
 
+
     with tab1:
 
         with st.expander("Résultats", expanded=True):
@@ -163,6 +165,18 @@ def present_results(data_line, year, t, blocs, scale):
             result_func(
                 data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p="p"
             )
+
+        if f"{year}_{t}_poll" in data_line.columns:
+            with st.expander("Sondages", expanded=True):
+                st.write(
+                """
+                    Prédictions du modèle pour l'élection
+                """
+                )
+                result_func(
+                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="poll", p="p"
+                )
+
 
         with st.expander("Erreur", expanded=True):
             st.write(
@@ -240,45 +254,10 @@ def show_feature_importance(importance_df, blocs):
                 )
                 .properties(width=600, height=400)
             )
-            st.altair_chart(chart, use_container_width=True)
-
-            # st.write("Importance en valeur de shap")
-            # top_shap = df.nlargest(nb_feat, "Importance_shap")[
-            #     ["Feature_shap", "Importance_shap"]
-            # ]
-            # top_shap = top_shap.sort_values("Importance_shap", ascending=False)
-            # st.bar_chart(top_shap.set_index("Feature_shap")["Importance_shap"])
-
-            # if st.button(
-            #     f"Montrer l'importance en gain total de toutes les variables pour la prédiction de {trad[trends[i]]}"
-            # ):
-            #     st.dataframe(
-            #         df,
-            #         column_config={
-            #             "Feature_gain": "Feature",
-            #             "Importance_gain": st.column_config.NumberColumn(
-            #                 "Importance en gain (total)",
-            #                 help="Quantifie à quel point ce feature permet de purifier l'arbre",
-            #                 format="percent",
-            #             ),
-            #             # "Feature_perm": "Feature",
-            #             # "Importance_perm": st.column_config.NumberColumn(
-            #             #     "Importance en permutation",
-            #             #     help="",
-            #             #     format="percent",
-            #             # ),
-            #             # "Feature_shap": "Feature",
-            #             # "Importance_shap": st.column_config.NumberColumn(
-            #             #     "Importance en valeur de shap",
-            #             #     help="Somme en valeur absolue des valeur de shap associé à ce feature pour chaque instance",
-            #             #     format="percent",
-            #             # ),
-            #         },
-            #         hide_index=True,
-            #     )
+            st.altair_chart(chart)
 
 
-def show_shap_values(shap_df, selection_code_commune=None):
+def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
     st.header("Shap values")
 
     st.write(
@@ -292,6 +271,7 @@ def show_shap_values(shap_df, selection_code_commune=None):
     tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in BLOCS])
     for i, tab in enumerate(tabs):
         with tab:
+            trends = ["par"] + [f"{b}" for b in BLOCS]
             shap_values_df = shap_df[trends[i]].copy()
             if selection_code_commune is not None:
                 shap_commune = shap_values_df[
@@ -316,24 +296,101 @@ def show_shap_values(shap_df, selection_code_commune=None):
                     .astype(float)
                 )
                 row_values = row.values
+            
+                # Get expected values
+                st.session_state["data"].load_result(
+                    asset="results_full",
+                    year=st.session_state['state'].year,
+                    election_type=st.session_state['state'].get_type(as_type='code'),
+                    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
+                    columns=[f'p{trends[i]}_pred'],
+                    filters=None,
+                    asset_name="result_trend_i",
+                )
+
                 expl = shap.Explanation(
                     values=row_values,
                     data=row_values,
-                    base_values=0.0,
+                    base_values=st.session_state["data"].container["result_trend_i"].mean(),
                     feature_names=shap_values_df_wo_cc.columns,
                 )
+                shap.plots.bar(expl, max_display=nb_feat_shap)
 
             else:
+                # Maybe sub-sample if too much values
                 expl = shap.Explanation(
-                    values=shap_values_df_wo_cc.values,
+                    values=shap_values_df_wo_cc.values, # Get the real values
                     data=shap_values_df_wo_cc.values,
-                    feature_names=shap_values_df_wo_cc.columns,
+                    base_values=st.session_state["data"].container["result_trend_i"].mean(),
+                    feature_names=shap_values_df_wo_cc.columns
+                   
                 )
-            shap.plots.beeswarm(expl, max_display=nb_feat_shap)
+                shap.plots.beeswarm(expl, max_display=nb_feat_shap)
             st.pyplot(plt.gcf())
             plt.clf()
 
-            if st.button(
-                f"Montrer l'importance en valeur de Shap de toutes les variables pour la prédiction de {trends[i]}"
-            ):
-                st.dataframe(shap_values_df, hide_index=True)
+
+
+def plot_backtest(
+    df,
+    variables,
+    years,
+    true_suffix="_true",
+    pred_suffix="_pred",
+    yaxis_title="Taux de participation (%)",
+):
+    if isinstance(variables, str):
+        variables = [variables]
+    years_sorted = sorted(years)
+
+    fig = go.Figure()
+
+    for idx, variable in enumerate(variables):
+        color = "#008000" if (variable=='ppar') else colors_dict[variable.replace('p', '')]
+        true_vals = [
+            (
+                df.loc[variable, f"{year}_{st.session_state['state'].get_type(as_type='code')}{true_suffix}"]
+                if f"{year}_{st.session_state['state'].get_type(as_type='code')}{true_suffix}" in df.columns
+                else None
+            )
+            for year in years_sorted
+        ]
+        pred_vals = [
+            (
+                df.loc[variable, f"{year}_{st.session_state['state'].get_type(as_type='code')}{pred_suffix}"]
+                if f"{year}_{st.session_state['state'].get_type(as_type='code')}{pred_suffix}" in df.columns
+                else None
+            )
+            for year in years_sorted
+        ]
+        fig.add_trace(
+            go.Scatter(
+                x=years_sorted,
+                y=true_vals,
+                mode="lines+markers",
+                name=f"{trad[variable[1:]]} - Réel" if (variable=='ppar') else f"Vote {trad[variable[1:]]} - Réel",
+                line=dict(color=color, width=3, dash="solid"),
+                marker=dict(size=10, color=color, symbol='triangle-down')
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=years_sorted,
+                y=pred_vals,
+                mode="lines+markers",
+                name=f"{trad[variable[1:]]} - Prédiction" if (variable=='ppar') else f"Vote {trad[variable[1:]]} - Prédiction",
+                line=dict(color=color, width=3, dash="dot"),
+                marker=dict(size=10, color=color, symbol='triangle-up'),
+            )
+        )
+
+    fig.update_layout(
+        xaxis_title="Année",
+        yaxis_title=yaxis_title,
+        hovermode="x unified",
+        height=600,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
