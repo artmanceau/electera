@@ -86,6 +86,8 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
+        print(f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet")
+        print(get_fs().fs)
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
             fs=get_fs().fs,

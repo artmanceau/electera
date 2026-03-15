@@ -19,31 +19,9 @@ def load_geojson_page(path: str, _fs: object):
 
 
 check_home_run()
+st.session_state['state'].selection_box()
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    YEAR = st.selectbox(
-        "Année électorale", st.session_state["config"].years_to_display, index=0
-    )
-with col2:
-    t = st.selectbox(
-        "Type d'élection",
-        [convert("type", el) for el in st.session_state["config"].types_to_display],
-        index=0,
-    )
-with col3:
-    b = st.selectbox(
-        "Division politique",
-        [
-            convert("political_division", el)
-            for el in st.session_state["config"].political_divisions_to_dislay
-        ],
-        index=0,
-    )
-
-TYPE, BLOCS = reverse_convert("type", t), reverse_convert("political_division", b)
-BLOCS.sort()
-current_blocs = [bloc.replace("vote", "") for bloc in BLOCS if bloc != "par"]
+current_blocs = [bloc.replace("vote", "") for bloc in st.session_state['state'].get_blocs(as_type='code', order='alpha') if bloc != "par"]
 
 st.header("Carte des résultats électoraux")
 
@@ -51,9 +29,9 @@ st.header("Carte des résultats électoraux")
 with st.spinner("Chargement des données..."):
     st.session_state["data"].load_result(
         asset="results_full",
-        year=YEAR,
-        election_type=TYPE,
-        trends=BLOCS,
+        year=st.session_state['state'].get_year(),
+        election_type=st.session_state['state'].get_type(as_type='code'),
+        trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
         asset_name="results_full",
     )
     results = st.session_state["data"].container["results_full"]
@@ -200,7 +178,7 @@ with col1:
     )
 
     # Render prediction map
-    st.pydeck_chart(pred_deck, use_container_width=True, height=500)
+    st.pydeck_chart(pred_deck, height=500)
 
 with col2:
     st.markdown("**Résultats Réels**")
@@ -237,7 +215,7 @@ with col2:
     )
 
     # Render true results map
-    st.pydeck_chart(true_deck, use_container_width=True, height=500)
+    st.pydeck_chart(true_deck, height=500)
 
 
 st.divider()

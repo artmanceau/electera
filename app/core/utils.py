@@ -289,6 +289,17 @@ def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
                 )
             shap_values_df_wo_cc = shap_values_df_wo_cc.astype(float)
 
+            # Get expected values
+            st.session_state["data"].load_result(
+                    asset="results_full",
+                    year=st.session_state['state'].year,
+                    election_type=st.session_state['state'].get_type(as_type='code'),
+                    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
+                    columns=[f'p{trends[i]}_pred'],
+                    filters=None,
+                    asset_name="result_trend_i",
+            )
+
             if selection_code_commune is not None:
                 row = (
                     shap_commune.drop(columns=["codecommune"], errors="ignore")
@@ -297,16 +308,6 @@ def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
                 )
                 row_values = row.values
             
-                # Get expected values
-                st.session_state["data"].load_result(
-                    asset="results_full",
-                    year=st.session_state['state'].year,
-                    election_type=st.session_state['state'].get_type(as_type='code'),
-                    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
-                    columns=[f'p{trends[i]}_pred'],
-                    filters=None,
-                    asset_name="result_trend_i",
-                )
 
                 expl = shap.Explanation(
                     values=row_values,
