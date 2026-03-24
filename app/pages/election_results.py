@@ -8,16 +8,42 @@ from core.utils import (
     show_shap_values
 )
 
+
+@st.cache_data
+def load_results():
+    st.session_state["data"].load_result(
+        asset="results_synth",
+        year=st.session_state['state'].year,
+        election_type=st.session_state['state'].get_type(as_type='code'), 
+        trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
+    )
+
+
+@st.cache_data
+def load_feature_importance():
+    st.session_state["data"].load_explain(
+        asset="feature_importance",
+        year=st.session_state['state'].year, 
+        election_type=st.session_state['state'].get_type(as_type='code'), 
+        trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
+    )
+
+
+@st.cache_data
+def load_shap_values():
+    st.session_state["data"].load_explain(
+        asset="shap_values",
+        year=st.session_state['state'].year, 
+        election_type=st.session_state['state'].get_type(as_type='code'),
+        trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
+    )
+
+
 check_home_run()
 
 st.session_state['state'].selection_box()
 
-st.session_state["data"].load_result(
-    asset="results_synth",
-    year=st.session_state['state'].year,
-    election_type=st.session_state['state'].get_type(as_type='code'), 
-    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
-)
+load_results()
 results = st.session_state["data"].container["results_synth"].set_index("index")
 
 st.header(f"Résultat des {st.session_state['state'].get_type(as_type='verbose')} de {st.session_state['state'].year} ({st.session_state['state'].get_blocs(as_type='verbose')})")
@@ -48,22 +74,12 @@ with st.expander("Ecart type de l'erreur de prédiction (sur l'ensemble des comm
 
 st.divider()
 
-st.session_state["data"].load_explain(
-    asset="feature_importance",
-    year=st.session_state['state'].year, 
-    election_type=st.session_state['state'].get_type(as_type='code'), 
-    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
-)
+load_feature_importance()
 
 show_feature_importance(st.session_state["data"].container["feature_importance"], st.session_state['state'].get_blocs(as_type='code', order='political'))
 
 st.divider()
 
-st.session_state["data"].load_explain(
-    asset="shap_values",
-    year=st.session_state['state'].year, 
-    election_type=st.session_state['state'].get_type(as_type='code'),
-    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha')
-)
+load_shap_values()
 
 show_shap_values(st.session_state["data"].container["shap_values"], BLOCS=st.session_state['state'].get_blocs(as_type='code', order='political'))

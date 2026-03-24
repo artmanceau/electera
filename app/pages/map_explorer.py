@@ -18,15 +18,8 @@ def load_geojson_page(path: str, _fs: object):
     return DataLoader.load_geojson(geo_data_path=path, fs=_fs)
 
 
-check_home_run()
-st.session_state['state'].selection_box()
-
-current_blocs = [bloc.replace("vote", "") for bloc in st.session_state['state'].get_blocs(as_type='code', order='alpha') if bloc != "par"]
-
-st.header("Carte des résultats électoraux")
-
-# Load data
-with st.spinner("Chargement des données..."):
+@st.cache_data
+def load_results():
     st.session_state["data"].load_result(
         asset="results_full",
         year=st.session_state['state'].get_year(),
@@ -34,12 +27,20 @@ with st.spinner("Chargement des données..."):
         trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
         asset_name="results_full",
     )
-    results = st.session_state["data"].container["results_full"]
 
-    communes_geojson = load_geojson_page(COMMUNES_MAP_PATH, get_fs().fs)
 
+check_home_run()
+st.session_state['state'].selection_box()
+
+current_blocs = [bloc.replace("vote", "") for bloc in st.session_state['state'].get_blocs(as_type='code', order='alpha') if bloc != "par"]
+
+st.header("Carte des résultats électoraux")
+
+communes_geojson = load_geojson_page(COMMUNES_MAP_PATH, get_fs().fs)
+load_results()
 
 # Prepare results data
+results = st.session_state["data"].container["results_full"]
 results_indexed = results.copy()
 results_indexed.index = results_indexed["codecommune"]
 winner_true = (

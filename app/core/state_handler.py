@@ -29,17 +29,19 @@ class SessionHandler:
                     default=st.session_state["config"].years_to_display[
                         : min(3, len(st.session_state["config"].years_to_display))
                     ],
+                    on_change=st.cache_data.clear()
                 )
 
             else:
                 self.year = st.selectbox(
-                    "Année électorale", st.session_state["config"].years_to_display, index=0
+                    "Année électorale", st.session_state["config"].years_to_display, index=0, on_change=st.cache_data.clear()
                 )
         with col2:
             self.type = st.selectbox(
                 "Type d'élection",
                 [convert("type", el) for el in st.session_state["config"].types_to_display],
                 index=0,
+                on_change=st.cache_data.clear()
             )
         with col3:
             self.blocs = st.selectbox(
@@ -49,6 +51,7 @@ class SessionHandler:
                     for el in st.session_state["config"].political_divisions_to_dislay
                 ],
                 index=0,
+                on_change=st.cache_data.clear()  
             )
         logger.debug(f'State registered: {self.type} | {self.year} | {self.blocs}')
 
@@ -58,13 +61,17 @@ class SessionHandler:
     def get_years(self):
         return self.years
 
-    def get_type(self, as_type : Literal['verbose', 'code'] = 'code'):
+    def get_type(self, as_type: Literal['verbose', 'code', 'number'] = 'code'):
         if as_type == 'verbose':
             return self.type
-        elif as_type == 'code':
-            return reverse_convert("type", self.type)
         else:
-            raise Exception('Type of return not configured.')
+            code = reverse_convert("type", self.type)
+            if as_type == 'code':
+                return code
+            elif as_type == 'number':
+                return (0 if code == 'pres' else (1 if code == 'leg' else 2))
+            else:
+                raise Exception('Type of return not configured.')
 
     def get_blocs(self, as_type: Literal['verbose', 'code'] = 'code', order: Literal['alpha', 'political'] | None = None, prefix: Literal['p'] | None = None):
         if as_type == 'verbose':
@@ -86,16 +93,6 @@ class SessionHandler:
             return bloc_return
 
     def commune_selector(self):
-        # Load commune list
-        st.session_state["data"].load_result(
-            asset="results_full",
-            trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
-            year=st.session_state['state'].year,
-            election_type=st.session_state['state'].get_type(as_type='code'),
-            columns=["codecommune", "nomcommune"],
-            filters=None,
-            asset_name="communes_list",
-        )
         communes_list = st.session_state["data"].container["communes_list"]
 
         # Requires cleaning but could be improved
@@ -110,14 +107,14 @@ class SessionHandler:
         )
         communes = communes_list["nomcommune"].drop_duplicates()
 
-        self.commune = st.selectbox("Selectionnez une commune", [""] + communes)
+        self.commune = st.selectbox("Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear())
 
         if len(communes_list[communes_list["nomcommune"] == self.commune]) > 1:
             arrondissements = communes_list[communes_list["nomcommune"] == self.commune][
                     "codecommune"
             ]
             self.codecommune = st.selectbox(
-                "Selectionnez une arrondissement", [""] + arrondissements
+                "Selectionnez une arrondissement", [""] + arrondissements, on_change=st.cache_data.clear()
             )
         else:
             self.codecommune = communes_list[

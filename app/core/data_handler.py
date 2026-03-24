@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional, Tuple
-
+import streamlit as st
 import s3fs
 from loguru import logger
 
@@ -86,8 +86,6 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
-        print(f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet")
-        print(get_fs().fs)
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
             fs=get_fs().fs,
@@ -102,24 +100,17 @@ class AppData:
 
     def load_data_sample(
         self,
-        asset: Literal["data_sample", "data_distribution"],
-        trends: List[str],
-        year: int,
-        election_type: Literal["leg", "pres", "ref"],
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
-        # TODO: load a data sample for the shap values
-        # Self.derived_data_path
         element = DataLoader.load_dataset(
-            f"{self.data_path}/data/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
+            f"{self.data_path}/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet",
             fs=get_fs().fs,
             formate="parquet",
             columns=columns,
             filters=filters,
         )
-        logger.info(f"{asset} loaded with success!")
-
-        asset_name = asset_name if asset_name is not None else asset
+        logger.info(f"{asset_name} loaded with success!")
+        asset_name = asset_name if asset_name is not None else "data"
         self.container[asset_name] = element

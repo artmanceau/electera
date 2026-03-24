@@ -1,9 +1,12 @@
 import altair as alt
 import matplotlib.pyplot as plt
 import shap
+import numpy as np
 import streamlit as st
 from asset.definitions import FEATURES_DICT, colors_dict, get_colors, trad
 import plotly.graph_objects as go
+from typing import Optional
+
 
 def check_home_run():
     if "home_run" in st.session_state:
@@ -257,8 +260,60 @@ def show_feature_importance(importance_df, blocs):
             st.altair_chart(chart)
 
 
+@st.cache_data
+def load_data_sample(codecommune=None):
+    if codecommune is None:
+        st.session_state["data"].load_data_sample(
+            columns=[f'p{trend}_pred'],
+            filters=None,
+            asset_name="result_trend_i",
+        )
+    else:
+        pass
+
+@st.cache_data
+def load_base_values(trend):
+    try:
+        st.session_state["data"].load_result(
+            asset="results_full",
+            year=st.session_state['state'].year-5,
+            election_type=st.session_state['state'].get_type(as_type='code'),
+            trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
+            columns=[f'p{trend}_true'],
+            filters=None,
+            asset_name="result_trend_i",
+        )
+        return st.session_state["data"].container["result_trend_i"].mean().iloc[0]
+    # Should be handle better in case no previous election available (no shap)?
+    except:
+        return 0.0
+
+
+@st.cache_data
+def load_data(features, selection_code_commune: Optional[str] | None = None):
+    filters = [('annee', "==", float(st.session_state['state'].year)), ('type', '==', int(st.session_state['state'].get_type(as_type='number')))]
+    if selection_code_commune:
+        filters.append(("codecommune", "==", selection_code_commune))
+        name = 'data_sample_commune'
+    else:
+        name = 'data_sample_all'
+
+    st.session_state["data"].load_data_sample(
+        columns=features,
+        filters=filters,
+        asset_name=name
+    )
+
+
 def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
     st.header("Shap values")
+
+    # Get data values
+    all_columns = set()
+    for df in shap_df.values():
+        all_columns.update(df.columns)
+
+    load_data(all_columns, selection_code_commune)
 
     st.write(
         "Les valeurs de shap quantifient à quel point une variable socio-économique permet en moyenne d'augmenter (ou de diminuer) la valeur de la prédiction par rapport à la prédiction moyenne."
@@ -267,12 +322,13 @@ def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
     nb_feat_shap = st.slider(
         "Selectionnez un nombre de variable pour visualiser les valeurs de shap", 5, 30
     )
-
+    
     tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in BLOCS])
     for i, tab in enumerate(tabs):
         with tab:
             trends = ["par"] + [f"{b}" for b in BLOCS]
             shap_values_df = shap_df[trends[i]].copy()
+            features = list(set(shap_values_df.columns) - set(['codecommune']))
             if selection_code_commune is not None:
                 shap_commune = shap_values_df[
                     shap_values_df["codecommune"].astype(str)
@@ -282,54 +338,31 @@ def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
                     st.warning("Pas de valeurs de Shap pour cette commune")
                     st.stop()
 
-            shap_values_df_wo_cc = shap_values_df.copy()
-            if "codecommune" in shap_values_df_wo_cc.columns:
-                shap_values_df_wo_cc = shap_values_df_wo_cc.drop(
-                    columns=["codecommune"]
-                )
-            shap_values_df_wo_cc = shap_values_df_wo_cc.astype(float)
-
             # Get expected values
-            st.session_state["data"].load_result(
-                    asset="results_full",
-                    year=st.session_state['state'].year,
-                    election_type=st.session_state['state'].get_type(as_type='code'),
-                    trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
-                    columns=[f'p{trends[i]}_pred'],
-                    filters=None,
-                    asset_name="result_trend_i",
-            )
+            mv = load_base_values(trends[i])
 
             if selection_code_commune is not None:
-                row = (
-                    shap_commune.drop(columns=["codecommune"], errors="ignore")
-                    .iloc[0]
-                    .astype(float)
-                )
-                row_values = row.values
-            
-
                 expl = shap.Explanation(
-                    values=row_values,
-                    data=row_values,
-                    base_values=st.session_state["data"].container["result_trend_i"].mean(),
-                    feature_names=shap_values_df_wo_cc.columns,
+                    values=shap_commune[features].iloc[0].astype(float).values,
+                    data=st.session_state["data"].container["data_sample_all"].loc[st.session_state["data"].container["data_sample_all"]['codecommune'] == selection_code_commune, features].iloc[0].astype(float).values,
+                    base_values=float(mv),
+                    feature_names=features,
                 )
-                shap.plots.bar(expl, max_display=nb_feat_shap)
+                shap.plots.waterfall(expl, max_display=nb_feat_shap)
 
             else:
-                # Maybe sub-sample if too much values
+                communes_communes = list(set(shap_values_df['codecommune']).intersection(set(st.session_state["data"].container["data_sample_all"]['codecommune'])))
+
                 expl = shap.Explanation(
-                    values=shap_values_df_wo_cc.values, # Get the real values
-                    data=shap_values_df_wo_cc.values,
-                    base_values=st.session_state["data"].container["result_trend_i"].mean(),
-                    feature_names=shap_values_df_wo_cc.columns
-                   
+                    values=shap_values_df.loc[shap_values_df['codecommune'].isin(communes_communes), features].astype(float).values,
+                    data=st.session_state["data"].container["data_sample_all"].loc[st.session_state["data"].container["data_sample_all"]['codecommune'].isin(communes_communes), features],
+                    base_values=float(mv),
+                    feature_names=features
                 )
                 shap.plots.beeswarm(expl, max_display=nb_feat_shap)
+
             st.pyplot(plt.gcf())
             plt.clf()
-
 
 
 def plot_backtest(
@@ -394,4 +427,4 @@ def plot_backtest(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
