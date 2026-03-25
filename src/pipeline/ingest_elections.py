@@ -22,7 +22,7 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 election_to_ingest = {'2024_leg': {
         'LINK': "https://www.data.gouv.fr/api/1/datasets/r/ab337c6f-e7e8-4981-843c-45052b71096b",
-        'SAVE_TO': "s3://arthurmanceau/election_modelling_uhcp/data/raw/elections/legislative/2024/leg2024_csv/leg2024comm.parquet", 
+        'SAVE_TO': "raw/elections/legislative/2024/leg2024_csv/leg2024comm.parquet", 
         'political_mapping': {
             "G": ["voix_EXG", "pvoix_EXG", "voix_UG", "pvoix_UG", 'pvoix_COM', "voix_COM", 'voix_FI', 'pvoix_FI'],
             "D": [
@@ -82,8 +82,7 @@ election_to_ingest = {'2024_leg': {
         }
     },
     }
-data_path = "data/"
-
+data_path = "s3://arthurmanceau/election_modelling_uhcp/data/"
 
 
 class ElectionIngester:
