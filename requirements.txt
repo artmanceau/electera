@@ -10,6 +10,7 @@ dotenv
 pyarrow
 fastparquet
 tqdm
+openpyxl
 shapely
 ruff
 pylint
