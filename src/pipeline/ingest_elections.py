@@ -47,7 +47,7 @@ election_to_ingest = {'2024_leg': {
     },
     '2020_muni': {
         'LINK': "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2",
-        'SAVE_TO': "s3://arthurmanceau/election_modelling_uhcp/data/raw/elections/municipales/2020/muni2020.parquet",
+        'SAVE_TO': "raw/elections/municipales/2020/muni2020.parquet",
         'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 1,
         'NUANCE_ID': 'liste',
@@ -61,7 +61,7 @@ election_to_ingest = {'2024_leg': {
     },
     '2026_muni': {
         'LINK': "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2",
-        'SAVE_TO': "s3://arthurmanceau/election_modelling_uhcp/data/raw/elections/municipales/2026/muni2026.parquet",
+        'SAVE_TO': "raw/elections/municipales/2026/muni2026.parquet",
         'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 1,
         'NUANCE_ID' : 'liste',
@@ -74,7 +74,7 @@ election_to_ingest = {'2024_leg': {
         }
     },
     }
-data_path = "s3://arthurmanceau/election_modelling_uhcp/data/"
+data_path = "s3://arthurmanceau/election_modeling_uhcp/data/"
 
 
 class ElectionIngester:
