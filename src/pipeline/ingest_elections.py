@@ -18,11 +18,15 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 # Subtilities:
     # Municipales : 2 files (>1000 and <1000)
-    # Tendances politiques 
+
+# Commune cleaning PLM
 
 election_to_ingest = {'2024_leg': {
         'LINK': "https://www.data.gouv.fr/api/1/datasets/r/ab337c6f-e7e8-4981-843c-45052b71096b",
-        'SAVE_TO': "raw/elections/legislative/2024/leg2024_csv/leg2024comm.parquet", 
+        'SAVE_TO': "raw/elections/legislative/2024/leg2024_csv/leg2024comm.parquet",
+        'FILE_FORMAT': ".xlsx",
+        'NB_OF_FILE': 1,
+        'NUANCE_ID' : 'candidat',
         'political_mapping': {
             "G": ["voix_EXG", "pvoix_EXG", "voix_UG", "pvoix_UG", 'pvoix_COM', "voix_COM", 'voix_FI', 'pvoix_FI'],
             "D": [
@@ -44,41 +48,29 @@ election_to_ingest = {'2024_leg': {
     '2020_muni': {
         'LINK': "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2",
         'SAVE_TO': "s3://arthurmanceau/election_modelling_uhcp/data/raw/elections/municipales/2020/muni2020.parquet",
+        'FILE_FORMAT': ".csv",
+        'NB_OF_FILE': 1,
+        'NUANCE_ID': 'liste',
         'political_mapping': {
-            "G": ["voix_EXG", "pvoix_EXG", "voix_UG", "pvoix_UG"],
-            "D": [
-                "voix_RN",
-                "pvoix_RN",
-                "voix_REC",
-                "pvoix_REC",
-                "voix_LR",
-                "pvoix_LR",
-                "voix_DVD",
-                "pvoix_DVD",
-            ],
-            "CD": [],
-            "CG": ["voix_REG", "pvoix_REG", "voix_ECO", "pvoix_ECO"],
-            "C": ["voix_ENS", "pvoix_ENS", "voix_DIV", "pvoix_DIV", "voix_DSV", "pvoix_DSV"],
+            "G": ['voix_LUG', 'pvoix_LUG', 'voix_LEXG', 'pvoix_LEXG', 'voix_LFI', 'pvoix_LFI'],
+            "D": ['pvoix_LRN', 'voix_LRN'],
+            "CD": ['voix_LDVD', 'pvoix_LDVD', 'pvoix_LLR', 'voix_LLR',],
+            "CG": ['voix_LDVG', 'pvoix_LDVG', 'pvoix_LSOC', 'voix_LSOC'],
+            "C": ['voix_LDVC', 'pvoix_LDVC'],
         }
     },
     '2026_muni': {
-        'LINK': "",
+        'LINK': "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2",
         'SAVE_TO': "s3://arthurmanceau/election_modelling_uhcp/data/raw/elections/municipales/2026/muni2026.parquet",
+        'FILE_FORMAT': ".csv",
+        'NB_OF_FILE': 1,
+        'NUANCE_ID' : 'liste',
         'political_mapping': {
-            "G": ["voix_EXG", "pvoix_EXG", "voix_UG", "pvoix_UG"],
-            "D": [
-                "voix_RN",
-                "pvoix_RN",
-                "voix_REC",
-                "pvoix_REC",
-                "voix_LR",
-                "pvoix_LR",
-                "voix_DVD",
-                "pvoix_DVD",
-            ],
-            "CD": [],
-            "CG": ["voix_REG", "pvoix_REG", "voix_ECO", "pvoix_ECO"],
-            "C": ["voix_ENS", "pvoix_ENS", "voix_DIV", "pvoix_DIV", "voix_DSV", "pvoix_DSV"],
+            "G": ['voix_LUG', 'pvoix_LUG', 'voix_LEXG', 'pvoix_LEXG', 'voix_LFI', 'pvoix_LFI', 'voix_LCOM', 'pvoix_LCOM'],
+            "D": ['pvoix_LRN', 'voix_LRN', 'voix_LEXD', 'pvoix_LEXD', 'pvoix_LUXD', 'voix_LUXD'],
+            "CD": ['voix_LDVD', 'pvoix_LDVD', 'pvoix_LLR', 'voix_LLR', 'pvoix_LUD', 'voix_LUD'],
+            "CG": ['voix_LDVG', 'pvoix_LDVG', 'pvoix_LSOC', 'voix_LSOC', 'pvoix_LECO', 'voix_LECO'],
+            "C": ['voix_LDVC', 'pvoix_LDVC', 'pvoix_LUC', 'voix_LUC', 'voix_LDSV', 'pvoix_LDSV'],
         }
     },
     }
@@ -92,12 +84,15 @@ class ElectionIngester:
         self.data_path = data_path
         self.output_file = election_to_ingest[election_code]['SAVE_TO']
         self.political_mapping = election_to_ingest[election_code]['political_mapping']
+        self.file_format = election_to_ingest[election_code]['FILE_FORMAT']
+        self.nb_file = election_to_ingest[election_code]['NB_OF_FILE']
+        self.nuance_id = election_to_ingest[election_code]['NUANCE_ID']
 
     def download_open_and_delete_file(
-        self, url, folder_path="data/raw/temp", file_name="election_temp.xlsx"
+        self, url, folder_path="data/raw/temp", file_name="election_temp",
     ):
         os.makedirs(folder_path, exist_ok=True)
-        file_path = os.path.join(folder_path, file_name)
+        file_path = os.path.join(folder_path, file_name+self.file_format)
 
         response = requests.get(url)
         if response.status_code == 200:
@@ -110,7 +105,10 @@ class ElectionIngester:
             )
             return None
 
-        data = pd.read_excel(file_path)
+        if self.file_format == '.xlsx':
+            data = pd.read_excel(file_path)
+        else:
+            data = pd.read_csv(file_path, sep=';', low_memory=False)
 
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -136,25 +134,31 @@ class ElectionIngester:
         X_.rename(columns=mapping, inplace=True)
         return X_
 
-    def pivot_data(self, data, N=204):
+    def pivot_data(self, data):
         pivot_data = []
+        N = [int(s) for s in data.columns.to_list()[-1].split() if s.isdigit()][0]
         for idx, row in data.iterrows():
             codecommune = row.get("Code commune")
+            j=0
             for i in range(1, N + 1):
-                nuance = row.get(f"Nuance candidat {i}", None)
+                nuance = row.get(f"Nuance {self.nuance_id} {i}", None)
                 voix = row.get(f"Voix {i}", None)
                 pvoix = row.get(f"% Voix/exprimés {i}", None)
-                if pd.notna(nuance) and nuance != "":
+                if pd.isna(nuance) and float(str(voix).replace(",", "."))>0:
+                    # Nuance should be taken into consideration
+                    nuance = f'AUTRES_{j}'
+                    j+=1
+                if pd.notna(nuance) or nuance != "":
                     voix = float(str(voix).replace(",", "."))
                     pvoix = float(str(pvoix).replace(",", ".").replace("%", ""))
                     pivot_data.append(
-                        {
-                            "codecommune": codecommune,
-                            "trend": nuance,
-                            "voix": voix,
-                            "pvoix": pvoix,
-                        }
-                    )
+                            {
+                                "codecommune": codecommune,
+                                "trend": nuance,
+                                "voix": voix,
+                                "pvoix": pvoix,
+                            }
+                        )
 
         pivot_dataset = pd.DataFrame(pivot_data)
 
@@ -177,10 +181,19 @@ class ElectionIngester:
 
     def apply_political_adjustments(self, X):
         X = X.copy()
-        trends_kept = (
-            X.isna().astype(int).sum(axis=0).sort_values()[1:23].index.to_list()
+        trends = (
+            X.isna().astype(int).sum(axis=0).sort_values().index.to_list()
         )
-        trends_dropped = X.isna().astype(int).sum(axis=0).sort_values()[23:].index.to_list()
+        trends.remove('codecommune')
+        
+        # Tendances AUTRES or not in mapping
+        trends_in_mapping = set()
+        for key in self.political_mapping.keys():
+            trends_in_mapping = trends_in_mapping.union(self.political_mapping[key])
+        trends_in_mapping = list(trends_in_mapping)
+        
+        trends_kept = trends_in_mapping
+        trends_dropped = list(set(trends) - set(trends_kept))
 
         trends_kept_p = [col for col in trends_kept if "p" in col]
         trends_kept_v = set(trends_kept) - set(trends_kept_p)
@@ -193,11 +206,15 @@ class ElectionIngester:
         X['voix_AUTRES'] = X[list(trends_dropped_v)].sum(axis=1)
         X['pvoix_AUTRES'] = X[trends_dropped_p].sum(axis=1)
 
-        X = X[["codecommune"] + trends_kept+['voix_AUTRES', 'pvoix_AUTRES']]
+        X = X[["codecommune"] + trends_kept + ['voix_AUTRES', 'pvoix_AUTRES']]
         X = X.fillna(0.0)
         X[trends_kept+['voix_AUTRES', 'pvoix_AUTRES']] = X[trends_kept+['voix_AUTRES', 'pvoix_AUTRES']].astype(float)
 
         X = X.loc[~(X[trends_kept_p+['pvoix_AUTRES']].sum(axis=1) == 0), :]
+
+        if (~(np.abs(X[trends_kept_p+['pvoix_AUTRES']].sum(axis=1) - 100) < 2)).astype(int).sum() != 0:
+            logger.warning(f"These communes are outliers: {X.loc[(~(np.abs(X[trends_kept_p+['pvoix_AUTRES']].sum(axis=1) - 100) < 2)), :]['codecommune'].to_list()}")
+            X = X.loc[(np.abs(X[trends_kept_p+['pvoix_AUTRES']].sum(axis=1) - 100) < 2), :]
 
         assert (~(np.abs(X[trends_kept_p+['pvoix_AUTRES']].sum(axis=1) - 100) < 2)).astype(int).sum() == 0
 
@@ -221,7 +238,14 @@ class ElectionIngester:
 
     def run(self):
         # Get data from source
-        data = self.download_open_and_delete_file(self.access_link)
+        if self.nb_file == 1:
+            data = self.download_open_and_delete_file(self.access_link)
+        else:
+            data_dict = {}
+            for i in range(self.nb_file):
+                data_i = self.download_open_and_delete_file(self.access_link[i])
+                data_dict[i] = data_i
+            data = pd.concat(data_dict) # To be checked
 
         # Ids
         data_i = self.get_and_rename(data)
@@ -236,7 +260,7 @@ class ElectionIngester:
 
         cols_to_string = ['dep', 'nomdep', 'codecommune', 'nomcommune']
         data_merged[cols_to_string] = data_merged[cols_to_string].astype(str)
-
+        
         self.save_processed_election(data_merged)
 
 
