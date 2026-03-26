@@ -13,17 +13,16 @@
     ],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "first_election_only": false,
-    "first_election_target_year": 2022,
-    "first_election_target_type": "presidentiel",
+    "first_election_target_year": 2020,
+    "first_election_target_type": "municipales",
     "include_elections_after": 1958,
     "include_elections_of_type": [
-        "presidentiel",
-        "legislative"
+        "municipales"
     ],
-    "features_aug": ["rank", "pct_change", "lag"],
+    "features_aug": [],
     "encoding_type": "no",
     "encoding_year": "no",
-    "quality_filter": false,
+    "quality_filter": true,
     "projections":true,
     "plm_policy":"Arr",
     "polls_data":true

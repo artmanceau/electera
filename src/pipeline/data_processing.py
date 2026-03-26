@@ -337,7 +337,7 @@ class ElectionDataProcessor:
 
         # Hardcoded parameters
         reference_year = 2022
-        target_year = 2027
+        target_year = 2032
 
         logger.info(
             f"Projection of socio-economic features from {reference_year} until {target_year}"
@@ -378,23 +378,23 @@ class ElectionDataProcessor:
         )
 
         logger.success(
-            f"Adding to the vote datasets dummy election results for 2027 {self.config.include_elections_of_type}"
+            f"Adding to the vote datasets dummy election results for {target_year} {self.config.include_elections_of_type}"
         )
 
         dummy_election_columns = []
         for election_type in self.config.include_elections_of_type:
             dummy_election_columns += [
-                f"inscrits2027-{election_type}",
+                f"inscrits{target_year}-{election_type}",
             ]
             dummy_election_columns += [
-                f"pvote{var}2027-{election_type}" for var in self.config.vote_variables
+                f"pvote{var}{target_year}-{election_type}" for var in self.config.vote_variables
             ]
 
         for col in dummy_election_columns:
             self.dfs[col] = 0.0
 
         logger.success(
-            f"Successfully added dummy election results for 2027 {self.config.include_elections_of_type} : {self.dfs.shape}"
+            f"Successfully added dummy election results for {target_year} {self.config.include_elections_of_type} : {self.dfs.shape}"
         )
 
     def _find_feat_and_year(self, feature):

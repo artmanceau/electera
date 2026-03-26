@@ -206,7 +206,7 @@ class DataProcessingConfig(BaseModel):
     )
 
     include_elections_of_type: List[
-        Literal["presidentiel", "legislative", "referundum"]
+        Literal["presidentiel", "legislative", "referundum", "municipales"]
     ] = Field(
         default=["presidentiel", "legislative"],
         description="Types of elections to include in the dataset",
