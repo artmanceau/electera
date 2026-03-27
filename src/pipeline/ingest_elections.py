@@ -27,6 +27,7 @@ election_to_ingest = {'2024_leg': {
         'SAVE_TO': "raw/elections/legislative/2024/leg2024_csv/leg2024comm.parquet",
         'FILE_FORMAT': ".xlsx",
         'NB_OF_FILE': 1,
+        'SOURCE': 'API',
         'NUANCE_ID': 'candidat',
         'political_mapping': {
             "G": ["vote_EXG", "pvote_EXG", "vote_UG", "pvote_UG", 'pvote_COM', "vote_COM", 'vote_FI', 'pvote_FI'],
@@ -49,8 +50,9 @@ election_to_ingest = {'2024_leg': {
     '2020_muni': {
         'LINK': {0: "https://www.data.gouv.fr/api/1/datasets/r/dacfcb29-7e58-4326-9d34-8ea7c5a9466c", 1: "https://www.data.gouv.fr/api/1/datasets/r/5129e7cf-2999-4eaf-8dd7-3bcda37bd0a3"},
         'SAVE_TO': "raw/elections/municipales/2020/muni2020_csv/muni2020comm.parquet",
-        'FILE_FORMAT': ".txt",
+        'FILE_FORMAT': "csv",
         'NB_OF_FILE': 2,
+        'SOURCE': 'API',
         'NUANCE_ID': 'liste',
         'political_mapping': {
             "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI'],
@@ -65,6 +67,7 @@ election_to_ingest = {'2024_leg': {
         'SAVE_TO': "raw/elections/municipales/2026/muni2026_csv/muni2026comm.parquet",
         'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 1,
+        'SOURCE': 'API',
         'NUANCE_ID': 'liste',
         'political_mapping': {
             "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI', 'vote_LCOM', 'pvote_LCOM'],
@@ -72,6 +75,36 @@ election_to_ingest = {'2024_leg': {
             "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR', 'pvote_LUD', 'vote_LUD'],
             "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'pvote_LECO', 'vote_LECO'],
             "C": ['vote_LDVC', 'pvote_LDVC', 'pvote_LUC', 'vote_LUC', 'vote_LDSV', 'pvote_LDSV'],
+        }
+    },
+    '2026_muni_t2': {
+        'LINK': "https://www.data.gouv.fr/api/1/datasets/r/6ff67a28-01bf-459e-beca-dd7aa8132dc1",
+        'SAVE_TO': "raw/elections/municipales/2026/muni2026_csv/muni2026comm_t2.parquet",
+        'FILE_FORMAT': ".csv",
+        'NB_OF_FILE': 1,
+        'SOURCE': 'API',
+        'NUANCE_ID': 'liste',
+        'political_mapping': {
+            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI', 'vote_LCOM', 'pvote_LCOM'],
+            "D": ['pvote_LRN', 'vote_LRN', 'vote_LEXD', 'pvote_LEXD', 'pvote_LUXD', 'vote_LUXD'],
+            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR', 'pvote_LUD', 'vote_LUD'],
+            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'pvote_LECO', 'vote_LECO'],
+            "C": ['vote_LDVC', 'pvote_LDVC', 'pvote_LUC', 'vote_LUC'],
+        }
+    },
+    '2014_muni': {
+        'LINK': {0: "ingestion/municipales/2014/2014_1000_moins.csv", 1: "ingestion/municipales/2014/2014_1000_plus.csv"},
+        'SAVE_TO': "raw/elections/municipales/2014/muni2014_csv/muni2014comm.parquet",
+        'FILE_FORMAT': "csv",
+        'NB_OF_FILE': 2,
+        'SOURCE': 'ingestion',
+        'NUANCE_ID': 'liste',
+        'political_mapping': {
+            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFG', 'pvote_LFG'],
+            "D": ['vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD'],
+            "CD": ['vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP',  'pvote_LUD', 'vote_LUD'],
+            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC'],
+            "C": [],
         }
     },
     }
@@ -88,33 +121,35 @@ class ElectionIngester:
         self.file_format = election_to_ingest[election_code]['FILE_FORMAT']
         self.nb_file = election_to_ingest[election_code]['NB_OF_FILE']
         self.nuance_id = election_to_ingest[election_code]['NUANCE_ID']
+        self.source = election_to_ingest[election_code]['SOURCE']
 
     def download_open_and_delete_file(
         self, url, folder_path="data/raw/temp", file_name="election_temp",
     ):
-        os.makedirs(folder_path, exist_ok=True)
-        file_path = os.path.join(folder_path, file_name+self.file_format)
+        if self.source == 'API':
+            os.makedirs(folder_path, exist_ok=True)
+            file_path = os.path.join(folder_path, file_name+self.file_format)
 
-        response = requests.get(url)
-        if response.status_code == 200:
-            with open(file_path, "wb") as file:
-                file.write(response.content)
-            logger.info(f"File downloaded successfully and saved to {file_path}")
+            response = requests.get(url)
+            if response.status_code == 200:
+                with open(file_path, "wb") as file:
+                    file.write(response.content)
+                logger.info(f"File downloaded successfully and saved to {file_path}")
+            else:
+                logger.warning(
+                    f"Failed to download file. HTTP Status Code: {response.status_code}"
+                )
+                return None
+
+            if self.file_format == '.xlsx':
+                data = pd.read_excel(file_path)
+            else:
+                data = pd.read_csv(file_path, sep=';', low_memory=False)
+
+            if os.path.exists(file_path):
+                os.remove(file_path)
         else:
-            logger.warning(
-                f"Failed to download file. HTTP Status Code: {response.status_code}"
-            )
-            return None
-
-        if self.file_format == '.xlsx':
-            data = pd.read_excel(file_path)
-        elif self.file_format == '.txt':
-            data = pd.read_csv(file_path, sep=';', low_memory=False, encoding='latin-1', on_bad_lines='skip')
-        else:
-            data = pd.read_csv(file_path, sep=';', low_memory=False)
-
-        if os.path.exists(file_path):
-            os.remove(file_path)
+            data = DataLoader.load_dataset(self.data_path + url, formate='csv')
 
         return data
 
@@ -127,10 +162,17 @@ class ElectionIngester:
             "Code commune": "codecommune",
             "Libellé commune": "nomcommune",
             "Inscrits": "inscrits",
+            "Abstentions": "abstentions",
             "Votants": "votants",
             "Exprimés": "exprimes",
             "Blancs": "blancs",
             "Nuls": "nuls",
+            "% Abstentions": "% Abstentions",
+            "% Votants": "% Votants",
+            "% Nuls/inscrits": "% Nuls/inscrits",
+            "% Nuls/votants": "% Nuls/votants",
+            "% Blancs/inscrits": "% Blancs/inscrits",
+            "% Blancs/votants": "% Blancs/votants"
         },
     ):
         X_ = X[list(mapping.keys())].copy(deep=True)
@@ -139,14 +181,21 @@ class ElectionIngester:
 
     def pivot_data(self, data):
         pivot_data = []
+        nb_list = pd.DataFrame()
+        nb_list['codecommune'] = data["Code commune"]
+        nb_list['nb_list'] = 0
         N = [int(s) for s in data.columns.to_list()[-1].split() if s.isdigit()][0]
         for idx, row in data.iterrows():
             codecommune = row.get("Code commune")
-            j=0
+            j= 0 
+            l = 0
             for i in range(1, N + 1):
                 nuance = row.get(f"Nuance {self.nuance_id} {i}", None)
                 vote = row.get(f"Voix {i}", None)
                 pvote = row.get(f"% Voix/exprimés {i}", None)
+                nom = row.get(f"Nom candidat {i}", None)
+                if pd.notna(nom):
+                    l+=1
                 if pd.isna(nuance) and float(str(vote).replace(",", ".")) > 0:
                     # Nuance should be taken into consideration
                     nuance = f'AUTRES_{j}'
@@ -162,6 +211,7 @@ class ElectionIngester:
                                 "pvote": pvote,
                             }
                         )
+            nb_list.iloc[idx, 1] = l
 
         pivot_dataset = pd.DataFrame(pivot_data)
 
@@ -180,7 +230,7 @@ class ElectionIngester:
         X.columns = [f"{stat}_{nuance}" for stat, nuance in X.columns]
         X = X.reset_index()
         X = self.apply_political_adjustments(X)
-        return X
+        return X, nb_list
 
     def apply_political_adjustments(self, X):
         X = X.copy()
@@ -220,7 +270,7 @@ class ElectionIngester:
             X = X.loc[(np.abs(X[trends_kept_p+['pvote_AUTRES']].sum(axis=1) - 100) < 2), :]
 
         assert (~(np.abs(X[trends_kept_p+['pvote_AUTRES']].sum(axis=1) - 100) < 2)).astype(int).sum() == 0
-        
+
         for pol_trend in ["G", "D", "CD", "CG", "C"]:
             partis = [col.split("_")[1] for col in self.political_mapping[pol_trend]]
             X[f"vote{pol_trend}"] = X[
@@ -252,24 +302,41 @@ class ElectionIngester:
         else:
             data_dict = {}
             for i in range(self.nb_file):
+               
                 data_i = self.download_open_and_delete_file(self.access_link[i])
                 data_dict[i] = data_i
             data = pd.concat([data_dict[0], data_dict[1]], axis=0)
-
+        
         # Ids
         data_i = self.get_and_rename(data)
 
         # Vote
-        data_j = self.pivot_data(data)
+        data_j, nb_list = self.pivot_data(data)
 
         # Merge
-        data_merged = data_i.merge(data_j, on="codecommune", how="inner")
+        data_i_m = data_i.merge(nb_list, on="codecommune", how="inner", validate='1:1')
+        data_merged = data_i_m.merge(data_j, on="codecommune", how="inner")
         data_merged = data_merged.copy()
-        data_merged["ppar"] = data_merged["votants"] / data_merged["inscrits"]
-
         cols_to_string = ['dep', 'nomdep', 'codecommune', 'nomcommune']
         data_merged[cols_to_string] = data_merged[cols_to_string].astype(str)
-        
+
+        cols_to_int = ["inscrits", "abstentions", "votants", "exprimes", "blancs", "nuls"]
+        data_merged[cols_to_int] = data_merged[cols_to_int].astype(int)
+
+        cols_to_float = ["% Abstentions", "% Votants", "% Nuls/inscrits", "% Nuls/votants", "% Blancs/inscrits", "% Blancs/votants"]
+        data_merged[cols_to_float] = data_merged[cols_to_float].astype(str).replace({',': '.', r'%$': ''}, regex=True).astype(float)
+
+        data_merged["ppar"] = data_merged['% Votants'] / 100
+        data_merged["pabs"] = data_merged['% Abstentions'] / 100
+        data_merged["pnulsi"] = data_merged["% Nuls/inscrits"] / 100
+        data_merged["pnulsv"] = data_merged["% Nuls/votants"] / 100
+        data_merged["pblancsi"] = data_merged["% Blancs/inscrits"] / 100
+        data_merged["pblancsv"] = data_merged["% Blancs/votants"] / 100
+
+        assert (~(np.abs(data_merged["votants"] / data_merged["inscrits"] - data_merged["ppar"]) < 0.01)).astype(int).sum() == 0
+        assert (~(np.abs(data_merged["abstentions"] / data_merged["inscrits"] - data_merged["pabs"]) < 0.01)).astype(int).sum() == 0
+        assert (~(np.abs(data_merged["ppar"] + data_merged["pabs"] - 1) < 0.01)).astype(int).sum() == 0
+      
         self.save_processed_election(data_merged)
 
 

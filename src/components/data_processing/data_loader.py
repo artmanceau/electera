@@ -87,7 +87,7 @@ class DataUtils:
         if fs is None:
             data = pd.read_csv(file_path)
         else:
-            raise ValueError("Not possible to read a csv file from S3 like this")
+            data = pd.read_csv(fs.open(file_path, mode='rb'), low_memory=False)
         return data
 
     def _to_parquet(df: pd.DataFrame, file_path: str, fs=None) -> None:
