@@ -50,14 +50,14 @@ election_to_ingest = {'2024_leg': {
         'SAVE_TO': "raw/elections/municipales/2020/muni2020_csv/muni2020comm.parquet",
         'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 2,
-        'SOURCE': 'API',
+        'SOURCE': 'ingestion',
         'NUANCE_ID': 'liste',
         'political_mapping': {
-            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI'],
-            "D": ['pvote_LRN', 'vote_LRN'],
-            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR',],
-            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC'],
-            "C": ['vote_LDVC', 'pvote_LDVC'],
+            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFI', 'pvote_LFI', 'pvote_LCOM', 'vote_LCOM'],
+            "D": ['vote_LRN', 'pvote_LRN', 'vote_LEXD', 'pvote_LEXD'],
+            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR',  'pvote_LUD', 'vote_LUD', 'vote_LUDI', 'pvote_LUDI'],
+            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'vote_LECO', 'pvote_LECO'],
+            "C": ['pvote_LDVC', 'vote_LDVC', 'pvote_LREM', 'vote_LREM', 'vote_LUC', 'pvote_LUC'],
         }
     },
     '2026_muni': {
@@ -106,7 +106,7 @@ election_to_ingest = {'2024_leg': {
         }
     },
     '2014_muni_t2': {
-        'LINK': {0: "ingestion/municipales/2014/2014_1000_plus_t2.csv"},
+        'LINK': "ingestion/municipales/2014/2014_1000_plus_t2.csv",
         'SAVE_TO': "raw/elections/municipales/2014/muni2014_csv/muni2014comm_t2.parquet",
         'FILE_FORMAT': "csv",
         'NB_OF_FILE': 1,
@@ -122,17 +122,17 @@ election_to_ingest = {'2024_leg': {
     },
     '2020_muni_t2': {
         'LINK': {0: "ingestion/municipales/2014/2020_1000_plus_t2.csv", 1:"ingestion/municipales/2014/2020_1000_moins_t2.csv"},
-        'SAVE_TO': "raw/elections/municipales/2014/muni2014_csv/muni2014comm_t2.parquet",
+        'SAVE_TO': "raw/elections/municipales/2020/muni2020_csv/muni2020comm_t2.parquet",
         'FILE_FORMAT': "csv",
         'NB_OF_FILE': 2,
         'SOURCE': 'ingestion',
         'NUANCE_ID': 'liste',
         'political_mapping': {
-            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFG', 'pvote_LFG'],
+            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFI', 'pvote_LFI', 'pvote_LCOM', 'vote_LCOM'],
             "D": ['vote_LRN', 'pvote_LRN', 'vote_LEXD', 'pvote_LEXD'],
-            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR',  'pvote_LUD', 'vote_LUD'],
+            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR',  'pvote_LUD', 'vote_LUD', 'vote_LUDI', 'pvote_LUDI'],
             "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'vote_LECO', 'pvote_LECO'],
-            "C": ['pvote_LDVC', 'vote_LDVC', 'pvote_LREM', 'vote_LREM'],
+            "C": ['pvote_LDVC', 'vote_LDVC', 'pvote_LREM', 'vote_LREM', 'vote_LUC', 'pvote_LUC'],
         }
     },
     }
@@ -197,38 +197,39 @@ class ElectionIngester:
             "Nuls": "nuls",
             "% Abstentions": "% Abstentions",
             "% Vot/Ins": "% Votants",
+            "% Votants": "% Votants", # to make uniform across elections
             "% Nuls/inscrits": "% Nuls/inscrits",
             "% Nuls/votants": "% Nuls/votants",
             "% Blancs/inscrits": "% Blancs/inscrits",
             "% Blancs/votants": "% Blancs/votants"
         },
     ):
-        X_ = X[list(mapping.keys())].copy(deep=True)
+        cols = list(set(mapping.keys()).intersection(set(X.columns)))
+        X_ = X[cols].copy(deep=True)
         X_.rename(columns=mapping, inplace=True)
         return X_
 
     def pivot_data(self, data):
         pivot_data = []
-        nb_list = pd.DataFrame()
-        nb_list['codecommune'] = data["Code commune"]
-        nb_list['nb_list'] = 0
+        
         N = [int(s) for s in data.columns.to_list()[-1].split() if s.isdigit()][0]
         for idx, row in data.iterrows():
+            nuance_seen = []
             codecommune = row.get("Code commune")
             j = 0
-            l = 0
             for i in range(1, N + 1):
                 nuance = row.get(f"Nuance {self.nuance_id} {i}", None)
                 vote = row.get(f"Voix {i}", None)
                 pvote = row.get(f"% Voix/exprimés {i}", None)
-                nom = row.get(f"Nom candidat {i}", None)
-                if pd.notna(nom):
-                    l+=1
                 if pd.isna(nuance) and float(str(vote).replace(",", ".")) > 0:
                     # Nuance should be taken into consideration
                     nuance = f'AUTRES_{j}'
-                    j+=1
+                    j += 1
                 if pd.notna(nuance) or nuance != "":
+                    if nuance in nuance_seen:
+                        nuance = f'{nuance}_'
+                    nuance_seen.append(nuance)
+                   
                     vote = float(str(vote).replace(",", "."))
                     pvote = float(str(pvote).replace(",", ".").replace("%", ""))
                     pivot_data.append(
@@ -239,7 +240,6 @@ class ElectionIngester:
                                 "pvote": pvote,
                             }
                         )
-            nb_list.iloc[idx, 1] = l
 
         pivot_dataset = pd.DataFrame(pivot_data)
 
@@ -258,7 +258,7 @@ class ElectionIngester:
         X.columns = [f"{stat}_{nuance}" for stat, nuance in X.columns]
         X = X.reset_index()
         X = self.apply_political_adjustments(X)
-        return X, nb_list
+        return X
 
     def apply_political_adjustments(self, X):
         X = X.copy()
@@ -272,7 +272,7 @@ class ElectionIngester:
         for key in self.political_mapping.keys():
             trends_in_mapping = trends_in_mapping.union(self.political_mapping[key])
         trends_in_mapping = list(trends_in_mapping)
-        
+
         trends_kept = trends_in_mapping
         trends_dropped = list(set(trends) - set(trends_kept))
 
@@ -284,10 +284,13 @@ class ElectionIngester:
         trends_dropped_v = set(trends_dropped) - set(trends_dropped_p)
         assert len(trends_kept_p) == len(trends_kept_v)
 
+        vote_nan_cols = [col for col in X.columns if 'vote_nan' in col]
+        X['nb_list'] = X[list(set(X.columns)-set(['codecommune']+vote_nan_cols))].notna().sum(axis=1) / 2
+
         X['vote_AUTRES'] = X[list(trends_dropped_v)].sum(axis=1)
         X['pvote_AUTRES'] = X[trends_dropped_p].sum(axis=1)
-        breakpoint()
-        X = X[["codecommune"] + trends_kept + ['vote_AUTRES', 'pvote_AUTRES']]
+
+        X = X[["codecommune"] + trends_kept + ['vote_AUTRES', 'pvote_AUTRES', 'nb_list']]
         X = X.fillna(0.0)
         X[trends_kept+['vote_AUTRES', 'pvote_AUTRES']] = X[trends_kept+['vote_AUTRES', 'pvote_AUTRES']].astype(float)
 
@@ -330,7 +333,6 @@ class ElectionIngester:
         else:
             data_dict = {}
             for i in range(self.nb_file):
-               
                 data_i = self.download_open_and_delete_file(self.access_link[i])
                 data_dict[i] = data_i
             data = pd.concat([data_dict[0], data_dict[1]], axis=0)
@@ -339,11 +341,10 @@ class ElectionIngester:
         data_i = self.get_and_rename(data)
 
         # Vote
-        data_j, nb_list = self.pivot_data(data)
+        data_j = self.pivot_data(data)
 
         # Merge
-        data_i_m = data_i.merge(nb_list, on="codecommune", how="inner", validate='1:1')
-        data_merged = data_i_m.merge(data_j, on="codecommune", how="inner")
+        data_merged = data_i.merge(data_j, on="codecommune", how="inner")
         data_merged = data_merged.copy()
         cols_to_string = ['dep', 'nomdep', 'codecommune', 'nomcommune']
         data_merged[cols_to_string] = data_merged[cols_to_string].astype(str)
