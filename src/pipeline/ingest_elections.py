@@ -17,10 +17,8 @@ from loguru import logger
 from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 # Subtilities:
-# Municipales : 2 files (>1000 and <1000)
-# Commune cleaning PLM
-# Projection module
-# Vote a 1
+# Commune cleaning PLM - OK except 2026
+# Political mapping + NB list à revoir
 
 election_to_ingest = {'2024_leg': {
         'LINK': "https://www.data.gouv.fr/api/1/datasets/r/ab337c6f-e7e8-4981-843c-45052b71096b",
@@ -48,9 +46,9 @@ election_to_ingest = {'2024_leg': {
         }
     },
     '2020_muni': {
-        'LINK': {0: "https://www.data.gouv.fr/api/1/datasets/r/dacfcb29-7e58-4326-9d34-8ea7c5a9466c", 1: "https://www.data.gouv.fr/api/1/datasets/r/5129e7cf-2999-4eaf-8dd7-3bcda37bd0a3"},
+        'LINK': {0: "ingestion/municipales/2014/2020_1000_plus.csv", 1: "ingestion/municipales/2014/2020_1000_moins.csv"},
         'SAVE_TO': "raw/elections/municipales/2020/muni2020_csv/muni2020comm.parquet",
-        'FILE_FORMAT': "csv",
+        'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 2,
         'SOURCE': 'API',
         'NUANCE_ID': 'liste',
@@ -105,6 +103,36 @@ election_to_ingest = {'2024_leg': {
             "CD": ['vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP',  'pvote_LUD', 'vote_LUD'],
             "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC'],
             "C": [],
+        }
+    },
+    '2014_muni_t2': {
+        'LINK': {0: "ingestion/municipales/2014/2014_1000_plus_t2.csv"},
+        'SAVE_TO': "raw/elections/municipales/2014/muni2014_csv/muni2014comm_t2.parquet",
+        'FILE_FORMAT': "csv",
+        'NB_OF_FILE': 1,
+        'SOURCE': 'ingestion',
+        'NUANCE_ID': 'liste',
+        'political_mapping': {
+            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFG', 'pvote_LFG'],
+            "D": ['vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD'],
+            "CD": ['vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP',  'pvote_LUD', 'vote_LUD'],
+            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC'],
+            "C": [],
+        }
+    },
+    '2020_muni_t2': {
+        'LINK': {0: "ingestion/municipales/2014/2020_1000_plus_t2.csv", 1:"ingestion/municipales/2014/2020_1000_moins_t2.csv"},
+        'SAVE_TO': "raw/elections/municipales/2014/muni2014_csv/muni2014comm_t2.parquet",
+        'FILE_FORMAT': "csv",
+        'NB_OF_FILE': 2,
+        'SOURCE': 'ingestion',
+        'NUANCE_ID': 'liste',
+        'political_mapping': {
+            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFG', 'pvote_LFG'],
+            "D": ['vote_LRN', 'pvote_LRN', 'vote_LEXD', 'pvote_LEXD'],
+            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR',  'pvote_LUD', 'vote_LUD'],
+            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'vote_LECO', 'pvote_LECO'],
+            "C": ['pvote_LDVC', 'vote_LDVC', 'pvote_LREM', 'vote_LREM'],
         }
     },
     }
@@ -168,7 +196,7 @@ class ElectionIngester:
             "Blancs": "blancs",
             "Nuls": "nuls",
             "% Abstentions": "% Abstentions",
-            "% Votants": "% Votants",
+            "% Vot/Ins": "% Votants",
             "% Nuls/inscrits": "% Nuls/inscrits",
             "% Nuls/votants": "% Nuls/votants",
             "% Blancs/inscrits": "% Blancs/inscrits",
@@ -187,7 +215,7 @@ class ElectionIngester:
         N = [int(s) for s in data.columns.to_list()[-1].split() if s.isdigit()][0]
         for idx, row in data.iterrows():
             codecommune = row.get("Code commune")
-            j= 0 
+            j = 0
             l = 0
             for i in range(1, N + 1):
                 nuance = row.get(f"Nuance {self.nuance_id} {i}", None)
@@ -238,7 +266,7 @@ class ElectionIngester:
             X.isna().astype(int).sum(axis=0).sort_values().index.to_list()
         )
         trends.remove('codecommune')
-        
+
         # Tendances AUTRES or not in mapping
         trends_in_mapping = set()
         for key in self.political_mapping.keys():
@@ -258,7 +286,7 @@ class ElectionIngester:
 
         X['vote_AUTRES'] = X[list(trends_dropped_v)].sum(axis=1)
         X['pvote_AUTRES'] = X[trends_dropped_p].sum(axis=1)
-
+        breakpoint()
         X = X[["codecommune"] + trends_kept + ['vote_AUTRES', 'pvote_AUTRES']]
         X = X.fillna(0.0)
         X[trends_kept+['vote_AUTRES', 'pvote_AUTRES']] = X[trends_kept+['vote_AUTRES', 'pvote_AUTRES']].astype(float)
