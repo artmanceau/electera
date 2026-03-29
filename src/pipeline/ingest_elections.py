@@ -61,10 +61,10 @@ election_to_ingest = {'2024_leg': {
         }
     },
     '2026_muni': {
-        'LINK': "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2",
+        'LINK': {0: "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2", 1: 'https://www.data.gouv.fr/api/1/datasets/r/46a6a820-f9fa-42ab-9486-f536568a1350'},
         'SAVE_TO': "raw/elections/municipales/2026/muni2026_csv/muni2026comm.parquet",
         'FILE_FORMAT': ".csv",
-        'NB_OF_FILE': 1,
+        'NB_OF_FILE': 2,
         'SOURCE': 'API',
         'NUANCE_ID': 'liste',
         'political_mapping': {
@@ -336,7 +336,7 @@ class ElectionIngester:
                 data_i = self.download_open_and_delete_file(self.access_link[i])
                 data_dict[i] = data_i
             data = pd.concat([data_dict[0], data_dict[1]], axis=0)
-        
+
         # Ids
         data_i = self.get_and_rename(data)
 
