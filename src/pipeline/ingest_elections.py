@@ -46,7 +46,7 @@ election_to_ingest = {'2024_leg': {
         }
     },
     '2020_muni': {
-        'LINK': {0: "ingestion/municipales/2014/2020_1000_plus.csv", 1: "ingestion/municipales/2014/2020_1000_moins.csv"},
+        'LINK': {0: "ingestion/municipales/2020/2020_1000_plus.csv", 1: "ingestion/municipales/2020/2020_1000_moins.csv"},
         'SAVE_TO': "raw/elections/municipales/2020/muni2020_csv/muni2020comm.parquet",
         'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 2,
@@ -61,33 +61,58 @@ election_to_ingest = {'2024_leg': {
         }
     },
     '2026_muni': {
-        'LINK': {0: "https://www.data.gouv.fr/api/1/datasets/r/4feeef01-24f7-4d5a-914f-8aa806f31ec2", 1: 'https://www.data.gouv.fr/api/1/datasets/r/46a6a820-f9fa-42ab-9486-f536568a1350'},
+        'LINK': {0: "ingestion/municipales/2026/2026.csv", 1: "ingestion/municipales/2026/2026_plm.csv"},
         'SAVE_TO': "raw/elections/municipales/2026/muni2026_csv/muni2026comm.parquet",
         'FILE_FORMAT': ".csv",
         'NB_OF_FILE': 2,
-        'SOURCE': 'API',
+        'SOURCE': 'ingestion',
         'NUANCE_ID': 'liste',
-        'political_mapping': {
-            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI', 'vote_LCOM', 'pvote_LCOM'],
-            "D": ['pvote_LRN', 'vote_LRN', 'vote_LEXD', 'pvote_LEXD', 'pvote_LUXD', 'vote_LUXD'],
-            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR', 'pvote_LUD', 'vote_LUD'],
-            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'pvote_LECO', 'vote_LECO'],
-            "C": ['vote_LDVC', 'pvote_LDVC', 'pvote_LUC', 'vote_LUC', 'vote_LDSV', 'pvote_LDSV'],
+         "political_mapping": {
+            "G": [
+                'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI', 'vote_LCOM', 'pvote_LCOM',
+            ],
+            "D": [
+                'vote_LRN', 'pvote_LRN', 'vote_LREC', 'pvote_LREC', 'vote_LUXD', 'pvote_LUXD',
+                'vote_LEXD', 'pvote_LEXD', 'vote_LUDR', 'pvote_LUDR'
+            ],
+            "CD": [
+                'vote_LDVD', 'pvote_LDVD', 'vote_LLR', 'pvote_LLR', 'vote_LUD', 'pvote_LUD',
+                'vote_LDSV', 'pvote_LDSV'
+            ],
+            "CG": [
+                'vote_LDVG', 'pvote_LDVG', 'vote_LECO', 'pvote_LECO', 'vote_LSOC', 'pvote_LSOC', 'vote_LVEC', 'pvote_LVEC', 'vote_LUG', 'pvote_LUG'
+            ],
+            "C": [
+                'vote_LDVC', 'pvote_LDVC', 'vote_LUC', 'pvote_LUC', 'vote_LREN', 'pvote_LREN',
+                'vote_LMDM', 'pvote_LMDM', 'vote_LHOR', 'pvote_LHOR', 'vote_LUDI', 'pvote_LUDI'
+            ]
         }
     },
     '2026_muni_t2': {
-        'LINK': "https://www.data.gouv.fr/api/1/datasets/r/6ff67a28-01bf-459e-beca-dd7aa8132dc1",
+        'LINK': {0: "ingestion/municipales/2026/2026_t2.csv", 1: "ingestion/municipales/2026/2026_plm_t2.csv"},
         'SAVE_TO': "raw/elections/municipales/2026/muni2026_csv/muni2026comm_t2.parquet",
         'FILE_FORMAT': ".csv",
-        'NB_OF_FILE': 1,
-        'SOURCE': 'API',
+        'NB_OF_FILE': 2,
+        'SOURCE': 'ingestion',
         'NUANCE_ID': 'liste',
-        'political_mapping': {
-            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI', 'vote_LCOM', 'pvote_LCOM'],
-            "D": ['pvote_LRN', 'vote_LRN', 'vote_LEXD', 'pvote_LEXD', 'pvote_LUXD', 'vote_LUXD'],
-            "CD": ['vote_LDVD', 'pvote_LDVD', 'pvote_LLR', 'vote_LLR', 'pvote_LUD', 'vote_LUD'],
-            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC', 'pvote_LECO', 'vote_LECO'],
-            "C": ['vote_LDVC', 'pvote_LDVC', 'pvote_LUC', 'vote_LUC'],
+        "political_mapping": {
+            "G": [
+                'vote_LEXG', 'pvote_LEXG', 'vote_LFI', 'pvote_LFI', 'vote_LCOM', 'pvote_LCOM',
+            ],
+            "D": [
+                'vote_LRN', 'pvote_LRN', 'vote_LUXD', 'pvote_LUXD',
+                'vote_LEXD', 'pvote_LEXD', 'vote_LUDR', 'pvote_LUDR'
+            ],
+            "CD": [
+                'vote_LDVD', 'pvote_LDVD', 'vote_LLR', 'pvote_LLR', 'vote_LUD', 'pvote_LUD',
+            ],
+            "CG": [
+                'vote_LDVG', 'pvote_LDVG', 'vote_LECO', 'pvote_LECO', 'vote_LSOC', 'pvote_LSOC', 'vote_LVEC', 'pvote_LVEC', 'vote_LUG', 'pvote_LUG'
+            ],
+            "C": [
+                'vote_LDVC', 'pvote_LDVC', 'vote_LUC', 'pvote_LUC',
+                'vote_LHOR', 'pvote_LHOR', 'vote_LUDI', 'pvote_LUDI'
+            ]
         }
     },
     '2014_muni': {
@@ -97,12 +122,27 @@ election_to_ingest = {'2024_leg': {
         'NB_OF_FILE': 2,
         'SOURCE': 'ingestion',
         'NUANCE_ID': 'liste',
-        'political_mapping': {
-            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFG', 'pvote_LFG'],
-            "D": ['vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD'],
-            "CD": ['vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP',  'pvote_LUD', 'vote_LUD'],
-            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC'],
-            "C": [],
+        'political_mapping' : {
+            "G": [
+                'vote_LUG', 'pvote_LUG', 'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC',
+                'vote_LFG', 'pvote_LFG', 'vote_LCOM', 'pvote_LCOM', 'vote_LVEC', 'pvote_LVEC',
+                'vote_LPG', 'pvote_LPG', 'vote_LEXG', 'pvote_LEXG', 'vote_LEXG', 'pvote_LEXG',
+                'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC', 'vote_LUG', 'pvote_LUG'
+            ],
+            "D": [
+                'vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD', 'vote_LEXD', 'pvote_LEXD'
+            ],
+            "CD": [
+                'vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP', 'vote_LUD', 'pvote_LUD',
+                'vote_LUDI', 'pvote_LUDI', 'vote_LUDI', 'pvote_LUDI',
+                'vote_LUD', 'pvote_LUD', 'vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP'
+            ],
+            "CG": [
+                'vote_LDIV', 'pvote_LDIV', 'vote_LDIV', 'pvote_LDIV'
+            ],
+            "C": [
+                'vote_LMDM', 'pvote_LMDM', 'vote_LUC', 'pvote_LUC', 'vote_LUC', 'pvote_LUC'
+            ],
         }
     },
     '2014_muni_t2': {
@@ -112,16 +152,31 @@ election_to_ingest = {'2024_leg': {
         'NB_OF_FILE': 1,
         'SOURCE': 'ingestion',
         'NUANCE_ID': 'liste',
-        'political_mapping': {
-            "G": ['vote_LUG', 'pvote_LUG', 'vote_LEXG', 'pvote_LEXG',  'vote_LFG', 'pvote_LFG'],
-            "D": ['vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD'],
-            "CD": ['vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP',  'pvote_LUD', 'vote_LUD'],
-            "CG": ['vote_LDVG', 'pvote_LDVG', 'pvote_LSOC', 'vote_LSOC'],
-            "C": [],
-        }
+        'political_mapping' : {
+            "G": [
+                'vote_LUG', 'pvote_LUG', 'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC',
+                'vote_LFG', 'pvote_LFG', 'vote_LCOM', 'pvote_LCOM', 'vote_LVEC', 'pvote_LVEC',
+                'vote_LPG', 'pvote_LPG', 'vote_LEXG', 'pvote_LEXG', 'vote_LEXG', 'pvote_LEXG',
+                'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC', 'vote_LUG', 'pvote_LUG'
+            ],
+            "D": [
+                'vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD', 'vote_LEXD', 'pvote_LEXD'
+            ],
+            "CD": [
+                'vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP', 'vote_LUD', 'pvote_LUD',
+                'vote_LUDI', 'pvote_LUDI', 'vote_LUDI', 'pvote_LUDI',
+                'vote_LUD', 'pvote_LUD', 'vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP'
+            ],
+            "CG": [
+                'vote_LDIV', 'pvote_LDIV', 'vote_LDIV', 'pvote_LDIV'
+            ],
+            "C": [
+                'vote_LMDM', 'pvote_LMDM', 'vote_LUC', 'pvote_LUC', 'vote_LUC', 'pvote_LUC'
+            ],
+        },
     },
     '2020_muni_t2': {
-        'LINK': {0: "ingestion/municipales/2014/2020_1000_plus_t2.csv", 1:"ingestion/municipales/2014/2020_1000_moins_t2.csv"},
+        'LINK': {0: "ingestion/municipales/2020/2020_1000_plus_t2.csv", 1:"ingestion/municipales/2020/2020_1000_moins_t2.csv"},
         'SAVE_TO': "raw/elections/municipales/2020/muni2020_csv/muni2020comm_t2.parquet",
         'FILE_FORMAT': "csv",
         'NB_OF_FILE': 2,
@@ -197,7 +252,7 @@ class ElectionIngester:
             "Nuls": "nuls",
             "% Abstentions": "% Abstentions",
             "% Vot/Ins": "% Votants",
-            "% Votants": "% Votants", # to make uniform across elections
+            "% Votants": "% Votants",
             "% Nuls/inscrits": "% Nuls/inscrits",
             "% Nuls/votants": "% Nuls/votants",
             "% Blancs/inscrits": "% Blancs/inscrits",
@@ -211,7 +266,6 @@ class ElectionIngester:
 
     def pivot_data(self, data):
         pivot_data = []
-        
         N = [int(s) for s in data.columns.to_list()[-1].split() if s.isdigit()][0]
         for idx, row in data.iterrows():
             nuance_seen = []
@@ -225,21 +279,40 @@ class ElectionIngester:
                     # Nuance should be taken into consideration
                     nuance = f'AUTRES_{j}'
                     j += 1
-                if pd.notna(nuance) or nuance != "":
+                if pd.notna(nuance) and nuance!='nan':
                     if nuance in nuance_seen:
-                        nuance = f'{nuance}_'
-                    nuance_seen.append(nuance)
-                   
-                    vote = float(str(vote).replace(",", "."))
-                    pvote = float(str(pvote).replace(",", ".").replace("%", ""))
-                    pivot_data.append(
-                            {
-                                "codecommune": codecommune,
-                                "trend": nuance,
-                                "vote": vote,
-                                "pvote": pvote,
-                            }
-                        )
+                        matches = [
+                            item for item in pivot_data
+                            if item["codecommune"] == codecommune and item["trend"] == nuance
+                        ]
+                        assert len(matches) == 1
+                        element = matches[0]
+                        vote_ = element['vote']
+                        pvote_ = element['pvote']
+                        pivot_data.remove(element)
+                        vote = float(str(vote).replace(",", "."))
+                        pvote = float(str(pvote).replace(",", ".").replace("%", ""))
+                        pivot_data.append(
+                                {
+                                    "codecommune": codecommune,
+                                    "trend": nuance,
+                                    "vote": vote+vote_,
+                                    "pvote": pvote+pvote_,
+                                }
+                            )
+
+                    else:
+                        nuance_seen.append(nuance)
+                        vote = float(str(vote).replace(",", "."))
+                        pvote = float(str(pvote).replace(",", ".").replace("%", ""))
+                        pivot_data.append(
+                                {
+                                    "codecommune": codecommune,
+                                    "trend": nuance,
+                                    "vote": vote,
+                                    "pvote": pvote,
+                                }
+                            )
 
         pivot_dataset = pd.DataFrame(pivot_data)
 
@@ -266,7 +339,7 @@ class ElectionIngester:
             X.isna().astype(int).sum(axis=0).sort_values().index.to_list()
         )
         trends.remove('codecommune')
-
+        
         # Tendances AUTRES or not in mapping
         trends_in_mapping = set()
         for key in self.political_mapping.keys():
