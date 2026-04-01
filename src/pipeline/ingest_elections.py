@@ -77,7 +77,6 @@ election_to_ingest = {'2024_leg': {
             ],
             "CD": [
                 'vote_LDVD', 'pvote_LDVD', 'vote_LLR', 'pvote_LLR', 'vote_LUD', 'pvote_LUD',
-                'vote_LDSV', 'pvote_LDSV'
             ],
             "CG": [
                 'vote_LDVG', 'pvote_LDVG', 'vote_LECO', 'pvote_LECO', 'vote_LSOC', 'pvote_LSOC', 'vote_LVEC', 'pvote_LVEC', 'vote_LUG', 'pvote_LUG'
@@ -124,10 +123,7 @@ election_to_ingest = {'2024_leg': {
         'NUANCE_ID': 'liste',
         'political_mapping' : {
             "G": [
-                'vote_LUG', 'pvote_LUG', 'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC',
-                'vote_LFG', 'pvote_LFG', 'vote_LCOM', 'pvote_LCOM', 'vote_LVEC', 'pvote_LVEC',
-                'vote_LPG', 'pvote_LPG', 'vote_LEXG', 'pvote_LEXG', 'vote_LEXG', 'pvote_LEXG',
-                'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC', 'vote_LUG', 'pvote_LUG'
+                'vote_LFG', 'pvote_LFG', 'vote_LCOM', 'pvote_LCOM',  'vote_LEXG', 'pvote_LEXG', 'vote_LEXG', 'pvote_LEXG',
             ],
             "D": [
                 'vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD', 'vote_LEXD', 'pvote_LEXD'
@@ -138,12 +134,13 @@ election_to_ingest = {'2024_leg': {
                 'vote_LUD', 'pvote_LUD', 'vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP'
             ],
             "CG": [
-                'vote_LDIV', 'pvote_LDIV', 'vote_LDIV', 'pvote_LDIV'
+                'vote_LUG', 'pvote_LUG', 'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC', 'vote_LVEC', 'pvote_LVEC',
+                'vote_LPG', 'pvote_LPG',
             ],
             "C": [
                 'vote_LMDM', 'pvote_LMDM', 'vote_LUC', 'pvote_LUC', 'vote_LUC', 'pvote_LUC'
             ],
-        }
+        },
     },
     '2014_muni_t2': {
         'LINK': "ingestion/municipales/2014/2014_1000_plus_t2.csv",
@@ -154,10 +151,7 @@ election_to_ingest = {'2024_leg': {
         'NUANCE_ID': 'liste',
         'political_mapping' : {
             "G": [
-                'vote_LUG', 'pvote_LUG', 'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC',
-                'vote_LFG', 'pvote_LFG', 'vote_LCOM', 'pvote_LCOM', 'vote_LVEC', 'pvote_LVEC',
-                'vote_LPG', 'pvote_LPG', 'vote_LEXG', 'pvote_LEXG', 'vote_LEXG', 'pvote_LEXG',
-                'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC', 'vote_LUG', 'pvote_LUG'
+                'vote_LFG', 'pvote_LFG', 'vote_LCOM', 'pvote_LCOM',  'vote_LEXG', 'pvote_LEXG', 'vote_LEXG', 'pvote_LEXG',
             ],
             "D": [
                 'vote_LFN', 'pvote_LFN', 'vote_LEXD', 'pvote_LEXD', 'vote_LEXD', 'pvote_LEXD'
@@ -168,7 +162,8 @@ election_to_ingest = {'2024_leg': {
                 'vote_LUD', 'pvote_LUD', 'vote_LDVD', 'pvote_LDVD', 'vote_LUMP', 'pvote_LUMP'
             ],
             "CG": [
-                'vote_LDIV', 'pvote_LDIV', 'vote_LDIV', 'pvote_LDIV'
+                'vote_LUG', 'pvote_LUG', 'vote_LDVG', 'pvote_LDVG', 'vote_LSOC', 'pvote_LSOC', 'vote_LVEC', 'pvote_LVEC',
+                'vote_LPG', 'pvote_LPG',
             ],
             "C": [
                 'vote_LMDM', 'pvote_LMDM', 'vote_LUC', 'pvote_LUC', 'vote_LUC', 'pvote_LUC'
@@ -240,6 +235,8 @@ class ElectionIngester:
         self,
         X,
         mapping={
+            'select_unique': 'select_unique',
+            'plm': 'plm',
             "Code département": "dep",
             "Libellé département": "nomdep",
             "Code commune": "codecommune",
