@@ -17,6 +17,20 @@ from src.components.utils.config import DataProcessingConfig
 from src.components.utils.read_config import ConfigReader
 
 
+"""
+Objective: improve the data quality by re-designing the pipeline
+- Reduce errors
+- Be flexible for the integration of new features
+- Be faster using polars
+
+The main challenge is that we have communes that change through time.
+We make the choice to only consider the communes actives in 2026 (this can be re-run to adapt to the new commune).
+
+TABLE1: commune. This table list all the communes active in 2026, it is the ground truth for code commune, commune name and geographic information. Everything will be a left join from this table
+TABLE2: election results. 
+"""
+
+
 class ElectionDataProcessor2:
     """Class to handle election data processing pipeline.
     
