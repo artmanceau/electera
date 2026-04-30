@@ -27,22 +27,26 @@ election_to_ingest = {'2024_leg': {
         'NB_OF_FILE': 1,
         'SOURCE': 'API',
         'NUANCE_ID': 'candidat',
-        'political_mapping': {
-            "G": ["vote_EXG", "pvote_EXG", "vote_UG", "pvote_UG", 'pvote_COM', "vote_COM", 'vote_FI', 'pvote_FI'],
-            "D": [
-                "vote_RN",
-                "pvote_RN",
-                "vote_REC",
-                "pvote_REC",
-                'vote_EXD',
-                'pvote_EXD'
+        'political_mapping' : {
+            "G": [
+                "vote_EXG", "pvote_EXG", "vote_UG", "pvote_UG",
+                "pvote_COM", "vote_COM", "vote_FI", "pvote_FI"
             ],
-            "CD": ["vote_LR",
-                "pvote_LR",
-                "vote_DVD",
-                "pvote_DVD",],
-            "CG": ["vote_REG", "pvote_REG", "vote_ECO", "pvote_ECO", 'vote_SOC', 'pvote_SOC', 'vote_DVG', 'pvote_DVG'],
-            "C": ["vote_ENS", "pvote_ENS", "vote_DIV", "pvote_DIV", "vote_DSV", "pvote_DSV", 'vote_DVC', 'pvote_DVC'],
+            "D": [
+                "vote_RN", "pvote_RN", "vote_REC", "pvote_REC",
+                "vote_EXD", "pvote_EXD", "vote_UXD", "pvote_UXD",
+            ],
+            "CD": [
+                "vote_LR", "pvote_LR", "vote_DVD", "pvote_DVD", "vote_UDI", "pvote_UDI", 
+            ],
+            "CG": [
+                "vote_REG", "pvote_REG", "vote_ECO", "pvote_ECO",
+                "vote_SOC", "pvote_SOC", "vote_DVG", "pvote_DVG", "vote_RDG", "pvote_RDG", "vote_VEC", "pvote_VEC"
+            ],
+            "C": [
+                "vote_ENS", "pvote_ENS", "vote_DIV", "pvote_DIV",
+                "vote_DSV", "pvote_DSV", "vote_DVC", "pvote_DVC", "vote_HOR", "pvote_HOR",
+            ],
         }
     },
     '2020_muni': {
@@ -440,7 +444,7 @@ class ElectionIngester:
 
 
 if __name__ == "__main__":
-    for election_code in list(election_to_ingest.keys())[::-1]:
+    for election_code in list(election_to_ingest.keys()):
         logger.info(f'Ingesting: {election_code}')
         ingester = ElectionIngester(election_code)
         ingester.run()

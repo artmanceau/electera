@@ -116,7 +116,7 @@ class BackTester:
 
         # Retrieve the rows matching the years for each dataset
         for trend in k_political_trends:
-            st = Splitter("p" + trend)
+            st = Splitter(trend) # old version a 'p' was added
             split_method = f"{k_year}_{self.k_t}"
             X, y, y_split = st.get_Xy(data)
             (

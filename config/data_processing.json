@@ -17,7 +17,8 @@
     "first_election_target_type": "municipales",
     "include_elections_after": 1958,
     "include_elections_of_type": [
-        "municipales"
+        "presidentiel",
+        "legislative"
     ],
     "features_aug": [],
     "encoding_type": "no",
@@ -25,5 +26,6 @@
     "quality_filter": true,
     "projections":true,
     "plm_policy":"Arr",
-    "polls_data":true
+    "polls_data":true,
+    "elections_to_exclude":[]
 }
