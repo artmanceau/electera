@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, HttpUrl, validator
 class BackTesterConfig(BaseModel):
     # Political trends/variables
     political_trends: List[List[str]] = Field(
-        default=["voteCG", "voteCD", "voteC", "voteD", "voteG", "par"],
+        default=["CG", "CD", "C", "D", "G", "par"],
         description="Political trend variables to include in modeling",
     )
 
@@ -46,9 +46,9 @@ class BackTesterConfig(BaseModel):
 
         # Define allowed variable sets
         allowed_sets = [
-            {"par", "voteTD", "voteTG"},
-            {"par", "voteGCG", "voteC", "voteDCD"},
-            {"voteCG", "voteCD", "voteC", "voteD", "voteG", "par"},  # existing default
+            {"par", "TD", "TG"},
+            {"par", "GCG", "C", "DCD"},
+            {"CG", "CD", "C", "D", "G", "par"},  # existing default
         ]
 
         # Ensure the input is a list of lists

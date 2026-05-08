@@ -67,9 +67,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 10,
-        "n_splits_outer": 10,
-        "n_trials": 10,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
@@ -114,7 +114,7 @@ class BackTester:
 
         # Retrieve the rows matching the years for each dataset
         for trend in k_political_trends:
-            st = Splitter(trend)  # old version a 'p' was added
+            st = Splitter(trend)
             split_method = f"{k_year}_{self.k_t}"
             X, y, y_split = st.get_Xy(data)
             (
@@ -129,7 +129,6 @@ class BackTester:
                 y_split,
                 split_method=split_method,
             )
-            breakpoint()
             (self.X_train[trend], self.X_val[trend], self.X_test[trend]) = (
                 st.clean_features_list(
                     self.X_train[trend], self.X_val[trend], self.X_test[trend]
@@ -139,18 +138,21 @@ class BackTester:
 
     def organize_vote(self, k_year, k_political_trends):
         # Ground truth
+        election_type = 'presidentiel' if self.k_t == 0 else 'legislative'
+        election_type_code = 'pres' if self.k_t == 0 else 'leg'
         ground_truth_data_path = (
             self.config.data_path
-            + f"raw/elections/presidentiel/{k_year}/pres{k_year}_csv/pres{k_year}comm.parquet"
+            + f"raw/elections/{election_type}/{k_year}/{election_type_code}{k_year}_csv/{election_type_code}{k_year}comm.parquet"
         )
         X_true = DataLoader.load_dataset(ground_truth_data_path)[
             ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-            + [trend for trend in k_political_trends if trend != "par"]
-            + ["p" + trend for trend in k_political_trends]
+            + [f'vote{trend}' for trend in k_political_trends if trend != "par"]
+            + [f"pvote{trend}" for trend in k_political_trends if trend != "par"]
+            + ['ppar']
         ]
         str_cols = ["codecommune", "nomcommune"]
-        float_cols = ["p" + trend for trend in k_political_trends]
-        int_cols = [trend for trend in k_political_trends if trend != "par"] + [
+        float_cols = [f"pvote{trend}" for trend in k_political_trends if trend != "par"] + ['ppar']
+        int_cols = [f'vote{trend}' for trend in k_political_trends if trend != "par"] + [
             "inscrits",
             "votants",
             "exprimes",
@@ -158,6 +160,7 @@ class BackTester:
         X_true[str_cols] = X_true[str_cols].astype(str)
         X_true[int_cols] = X_true[int_cols].astype(int)
         X_true[float_cols] = X_true[float_cols].astype(float)
+
         # Predictions
         data = DataLoader.load_dataset(self.config.data_path + self.config.dataset_path)
         data_election = data[
@@ -299,7 +302,7 @@ class BackTester:
                 "meta_boosting": lambda: instance_model.train(
                     self.X_train[trend],
                     self.y_train[trend],
-                    use_feature_selection=True,
+                    use_feature_selection=False,
                     val_set=(self.X_val[trend], self.y_val[trend]),
                 ),
                 "meta_boosting_multiple": lambda: instance_model.train(

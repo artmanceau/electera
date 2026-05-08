@@ -82,13 +82,15 @@ class Splitter:
 
         features = non_socio_eco_features + socio_eco_features
         features = list(set(features).union(set(features_to_save)))
+
+        # Percentage of missing values
+        logger.debug(f'Percentage of missing values in the training dataset: {X_train[features].isnull().mean().mean()}')
+
         return X_train[features], X_val[features], X_test[features]
 
     def get_Xy(self, data, predict_delta=False, selected_features=None):
-        # Review the logic here... to update to the new processing
-        breakpoint()
         if predict_delta:
-            y = data[self.vote_variable] - data[f"pvoteprevious{self.var}"]
+            y = data[self.vote_variable] - data[f"previouspvote{self.var}"]
             y_split = pd.concat([y, data[["annee", "type"]]], axis=1)
             y_split.columns = [self.vote_variable, "annee", "type"]
             logger.debug(
@@ -99,18 +101,16 @@ class Splitter:
             y_split = data[[self.vote_variable, "annee", "type"]]
             logger.debug(f"Prediction of vote statistics {self.var}")
 
-        pvote_cols = data.columns[
-            data.columns.str.contains("pvote", case=False)
-            & ~data.columns.str.endswith(str(self.var))
+        feature_cols = data.columns[
+            data.columns.str.startswith("F_")
         ].tolist()
 
-        X = data.drop(columns=[self.vote_variable, "codecommune"] + pvote_cols)
+        X = data[feature_cols+['inscrits', 'type', 'annee']+[f'previous{self.vote_variable}', f'previousprevious{self.vote_variable}']].astype(float) # Add dep_num
 
         # Replace inf with nan
         # (handled by models - all proposed models should handle missing values)
         inf_count = np.isinf(X.select_dtypes(include=[np.number])).sum().sum()
-        print(inf_count)
-        X = X.replace([np.inf, -np.inf], np.nan)
+        assert inf_count == 0
 
         # Make sure there is no nan
         indices_to_drop = y[y.isna()].index
@@ -122,35 +122,9 @@ class Splitter:
                 f"{len(indices_to_drop)} rows were dropped because the target was missing!"
             )
 
-        # Remove dep columns — numeric version in the data processing
-        if "dep" in X.columns and "dep_num" in X.columns:
-            X.drop(columns=["dep"], inplace=True)
-
         # Make sure columns in X are all float
-        # We have to check that all columns are float
         non_float_columns = X.select_dtypes(exclude=["float"]).columns
-
-        if not non_float_columns.empty:
-            # If we have some, we try to convert them. If it fails, we drop the column.
-            for col in non_float_columns:
-                # # Problem with Corsica : convert 2A and 2B -> 2 and then take float
-                # if col == "dep":
-                #     clean_col_dep = (
-                #         X[col].astype(str).str.replace(r"([0-9]+).*", r"\1", regex=True)
-                #     )
-                #     clean_col_dep[clean_col_dep == "None"] = np.nan
-                #     X[col] = clean_col_dep.astype(float)
-                # else:
-                try:
-                    X[col] = X[col].astype(float)
-                except ValueError:
-                    # We have some columns that are strings (error in data processing).
-                    # We drop them here. Ideally a check should be implemented.
-                    # print(f"Column '{col}' could not be converted to float. Dropping it.")
-                    X.drop(columns=[col], inplace=True)
-                    logger.warning(
-                        f"Dropping column {col} because couldn't be converted to float"
-                    )
+        assert len(non_float_columns) == 0
 
         if selected_features is None:
             selected_features = list(X.columns)

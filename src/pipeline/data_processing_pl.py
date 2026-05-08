@@ -23,6 +23,12 @@ TABLE1: commune. This table list all the communes active in 2026, it is the grou
 TABLE2: election results. 
 """
 
+# Improvements:
+# - PLM
+# - Forward fill for socio-economic data
+# - All communes that existed (use passage)
+# - Investigate duplication of communes
+
 
 class ElectionDataProcessor:
     """Class to handle election data processing pipeline.
@@ -597,6 +603,7 @@ class ElectionDataProcessor:
             "NCC",
             "NCCENR",
             "LIBELLE",
+            "dep_num"
         ] + all_votes + self.previous(all_votes) + self.previousprevious(all_votes)
 
         election_results = electoral_data.filter(
@@ -606,7 +613,7 @@ class ElectionDataProcessor:
         # Merge with commune data
         dataset = election_results.join(
             commune_data.select(
-                "TYPECOM", "codecommune", "NCC", "NCCENR", "LIBELLE", "lat", "long"
+                "TYPECOM", "codecommune", "NCC", "NCCENR", "LIBELLE", "lat", "long", 'dep_num'
             ),
             on="codecommune",
             how="left",

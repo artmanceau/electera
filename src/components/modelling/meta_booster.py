@@ -117,7 +117,7 @@ class MetaBooster:
 
         return X_train
 
-    def train(self, X, y, use_feature_selection=True, val_set=None):
+    def train(self, X, y, use_feature_selection=False, val_set=None):
         logger.info("Training meta-booster model")
         weights = self._compute_weights(X, y)
 
