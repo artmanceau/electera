@@ -6,7 +6,6 @@ from pathlib import Path
 
 
 class ConfigReader:
-
     @staticmethod
     def _read_config(config_path, config_class):
         file_path = os.path.join(

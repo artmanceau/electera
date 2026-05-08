@@ -1,10 +1,10 @@
 import streamlit as st
 from asset.definitions import client_kwargs
 from core.data_handler import AppData, load_fs
+from core.state_handler import SessionHandler
 
 from src.components.utils.config import AppConfig
 from src.components.utils.read_config import ConfigReader
-from core.state_handler import SessionHandler
 
 st.divider()
 
@@ -28,7 +28,7 @@ def instantiate_session_state():
     st.session_state["data"] = AppData(
         st.session_state["config"].data_path, st.session_state["config"].model_version
     )
-    st.session_state['state'] = SessionHandler()
+    st.session_state["state"] = SessionHandler()
 
 
 instantiate_filesystem()

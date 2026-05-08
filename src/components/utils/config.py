@@ -1,4 +1,5 @@
-from typing import List, Literal, Optional, Any
+from typing import Any, List, Literal, Optional
+
 from loguru import logger
 from pydantic import BaseModel, Field, HttpUrl, validator
 
@@ -344,7 +345,7 @@ class CFConfig(BaseModel):
 
     model_pkl_path: str
     model_id: Optional[int] = -1
-    target_name: Optional[str] = ''
+    target_name: Optional[str] = ""
     total_cfs: Optional[int] = 5
     features_to_vary_list_path: Optional[str] = ""
     features_to_vary_list: Optional[list[str]] = None

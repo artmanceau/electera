@@ -39,7 +39,6 @@ def plot_m(
         year = int(key.split("/")[1][:4])  # Extract the year from the key
 
         if year in years_to_remove:
-
             continue  # Skip this key if it's in the exclusion list
 
         # Determine the color based on the election year
@@ -265,7 +264,9 @@ def plot_estimation_results_winsor(results, cutoff_year=2000):
                 linestyle = (
                     "-"
                     if "pres" in election_type
-                    else ":" if "leg" in election_type else "--"
+                    else ":"
+                    if "leg" in election_type
+                    else "--"
                 )
                 subset = df[
                     (df["Round"] == round_type) & (df["Election_type"] == election_type)
@@ -297,7 +298,7 @@ def plot_estimation_results_winsor(results, cutoff_year=2000):
 
     axs[-1].set_xlabel("Year")
     fig.suptitle(
-        f"Evolution of coefficients over time (Winsorized with Outliers Highlighted)",
+        "Evolution of coefficients over time (Winsorized with Outliers Highlighted)",
         fontsize=16,
     )
     plt.tight_layout(rect=[0, 0, 1, 0.96])

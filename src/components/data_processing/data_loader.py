@@ -12,7 +12,6 @@ from loguru import logger
 
 
 class DataUtils:
-
     @staticmethod
     def _detect_s3(file_path: str) -> bool:
         return file_path.startswith("s3://")
@@ -87,7 +86,7 @@ class DataUtils:
         if fs is None:
             data = pd.read_csv(file_path)
         else:
-            data = pd.read_csv(fs.open(file_path, mode='rb'), low_memory=False)
+            data = pd.read_csv(fs.open(file_path, mode="rb"), low_memory=False)
         return data
 
     def _to_parquet(df: pd.DataFrame, file_path: str, fs=None) -> None:
@@ -175,7 +174,6 @@ class DataUtils:
 
 
 class DataLoader:
-
     @staticmethod
     def load_dataset(
         file_path: str,

@@ -1,4 +1,4 @@
-""""
+""" "
 Meta-Booster Model : models that builds a meta-boosting model from simple boosting model
 The model is build using nested-cross-validation paramaters optimization
 """
@@ -10,11 +10,11 @@ import optuna
 import pandas as pd
 from catboost import CatBoostRegressor
 from loguru import logger
-from sklearn.metrics import mean_squared_error
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 from xgboost import XGBRegressor
-from sklearn.linear_model import LinearRegression
 
 from src.components.explanability.feature_importance import FeatureImportance
 
@@ -85,7 +85,7 @@ class MetaBooster:
         n_splits_outer=2,
         n_splits_inner=2,
         n_trials=2,
-        poll_adj=False
+        poll_adj=False,
     ):
         self.method = method
         self.boosting_method = BOOSTING_ALG[self.method]
@@ -112,7 +112,7 @@ class MetaBooster:
 
         if (set(features) & set(X.columns)) != set(features):
             logger.warning(
-                f"The following features are not in X: {set(features)-(set(features) & set(X.columns))}"
+                f"The following features are not in X: {set(features) - (set(features) & set(X.columns))}"
             )
 
         return X_train
@@ -150,7 +150,9 @@ class MetaBooster:
             features_list = X.columns.to_list()
             poll_features = [item for item in features_list if "poll" in item]
             if len(poll_features) == 1:
-                self.poll_feature = [item for item in features_list if "poll" in item][0]
+                self.poll_feature = [item for item in features_list if "poll" in item][
+                    0
+                ]
                 polls = np.array(X[self.poll_feature]) / 100
 
                 X_linear = np.column_stack([preds, polls])
@@ -158,12 +160,16 @@ class MetaBooster:
 
                 self.adjustment_model = LinearRegression()
                 self.adjustment_model.fit(X_linear, y_linear)
-                logger.info('Linear model adjusted with polling data and model prediction')
+                logger.info(
+                    "Linear model adjusted with polling data and model prediction"
+                )
                 logger.debug(f"Coefficients: {self.adjustment_model.coef_}")
                 logger.debug(f"Intercept: {self.adjustment_model.intercept_}")
-                logger.debug(f"R^2 score: {self.adjustment_model.score(X_linear, y_linear)}")
+                logger.debug(
+                    f"R^2 score: {self.adjustment_model.score(X_linear, y_linear)}"
+                )
             else:
-                logger.warning('No poll feature for this election/political trend')
+                logger.warning("No poll feature for this election/political trend")
 
     def get_features(self):
         return self.features
@@ -192,26 +198,30 @@ class MetaBooster:
 
             return preds
 
-    def feature_selection(self, X, y, threshold=0.8, method='permuation'):
+    def feature_selection(self, X, y, threshold=0.8, method="permuation"):
         logger.info(
             "Performing feature selection. Method: threshold best features in gain"
         )
         sample_model = BOOSTING_ALG[self.method]()
         sample_model.fit(X=X, y=y)
 
-        if method == 'total_gain':
+        if method == "total_gain":
             features_imp_df = FeatureImportance.compute_importance(
                 models=[sample_model],
                 features=X.columns,
-                _get_importance_method=lambda x : x.feature_importances_,
+                _get_importance_method=lambda x: x.feature_importances_,
             )
             self.features = features_imp_df[
                 features_imp_df.cumsum()["Importance"] < threshold
             ]["Feature"].to_list()
 
         elif method == "permuation":
-            perm = permutation_importance(sample_model, X, y, n_repeats=10, random_state=0)
-            self.features = X.columns[perm.importances_mean.argsort()[::-1][:30]].to_list()
+            perm = permutation_importance(
+                sample_model, X, y, n_repeats=10, random_state=0
+            )
+            self.features = X.columns[
+                perm.importances_mean.argsort()[::-1][:30]
+            ].to_list()
 
         else:
             raise Exception("Feature selection method not implemented")

@@ -13,7 +13,7 @@ import mlflow.sklearn
 import pandas as pd
 from loguru import logger
 from sklearn.linear_model import ElasticNetCV, LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_squared_error
 
 from src.components.data_processing.data_loader import DataLoader
 from src.components.modelling.benchmark_models import BenchmarkModels
@@ -134,7 +134,6 @@ class ElectionModelTrainer:
             logger.info(f"Starting MLflow experiment: {experiment_name}")
 
             with mlflow.start_run():
-
                 # Log config as parameters and artifact
                 if hasattr(self, "config") and self.config is not None:
                     logger.info("Logging configuration")
@@ -263,18 +262,13 @@ def main():
 
     if "boosting" in trainer.config.models:
         # boosting
-        for (
-            param_search_method
-        ) in (
+        for param_search_method in (
             trainer.config.param_search_methods
         ):  # List of hyperparameter tuning methods
-            for (
-                feature_selection_method
-            ) in (
+            for feature_selection_method in (
                 trainer.config.feature_selection_methods
             ):  # List of feature selection methods
                 for boosting_method in trainer.config.boosting_methods:
-
                     logger.info(
                         f"Running pipeline with feature selection: {feature_selection_method}, parameters search: {param_search_method}"
                     )

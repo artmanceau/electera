@@ -64,7 +64,7 @@ def f_1(m_N, bin_avg_values, plot=False, show_result=False):
                 plt.title(f"Fit for {key}")
                 plt.grid()
                 plt.show()
-        except Exception as e:
+        except Exception:
             election_not_computed.append(key)
 
     # Create a DataFrame with the results
@@ -203,7 +203,7 @@ def f_4(gamma_N, bin_avg_values, compute_h=False, PI={}):
                     }
                 )
 
-        except Exception as e:
+        except Exception:
             # Handle cases where fitting fails
             results.append(
                 {"Key": key, "A1": np.nan, "A2": np.nan, "omega": np.nan, "R2": np.nan}

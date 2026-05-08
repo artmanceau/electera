@@ -5,7 +5,6 @@ import pandas as pd
 
 
 class ProjectionUtils:
-
     @staticmethod
     def extract_year_from_column(x):
         return re.search(r"\d{4}$", str(x))[0]
@@ -50,7 +49,6 @@ class ProjectionUtils:
 
 
 class ProjectionModel:
-
     def __init__(self, p=5, alpha=None):
         self.alpha = alpha
         self.p = p

@@ -1,6 +1,7 @@
-from sklearn.model_selection import train_test_split
-from src.components.data_processing.data_loader import DataLoader
 from loguru import logger
+from sklearn.model_selection import train_test_split
+
+from src.components.data_processing.data_loader import DataLoader
 from src.components.modelling.data_split import Splitter
 from src.components.modelling.meta_booster import MetaBooster
 

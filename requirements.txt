@@ -28,6 +28,7 @@ catboost
 gpboost
 PyALE
 supertree
+pydantic
 bs4
 lxml
 streamlit>=1.20.0

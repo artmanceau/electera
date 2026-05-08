@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional, Tuple
-import streamlit as st
+
 import s3fs
 from loguru import logger
 
@@ -7,7 +7,6 @@ from src.components.data_processing.data_loader import DataLoader
 
 
 class FileSystem:
-
     instance = None
 
     def __new__(cls, client_kwargs, key, secret):
@@ -42,7 +41,6 @@ def get_fs():
 
 
 class AppData:
-
     def __init__(self, data_path, version):
         self.data_path = data_path
         self.version = version
@@ -65,7 +63,7 @@ class AppData:
                 file_path = f"{self.data_path}/output/explain/{asset}_{trend}_{year}_{election_type}_{self.version}.parquet"
             else:
                 file_path = f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet"
-            
+
             element = DataLoader.load_dataset(
                 file_path,
                 fs=get_fs().fs,

@@ -5,7 +5,6 @@ import pandas as pd
 
 
 class ComposeDistanceMatrix:
-
     def __init__(self):
         self.distance_array = None
         self.i = None
@@ -45,7 +44,6 @@ class ComposeDistanceMatrix:
 
 
 class BoostingSpatialLoss:
-
     @staticmethod
     def LISE(y):
         """Computes Local Moran's I"""

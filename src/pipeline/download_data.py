@@ -14,7 +14,6 @@ from src.components.utils.read_config import ConfigReader
 
 
 class UtilsDownloader:
-
     def __init__(self):
         """"""
         pass
@@ -192,7 +191,6 @@ class DataDownloader(UtilsDownloader):
                                             if filename.endswith(".rtf"):
                                                 continue
                                             elif filename.endswith(".csv"):
-
                                                 # Read and process CSV
                                                 try:
                                                     df = pd.read_csv(
@@ -253,10 +251,8 @@ class DataDownloader(UtilsDownloader):
                                         for filename in files_:
                                             file_path = os.path.join(root_, filename)
                                             if filename.endswith(".rtf"):
-
                                                 self.remove_file(file_path)
                                             elif filename.endswith(".csv"):
-
                                                 csv_path = file_path
                                                 df = pd.read_csv(
                                                     csv_path,

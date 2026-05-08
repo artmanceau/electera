@@ -1,7 +1,8 @@
+from typing import Literal
+
 import streamlit as st
 from asset.definitions import convert, political_align, reverse_convert
 from loguru import logger
-from typing import Literal
 
 
 class SessionHandler:
@@ -29,19 +30,25 @@ class SessionHandler:
                     default=st.session_state["config"].years_to_display[
                         : min(3, len(st.session_state["config"].years_to_display))
                     ],
-                    on_change=st.cache_data.clear()
+                    on_change=st.cache_data.clear(),
                 )
 
             else:
                 self.year = st.selectbox(
-                    "Année électorale", st.session_state["config"].years_to_display, index=0, on_change=st.cache_data.clear()
+                    "Année électorale",
+                    st.session_state["config"].years_to_display,
+                    index=0,
+                    on_change=st.cache_data.clear(),
                 )
         with col2:
             self.type = st.selectbox(
                 "Type d'élection",
-                [convert("type", el) for el in st.session_state["config"].types_to_display],
+                [
+                    convert("type", el)
+                    for el in st.session_state["config"].types_to_display
+                ],
                 index=0,
-                on_change=st.cache_data.clear()
+                on_change=st.cache_data.clear(),
             )
         with col3:
             self.blocs = st.selectbox(
@@ -51,9 +58,9 @@ class SessionHandler:
                     for el in st.session_state["config"].political_divisions_to_dislay
                 ],
                 index=0,
-                on_change=st.cache_data.clear()  
+                on_change=st.cache_data.clear(),
             )
-        logger.debug(f'State registered: {self.type} | {self.year} | {self.blocs}')
+        logger.debug(f"State registered: {self.type} | {self.year} | {self.blocs}")
 
     def get_year(self):
         return self.year
@@ -61,34 +68,39 @@ class SessionHandler:
     def get_years(self):
         return self.years
 
-    def get_type(self, as_type: Literal['verbose', 'code', 'number'] = 'code'):
-        if as_type == 'verbose':
+    def get_type(self, as_type: Literal["verbose", "code", "number"] = "code"):
+        if as_type == "verbose":
             return self.type
         else:
             code = reverse_convert("type", self.type)
-            if as_type == 'code':
+            if as_type == "code":
                 return code
-            elif as_type == 'number':
-                return (0 if code == 'pres' else (1 if code == 'leg' else 2))
+            elif as_type == "number":
+                return 0 if code == "pres" else (1 if code == "leg" else 2)
             else:
-                raise Exception('Type of return not configured.')
+                raise Exception("Type of return not configured.")
 
-    def get_blocs(self, as_type: Literal['verbose', 'code'] = 'code', order: Literal['alpha', 'political'] | None = None, prefix: Literal['p'] | None = None):
-        if as_type == 'verbose':
+    def get_blocs(
+        self,
+        as_type: Literal["verbose", "code"] = "code",
+        order: Literal["alpha", "political"] | None = None,
+        prefix: Literal["p"] | None = None,
+    ):
+        if as_type == "verbose":
             bloc_return = self.blocs
-        elif as_type == 'code':
+        elif as_type == "code":
             bloc_return = reverse_convert("political_division", self.blocs)
         else:
-            raise Exception('Type of return not configured.')
+            raise Exception("Type of return not configured.")
 
-        if order == 'alpha':
+        if order == "alpha":
             bloc_return.sort()
             return bloc_return
-        elif order == 'political':
+        elif order == "political":
             bloc_return = political_align(bloc_return)
 
         if prefix:
-            return [f'{prefix}{b}' for b in bloc_return]
+            return [f"{prefix}{b}" for b in bloc_return]
         else:
             return bloc_return
 
@@ -107,18 +119,22 @@ class SessionHandler:
         )
         communes = communes_list["nomcommune"].drop_duplicates()
 
-        self.commune = st.selectbox("Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear())
+        self.commune = st.selectbox(
+            "Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear()
+        )
 
         if len(communes_list[communes_list["nomcommune"] == self.commune]) > 1:
-            arrondissements = communes_list[communes_list["nomcommune"] == self.commune][
-                    "codecommune"
-            ]
+            arrondissements = communes_list[
+                communes_list["nomcommune"] == self.commune
+            ]["codecommune"]
             self.codecommune = st.selectbox(
-                "Selectionnez une arrondissement", [""] + arrondissements, on_change=st.cache_data.clear()
+                "Selectionnez une arrondissement",
+                [""] + arrondissements,
+                on_change=st.cache_data.clear(),
             )
         else:
             self.codecommune = communes_list[
-                    communes_list["nomcommune"] == self.commune
+                communes_list["nomcommune"] == self.commune
             ]["codecommune"].iloc[0]
 
-        logger.debug(f'Commune selected: {self.commune} ({self.codecommune})')
+        logger.debug(f"Commune selected: {self.commune} ({self.codecommune})")

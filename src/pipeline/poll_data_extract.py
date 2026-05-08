@@ -17,7 +17,7 @@ from src.components.data_processing.data_loader import DataLoader, DataUtils
 
 # Nice to have : source des sondages
 
-YEARS = ["2022", "2007", "2012", "2017", "2022", "2027"] #, "1988"]  Bug with 1988
+YEARS = ["2022", "2007", "2012", "2017", "2022", "2027"]  # , "1988"]  Bug with 1988
 
 data_path = "s3://arthurmanceau/election_modeling_uhcp/data/polls/"
 # data_path = "data/polls/"
@@ -370,7 +370,6 @@ blocs_level_3 = ["TG", "TD"]
 
 
 class FetcherUtils:
-
     FRENCH_MONTHS = {
         "janvier": 1,
         "janv": 1,
@@ -520,7 +519,7 @@ class FetcherUtils:
 
     @staticmethod
     def clean_numeric_percent(s: pd.Series) -> pd.Series:
-        s = s.astype(str).str.replace("\u00A0", "", regex=False).str.strip()
+        s = s.astype(str).str.replace("\u00a0", "", regex=False).str.strip()
         is_lt = s.str.startswith("<", na=False)
         # pct_mask = s.str.contains("%", na=False)
 
@@ -551,7 +550,6 @@ class FetcherUtils:
 
 
 class PollFetcher:
-
     def __init__(self):
         self.headers = {"User-Agent": "PollFetcher/1.0 (contact@example.com)"}
         self.events = []
@@ -615,7 +613,7 @@ class PollFetcher:
         if "Échantillon" in X.columns:
             X.loc[0, "Échantillon"] = FetcherUtils.clean_number(X.loc[0, "Échantillon"])
             X["Échantillon"] = (
-                X["Échantillon"].astype(str).str.replace("\u00A0", "", regex=False)
+                X["Échantillon"].astype(str).str.replace("\u00a0", "", regex=False)
             )
         for col in X.columns:
             if col not in ["Sondeur", "Dates", "Échantillon", "Dates_pd"]:
@@ -655,22 +653,24 @@ class PollFetcher:
         bloc = blocs[year]
         X = X.copy(deep=True)
         for b, canditates in bloc.items():
-            X[f'{b}_raw'] = X[canditates].sum(axis=1)
+            X[f"{b}_raw"] = X[canditates].sum(axis=1)
 
         X["GCG_raw"] = X["G_raw"] + X["CG_raw"] / 2
         X["DCD_raw"] = X["D_raw"] + X["CD_raw"] / 2
         X["TG_raw"] = X["G_raw"] + X["CG_raw"] + X["C_raw"] / 2
         X["TD_raw"] = X["D_raw"] + X["CD_raw"] + X["C_raw"] / 2
 
-        assert 50 < X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean() < 100
-        assert 50 < X[[f'{b}_raw' for b in blocs_level_2]].sum(axis=1).mean() < 100
-        assert 50 < X[[f'{b}_raw' for b in blocs_level_3]].sum(axis=1).mean() < 100
+        assert 50 < X[[f"{b}_raw" for b in blocs_level_1]].sum(axis=1).mean() < 100
+        assert 50 < X[[f"{b}_raw" for b in blocs_level_2]].sum(axis=1).mean() < 100
+        assert 50 < X[[f"{b}_raw" for b in blocs_level_3]].sum(axis=1).mean() < 100
 
         # Adjust to make them sum to 1
-        delta_1 = (100 - X[[f'{b}_raw' for b in blocs_level_1]].sum(axis=1).mean()) / len(blocs_level_1)
+        delta_1 = (
+            100 - X[[f"{b}_raw" for b in blocs_level_1]].sum(axis=1).mean()
+        ) / len(blocs_level_1)
         for bloc in blocs_level_1:
-            X[bloc] = X[f'{bloc}_raw'] + delta_1
-    
+            X[bloc] = X[f"{bloc}_raw"] + delta_1
+
         X["GCG"] = X["G"] + X["CG"]
         X["DCD"] = X["D"] + X["CD"]
         X["TG"] = X["G"] + X["CG"] + X["C"] / 2
@@ -732,9 +732,10 @@ class PollFetcher:
         table_dict = self.parse_page(tables, soup_tables)
 
         # Instantiate the datasets
-        poll_dataset, poll_dataset_t2 = self.concat_t1(
-            year, table_dict
-        ), self.concat_t2(year, table_dict)
+        poll_dataset, poll_dataset_t2 = (
+            self.concat_t1(year, table_dict),
+            self.concat_t2(year, table_dict),
+        )
 
         # N5
         poll_dataset = self._note_col_handling(poll_dataset)

@@ -1,12 +1,6 @@
 import pydeck as pdk
 import streamlit as st
-from asset.definitions import (
-    COMMUNES_MAP_PATH,
-    colors_dict,
-    convert,
-    reverse_convert,
-    trad,
-)
+from asset.definitions import COMMUNES_MAP_PATH, colors_dict, trad
 from core.data_handler import get_fs
 from core.utils import check_home_run
 
@@ -22,17 +16,21 @@ def load_geojson_page(path: str, _fs: object):
 def load_results():
     st.session_state["data"].load_result(
         asset="results_full",
-        year=st.session_state['state'].get_year(),
-        election_type=st.session_state['state'].get_type(as_type='code'),
-        trends=st.session_state['state'].get_blocs(as_type='code', order='alpha'),
+        year=st.session_state["state"].get_year(),
+        election_type=st.session_state["state"].get_type(as_type="code"),
+        trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
         asset_name="results_full",
     )
 
 
 check_home_run()
-st.session_state['state'].selection_box()
+st.session_state["state"].selection_box()
 
-current_blocs = [bloc.replace("vote", "") for bloc in st.session_state['state'].get_blocs(as_type='code', order='alpha') if bloc != "par"]
+current_blocs = [
+    bloc.replace("vote", "")
+    for bloc in st.session_state["state"].get_blocs(as_type="code", order="alpha")
+    if bloc != "par"
+]
 
 st.header("Carte des résultats électoraux")
 

@@ -344,7 +344,6 @@ def compute_tau_means_2D_bins(data, criteria="pib"):
 
     # Process each DataFrame in the input dictionary
     for key, df in data.items():
-
         _, size_bins, _ = create_size_bins(data[key], 50, "inscrits")
         pib_bins = create_equally_distributed_bins(
             data[key], criteria, 4

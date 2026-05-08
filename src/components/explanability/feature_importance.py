@@ -3,7 +3,6 @@ import pandas as pd
 
 
 class FeatureImportance:
-
     @staticmethod
     def _create_importance_df(features, importance):
         return (

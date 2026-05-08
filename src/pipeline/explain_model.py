@@ -1,5 +1,4 @@
 import os
-import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,13 +13,11 @@ from supertree import SuperTree
 from src.components.data_processing.data_loader import DataLoader, DataUtils
 from src.components.explanability.core_explanability import ExplainCore
 from src.components.explanability.feature_importance import FeatureImportance
-from src.components.modelling.meta_booster import MetaBooster
-from src.components.utils.config import ExplanabilityConfig, CFConfig
+from src.components.utils.config import ExplanabilityConfig
 from src.components.utils.read_config import ConfigReader
 
 
 class Explainer:
-
     def __init__(self):
         """Initialize the explainability pipeline with a configuration."""
 
@@ -123,7 +120,9 @@ class Explainer:
             predict_function = self.model.models[self.var].best_models[k].predict
             n_features_in = len(self.model.models[self.var].features)
             explainer_k = shap.Explainer(predict_function, X_features)
-            shap_values_per_model[k] = explainer_k(X_features, max_evals=2*n_features_in+1)
+            shap_values_per_model[k] = explainer_k(
+                X_features, max_evals=2 * n_features_in + 1
+            )
 
         shap_values = np.zeros(X_features.shape)
         for k in range(self.n_models):
@@ -271,8 +270,10 @@ class Explainer:
 
                 # 5. Feature Statistics
                 stats = X[feature]
-                stats_text = f"μ:{stats.mean():.3f} σ:{stats.std():.3f}\nMin:{stats.min():.3f} \
+                stats_text = (
+                    f"μ:{stats.mean():.3f} σ:{stats.std():.3f}\nMin:{stats.min():.3f} \
                     Max:{stats.max():.3f}"
+                )
                 axes[i][4].text(
                     0.5,
                     0.5,
@@ -296,7 +297,7 @@ class Explainer:
 
             logger.debug(f"Batch {batch_idx + 1} saved to {batch_path}")
 
-        logger.debug(f"\n{'='*60}\nAnalysis completed for all features!\n{'='*60}")
+        logger.debug(f"\n{'=' * 60}\nAnalysis completed for all features!\n{'=' * 60}")
 
     def generate_tree_visualization(self, k=0):
         """Generate and save the tree visualization as an HTML file."""
@@ -353,9 +354,23 @@ class Explainer:
         ec = ExplainCore(self.var, self.year, self.t)
 
         # 0. Get model
-        self.model, self.n_models = ec._load_model(data_path=self.data_path, var=self.var, year=self.year, type_=self.type_, vars_=self.vars_, model_version=self.model_version, fs=None)
-        data = DataLoader.load_dataset(self.model.data_paths[self.var],  fs=None, formate='parquet', columns=None, filters=[("type", "==", self.t)])
-        
+        self.model, self.n_models = ec._load_model(
+            data_path=self.data_path,
+            var=self.var,
+            year=self.year,
+            type_=self.type_,
+            vars_=self.vars_,
+            model_version=self.model_version,
+            fs=None,
+        )
+        data = DataLoader.load_dataset(
+            self.model.data_paths[self.var],
+            fs=None,
+            formate="parquet",
+            columns=None,
+            filters=[("type", "==", self.t)],
+        )
+
         # 1. Get sample data from model
         X, y, c = ec.run(data)
 
@@ -372,7 +387,7 @@ class Explainer:
 
         # 2.2. Feature Importance
         if "feature_importance" in self.steps:
-            if not ("shap_values" in self.steps):
+            if "shap_values" not in self.steps:
                 shap_values = None
             _ = self.generate_feature_importance(X=X, y=y, shap_values=shap_values)
 

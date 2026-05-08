@@ -5,7 +5,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
 class ModelEvaluator:
-
     @staticmethod
     def evaluate(y_test, y_pred, model_name):
         mse = mean_squared_error(y_test, y_pred)

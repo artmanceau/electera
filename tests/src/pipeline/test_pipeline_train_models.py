@@ -11,7 +11,6 @@ from src.pipeline.pipeline_train_models import ElectionModelTrainer
 
 
 class TestTrainTrivialModels:
-
     def setup_method(self):
         """Setup method run before each test"""
         self.trainer = ElectionModelTrainer()

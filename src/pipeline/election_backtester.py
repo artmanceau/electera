@@ -19,11 +19,10 @@ Election Backtester
 """
 
 import os
-from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
-from sklearn.linear_model import ElasticNetCV, LinearRegression
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from src.components.data_processing.data_loader import DataLoader, DataUtils
@@ -71,7 +70,7 @@ MODEL_ARGS = {
         "n_splits_inner": 10,
         "n_splits_outer": 10,
         "n_trials": 10,
-        "poll_adj": False
+        "poll_adj": False,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
@@ -88,7 +87,6 @@ MODEL_ARGS = {
 
 
 class BackTester:
-
     def __init__(self):
         """ """
         self.config = ConfigReader._read_config(
@@ -116,7 +114,7 @@ class BackTester:
 
         # Retrieve the rows matching the years for each dataset
         for trend in k_political_trends:
-            st = Splitter(trend) # old version a 'p' was added
+            st = Splitter(trend)  # old version a 'p' was added
             split_method = f"{k_year}_{self.k_t}"
             X, y, y_split = st.get_Xy(data)
             (
@@ -131,6 +129,7 @@ class BackTester:
                 y_split,
                 split_method=split_method,
             )
+            breakpoint()
             (self.X_train[trend], self.X_val[trend], self.X_test[trend]) = (
                 st.clean_features_list(
                     self.X_train[trend], self.X_val[trend], self.X_test[trend]
@@ -145,10 +144,10 @@ class BackTester:
             + f"raw/elections/presidentiel/{k_year}/pres{k_year}_csv/pres{k_year}comm.parquet"
         )
         X_true = DataLoader.load_dataset(ground_truth_data_path)[
-                ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-                + [trend for trend in k_political_trends if trend != "par"]
-                + ["p" + trend for trend in k_political_trends]
-            ]
+            ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
+            + [trend for trend in k_political_trends if trend != "par"]
+            + ["p" + trend for trend in k_political_trends]
+        ]
         str_cols = ["codecommune", "nomcommune"]
         float_cols = ["p" + trend for trend in k_political_trends]
         int_cols = [trend for trend in k_political_trends if trend != "par"] + [
@@ -179,29 +178,41 @@ class BackTester:
         )
         return X_pred, X_true
 
-    def add_poll_predictions(self, result_synthetic, k_year, k_type, k_political_trends):
+    def add_poll_predictions(
+        self, result_synthetic, k_year, k_type, k_political_trends
+    ):
         # Try adding polling results if possible
         result_synthetic = result_synthetic.copy()
-        result_synthetic = result_synthetic.set_index('index')
-        election_type = "presidentiel" if k_type == 'pres' else "legislative"
-        poll_data_path = self.config.data_path + f"polls/{election_type}/{k_year}/polls_t1.parquet"
-        if DataUtils._exists(poll_data_path, fs=DataUtils._create_fs() if DataUtils._detect_s3(poll_data_path) else None):
+        result_synthetic = result_synthetic.set_index("index")
+        election_type = "presidentiel" if k_type == "pres" else "legislative"
+        poll_data_path = (
+            self.config.data_path + f"polls/{election_type}/{k_year}/polls_t1.parquet"
+        )
+        if DataUtils._exists(
+            poll_data_path,
+            fs=DataUtils._create_fs() if DataUtils._detect_s3(poll_data_path) else None,
+        ):
             X_poll = DataLoader.load_dataset(poll_data_path)[
-                [trend.replace("vote", "") for trend in k_political_trends if trend != "par"]
+                [
+                    trend.replace("vote", "")
+                    for trend in k_political_trends
+                    if trend != "par"
+                ]
             ]
-            poll_results = X_poll.mean() # Could be a better formula to aggregate polls
+            poll_results = X_poll.mean()  # Could be a better formula to aggregate polls
             for trend in k_political_trends:
-                if trend != 'par':
+                if trend != "par":
                     letter = trend.replace("vote", "")
-                    result_synthetic.loc['p'+trend, f'{k_year}_{k_type}_poll'] = round(poll_results[letter], 2)
+                    result_synthetic.loc["p" + trend, f"{k_year}_{k_type}_poll"] = (
+                        round(poll_results[letter], 2)
+                    )
         else:
-            logger.warning('No poll data for this election, skipping')
+            logger.warning("No poll data for this election, skipping")
 
-        result_synthetic['index'] = result_synthetic.index
+        result_synthetic["index"] = result_synthetic.index
         result_synthetic.reset_index(drop=True)
 
         return result_synthetic
-
 
     def save_results(self, model, result, k_year, k_type, k_political_trends, version):
         # Create directories
@@ -219,8 +230,10 @@ class BackTester:
 
         # Post-treatment
         result_all, result_synthetic = result
-        result_synthetic = self.add_poll_predictions(result_synthetic, k_year, k_type, k_political_trends)
-        
+        result_synthetic = self.add_poll_predictions(
+            result_synthetic, k_year, k_type, k_political_trends
+        )
+
         # Alphabetic sort
         k_political_trends.sort()
         vars_ = k_political_trends
@@ -237,8 +250,7 @@ class BackTester:
         )
         DataLoader.dump_pickle(
             object_to_pickle=model,
-            file_path=model_dir_path
-            + f"model_{k_year}_{k_type}_{vars_}_{version}.pkl",
+            file_path=model_dir_path + f"model_{k_year}_{k_type}_{vars_}_{version}.pkl",
         )
 
     def run_backtest(
@@ -285,7 +297,10 @@ class BackTester:
                     self.X_train[trend], self.y_train[trend]
                 ),
                 "meta_boosting": lambda: instance_model.train(
-                    self.X_train[trend], self.y_train[trend], use_feature_selection=True, val_set=(self.X_val[trend], self.y_val[trend])
+                    self.X_train[trend],
+                    self.y_train[trend],
+                    use_feature_selection=True,
+                    val_set=(self.X_val[trend], self.y_val[trend]),
                 ),
                 "meta_boosting_multiple": lambda: instance_model.train(
                     election_datasets=[

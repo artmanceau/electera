@@ -182,7 +182,6 @@ class ElectionDataProcessor:
                         and (("communes" in file) or ("departements" in file))
                         and (not file.startswith("."))
                     ):
-
                         # We exclude the files of matching codecommunes / cantons
                         if "code" in file:
                             logger.info(
@@ -191,7 +190,7 @@ class ElectionDataProcessor:
                             )
                             continue
 
-                        logger.info(f"Processing: {file[:-len('.parquet')]}")
+                        logger.info(f"Processing: {file[: -len('.parquet')]}")
 
                         file_path = DataUtils.path_helper(
                             self.config.data_path, os.path.join(root, file)
@@ -255,7 +254,7 @@ class ElectionDataProcessor:
                         # (and add if it is a departemental average)
                         Y.columns = [
                             (
-                                f"{file[:-len('.parquet')]}/{col}"
+                                f"{file[: -len('.parquet')]}/{col}"
                                 if col not in ["codecommune", "dep"]
                                 else col
                             )
@@ -387,7 +386,8 @@ class ElectionDataProcessor:
                 f"inscrits{target_year}-{election_type}",
             ]
             dummy_election_columns += [
-                f"pvote{var}{target_year}-{election_type}" for var in self.config.vote_variables
+                f"pvote{var}{target_year}-{election_type}"
+                for var in self.config.vote_variables
             ]
 
         for col in dummy_election_columns:
@@ -447,7 +447,6 @@ class ElectionDataProcessor:
             feat, year = self._find_feat_and_year(feature)
 
             for aug in self.config.features_aug:
-
                 if previous_feature is None:
                     logger.debug(f"No previous feature was found for {feature}.")
                     continue
@@ -845,7 +844,7 @@ class ElectionDataProcessor:
             #     )
 
         logger.success(
-            f"All processed data saved to {self.config.data_path+'derived/processed/'}"
+            f"All processed data saved to {self.config.data_path + 'derived/processed/'}"
         )
 
     def _find_previous_feature(self, feature, features_all):
@@ -1050,7 +1049,7 @@ class ElectionDataProcessor:
             ~self.global_dataset["codecommune"].astype(str).isin(PLM), :
         ]
         n_, p_ = self.global_dataset.shape
-        logger.info(f"Deleted {n-n_} row to comply with PLM policy")
+        logger.info(f"Deleted {n - n_} row to comply with PLM policy")
 
     def _encode_dep_numeric(self):
         dep_col = self.global_dataset["dep"]

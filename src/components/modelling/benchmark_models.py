@@ -5,7 +5,6 @@ from sklearn.linear_model import LinearRegression
 
 
 class TrivialModel1:
-
     def __init__(self, y_prev):
         self.y_prev = y_prev
 
@@ -22,7 +21,6 @@ class TrivialModel1:
 
 
 class TrivialModel2:
-
     def __init__(self):
         self.mean = None
 
@@ -38,7 +36,6 @@ class TrivialModel2:
 
 
 class LinearModel:
-
     def __init__(self, linear_model=LinearRegression):
         self.linear_model = linear_model
         self.model = None
@@ -72,7 +69,6 @@ class LinearModel:
 
 
 class BenchmarkModels:
-
     @staticmethod
     def train_trivial_1(y_prev, y_train):
         """Train trivial baseline models"""
