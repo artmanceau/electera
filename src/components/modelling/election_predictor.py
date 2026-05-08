@@ -162,7 +162,7 @@ class ElectionPredictor:
         """Determine trend that gets more voice"""
         if k_type == 0:
             winner = (
-                X[[trend for trend in self.trends if trend != "par"]]
+                X[[f'vote{trend}' for trend in self.trends if trend != "par"]]
                 .sum(axis=0)
                 .idxmax()
             )
