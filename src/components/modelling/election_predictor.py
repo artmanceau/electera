@@ -25,6 +25,7 @@ class ElectionPredictor:
             raise Exception("Invalid input data")
 
         X_result = X[["codecommune"]].astype(str).copy(deep=True)
+        X_result['inscrits'] = X['inscrits']
 
         for trend in self.trends:
             X_result["pvote" + trend] = self.models[trend].infer(X[self.features[trend]])
@@ -51,7 +52,7 @@ class ElectionPredictor:
         )
 
         if "inscrits" in X.columns:
-            X_result["votants"] = (X_result["pvotepar"] * X["inscrits"]).astype(int)
+            X_result["votants"] = (X_result["pvotepar"] * X_result["inscrits"]).astype(int)
             for trend in self.trends:
                 if trend != "par":
                     X_result[f'vote{trend}'] = (
@@ -61,13 +62,13 @@ class ElectionPredictor:
         if agg:
             agg_results = {}
             agg_results["tot_par"] = X_result["votants"].sum(axis=0)
-            agg_results["tot_ppar"] = agg_results["tot_par"] / X["inscrits"].sum()
+            agg_results["tot_ppar"] = agg_results["tot_par"] / X_result["inscrits"].sum()
             for trend in self.trends:
                 if trend != "par":
                     agg_results[f"tot_vote{trend}"] = X_result[f'vote{trend}'].sum()
                     agg_results[f"tot_pvote{trend}"] = (
                         X_result[f'vote{trend}'].sum()
-                        / X[
+                        / X_result[
                             "inscrits"
                         ].sum()  # Should be exprimes but we don't take vote blanc into consideration
                     )
@@ -143,6 +144,7 @@ class ElectionPredictor:
         return result
 
     def compute_votes_per_circo(self, X):
+        # Find another circo mapping that handles PLM
         circo_mapping = pd.read_csv("config/mappings/circo_mapping.csv")[
             ["COMMUNE_RESID", "circo"]
         ]
@@ -154,7 +156,7 @@ class ElectionPredictor:
             how="left",
             validate="1:m",
         )
-        trends = [trend for trend in self.trends if trend != "par"] + ["votants"]
+        trends = [f'vote{trend}' for trend in self.trends if trend != "par"] + ["votants"]
         X_circo = X_merged.groupby("circo")[trends].sum().reset_index()
         return X_circo
 
@@ -170,7 +172,7 @@ class ElectionPredictor:
             # Legislative election
             X_circo = self.compute_votes_per_circo(X)
             assemblee = (
-                X_circo[[trend for trend in self.trends if trend != "par"]]
+                X_circo[[f'vote{trend}' for trend in self.trends if trend != "par"]]
                 .idxmax(axis=1)
                 .value_counts()
             )

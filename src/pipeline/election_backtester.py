@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 
 from loguru import logger
+import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -47,6 +48,8 @@ from src.components.utils.read_config import ConfigReader
 # TODO:
 # - Modèle pour les votes blancs? Pour l'instant on considère que votants = exprimés,
 # i.e. on ignore le vote blanc pour l'instant.
+# - Predict delta (check results)
+# - circo mapping (PLM) and missing communes
 
 S3_SAVE = True
 MODELS = {
@@ -174,11 +177,16 @@ class BackTester:
             key: value
             for key, value in agg_results.items()
             if key
-            in [f"tot_p{trend}" for trend in k_political_trends if trend != "par"]
+            in [f"tot_pvote{trend}" for trend in k_political_trends if trend != "par"]
         }
         logger.success(
-            f"Total participation : {agg_results['tot_ppar']}. Results : {agg_results_show}"
+            f"Total participation predicted {agg_results['tot_ppar']:.3f} vs. result {(X_true['votants'].sum() / X_true['inscrits'].sum()):.3f}. Diff: {np.abs(agg_results['tot_ppar'] - (X_true['votants'].sum() / X_true['inscrits'].sum())):.3f}"
         )
+        for trend in k_political_trends:
+            if trend == 'par':
+                continue
+            logger.success(f'Prediction for {trend}: {agg_results_show[f'tot_pvote{trend}']:.3f}. Result for {trend}:  {(X_true[f'vote{trend}'].sum() / X_true['votants'].sum()):.3f}. Diff: {np.abs(agg_results_show[f'tot_pvote{trend}'] - (X_true[f'vote{trend}'].sum() / X_true['votants'].sum())):.3f}')
+
         return X_pred, X_true
 
     def add_poll_predictions(
@@ -302,7 +310,7 @@ class BackTester:
                 "meta_boosting": lambda: instance_model.train(
                     self.X_train[trend],
                     self.y_train[trend],
-                    use_feature_selection=True,
+                    use_feature_selection=False,
                     val_set=(self.X_val[trend], self.y_val[trend]),
                 ),
                 "meta_boosting_multiple": lambda: instance_model.train(

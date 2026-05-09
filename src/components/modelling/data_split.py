@@ -20,7 +20,7 @@ class Splitter:
 
     @staticmethod
     def is_stationnary_feature(feature):
-        return ("pct_change" in feature) | ("delta" in feature) | ("rank" in feature)
+        return ("pct_change" in feature) | ("rank" in feature)
 
     def clean_features_list(
         self,
@@ -87,11 +87,12 @@ class Splitter:
         nb_nans_train = X_train[features].isnull().sum().sum()
         logger.debug(f'Percentage of missing values in the training dataset: {nb_nans_train}')
         if nb_nans_train > 0:
+            # Handle nan in dep_num
             logger.warning(f'The following columns in the training dataset contains missing values: {X_train.columns[X_train.isna().any()]}.')
 
         return X_train[features], X_val[features], X_test[features]
 
-    def get_Xy(self, data, predict_delta=True, selected_features=None):
+    def get_Xy(self, data, predict_delta=False, selected_features=None):
         if predict_delta:
             y = data[self.vote_variable] - data[f"previouspvote{self.var}"]
             y_split = pd.concat([y, data[["annee", "type"]]], axis=1)

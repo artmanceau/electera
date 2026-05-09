@@ -4,7 +4,7 @@
     "dataset_path": "derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260509_142846.parquet",
     "random_seed": 42,
     "k_year": [2022],
-    "k_type": ["pres"],
+    "k_type": ["leg"],
     "model" : "meta_boosting",
     "version" : "0.0.6"
 }

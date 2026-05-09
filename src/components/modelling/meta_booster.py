@@ -200,7 +200,7 @@ class MetaBooster:
 
             return preds
 
-    def feature_selection(self, X, y, threshold=0.8, method="permuation", nb_feature=150):
+    def feature_selection(self, X, y, threshold=0.8, method="permuation", nb_feature=50):
         logger.info(
             "Performing feature selection. Method: threshold best features in gain"
         )
