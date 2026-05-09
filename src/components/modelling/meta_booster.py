@@ -30,15 +30,17 @@ BOOSTING_ALG = {"xgboost": XGBRegressor, "catboost": CatBoostRegressor}
 
 BOOSTING_PARAM = {
     "xgboost": lambda trial: {
-        "max_depth": trial.suggest_int("max_depth", 4, 10),
+        "max_depth": trial.suggest_int("max_depth", 2, 8),
         "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.3),
         "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
         "subsample": trial.suggest_float("subsample", 0.5, 0.9),
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
-        "colsample_bynode": trial.suggest_float("colsample_bynode", 0.5, 1.0),
-        "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.5, 1.0),
-        "min_child_weight": trial.suggest_int("min_child_weight", 2, 10),
-        "gamma": trial.suggest_float("gamma", 0, 0.5),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 0.9),
+        "colsample_bynode": trial.suggest_float("colsample_bynode", 0.5, 0.9),
+        "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.5, 0.9),
+        "min_child_weight": trial.suggest_int("min_child_weight", 5, 20),
+        "gamma": trial.suggest_float("gamma", 0.5, 5),
+        "alpha": trial.suggest_float("alpha", 0.5, 5),
+        'lambda': trial.suggest_float('lambda', 0.5, 5),
         "min_split_loss": trial.suggest_float("min_split_loss", 0.5, 1.0),
     },
     "catboost": lambda trial: {
@@ -198,7 +200,7 @@ class MetaBooster:
 
             return preds
 
-    def feature_selection(self, X, y, threshold=0.8, method="permuation"):
+    def feature_selection(self, X, y, threshold=0.8, method="permuation", nb_feature=150):
         logger.info(
             "Performing feature selection. Method: threshold best features in gain"
         )
@@ -220,7 +222,7 @@ class MetaBooster:
                 sample_model, X, y, n_repeats=10, random_state=0
             )
             self.features = X.columns[
-                perm.importances_mean.argsort()[::-1][:30]
+                perm.importances_mean.argsort()[::-1][:nb_feature]
             ].to_list()
 
         else:
@@ -234,6 +236,7 @@ class MetaBooster:
         weighting_ = {
             "equiproportional": np.ones_like(y),
             "proportional": inscrits,
+            "proportional_squared": inscrits**2,
             "sqrt": np.sqrt(inscrits),
             "inverse": 1.0 / (inscrits + 1e-6),
             "inverse_y": 1.0 / (y.flatten() + 1e-6),

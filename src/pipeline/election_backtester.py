@@ -65,7 +65,7 @@ MODEL_ARGS = {
     "meta_boosting": {
         "method": "xgboost",
         "objective_metric": mean_squared_error,
-        "weighting": "proportional",
+        "weighting": "proportional_squared",
         "features": None,
         "n_splits_inner": 2,
         "n_splits_outer": 2,
@@ -77,9 +77,9 @@ MODEL_ARGS = {
         "objective_metric": mean_absolute_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 2,
-        "n_splits_outer": 2,
-        "n_trials": 2,
+        "n_splits_inner": 10,
+        "n_splits_outer": 10,
+        "n_trials": 10,
         "poll_adj": False,
         "ponderation": [0.7, 0.3],
     },
@@ -279,7 +279,7 @@ class BackTester:
 
             # For trivial model (same as previous election)
             if self.config.model == "trivial_1":
-                model_args["y_prev"] = self.X_test[trend][f"pvotepreviousp{trend}"]
+                model_args["y_prev"] = self.X_test[trend][f"previouspvote{trend}"]
 
             instance_model = model(**model_args)
 
@@ -302,7 +302,7 @@ class BackTester:
                 "meta_boosting": lambda: instance_model.train(
                     self.X_train[trend],
                     self.y_train[trend],
-                    use_feature_selection=False,
+                    use_feature_selection=True,
                     val_set=(self.X_val[trend], self.y_val[trend]),
                 ),
                 "meta_boosting_multiple": lambda: instance_model.train(

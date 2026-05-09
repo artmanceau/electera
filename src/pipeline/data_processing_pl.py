@@ -118,15 +118,52 @@ class ElectionDataProcessor:
 
     def load_communes_data(self):
         logger.debug("Load communes data")
+
+        # Import communes file from 2026
         communes = pl.scan_csv(
             "s3://arthurmanceau/election_modeling_uhcp/data/raw/insee_geo/2026/communes_2026.csv",
             infer_schema_length=40000,
         ).collect()
+        passage = pl.scan_csv('s3://arthurmanceau/election_modeling_uhcp/data/raw/insee_geo/2026/passage_2026.csv',
+            infer_schema_length=40000,
+            separator=';'
+        ).drop_nulls().collect()
+
+        # Transformation, add older associated codecommune
         communes = communes.with_columns(
             dep_num=pl.col("DEP").replace({"2A": 20, "2B": 20}).cast(pl.Int64),
             codecommune=pl.col("COM").cast(pl.String).str.zfill(5),
             codecommune_parent=pl.col("COMPARENT").cast(pl.String).str.zfill(5),
+        ).join(
+            passage.group_by('codecommune_2026').agg(
+                all_codecommune_that_existed=pl.col('codecommune_init').implode()
+            ),
+            left_on='codecommune',
+            right_on='codecommune_2026',
+            how='left'
         )
+
+        # We keep track of the communes deleted
+        associes = (
+            communes.select('codecommune', 'LIBELLE', 'TYPECOM', 'COM')
+            .group_by('codecommune')
+            .agg(pl.struct('LIBELLE', 'TYPECOM', 'COM').implode().alias('COMMUNES_ASSOCIES'))
+        )
+
+        # Remove duplicated communes that share the same code
+        communes = (
+            communes
+            .sort('TYPECOM', descending=False)  # We prefer to keep 'COM' that is sorted before 'COMD'
+            .unique(subset='codecommune', keep='first', maintain_order=True)
+        )
+
+        # Join back and remove the primary LIBELLE from the list
+        communes = (
+            communes
+            .join(associes, on='codecommune', how='left')
+        ).sort('codecommune')
+
+        assert communes.filter(pl.col('codecommune').is_duplicated()).height == 0
 
         # Join geo_data
         geo_data = self.add_geographical_data()
@@ -768,10 +805,10 @@ def main():
                     if agg_dataset is None
                     else pl.concat([agg_dataset, dataset], how="diagonal")
                 )
-
                 agg_dataset = agg_dataset.rechunk()
 
     # Save to S3
+    breakpoint()
     processor.save_processed_data(agg_dataset.to_pandas())
 
     return None

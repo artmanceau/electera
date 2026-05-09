@@ -9,7 +9,7 @@ class Splitter:
     def __init__(self, var):
         self.var = var
         self.vote_variable = f"pvote{self.var}"
-
+    
     @staticmethod
     def _find_correlated_in(X, threshold=0.95):
         corr = X.corr(method="pearson")
@@ -27,7 +27,7 @@ class Splitter:
         X_train,
         X_val,
         X_test,
-        nan_threshold=0.3,
+        nan_threshold=0.9,
         keep_stationnary=True,
         remove_correlated=True,
         features_to_save=[],
@@ -84,11 +84,14 @@ class Splitter:
         features = list(set(features).union(set(features_to_save)))
 
         # Percentage of missing values
-        logger.debug(f'Percentage of missing values in the training dataset: {X_train[features].isnull().mean().mean()}')
+        nb_nans_train = X_train[features].isnull().sum().sum()
+        logger.debug(f'Percentage of missing values in the training dataset: {nb_nans_train}')
+        if nb_nans_train > 0:
+            logger.warning(f'The following columns in the training dataset contains missing values: {X_train.columns[X_train.isna().any()]}.')
 
         return X_train[features], X_val[features], X_test[features]
 
-    def get_Xy(self, data, predict_delta=False, selected_features=None):
+    def get_Xy(self, data, predict_delta=True, selected_features=None):
         if predict_delta:
             y = data[self.vote_variable] - data[f"previouspvote{self.var}"]
             y_split = pd.concat([y, data[["annee", "type"]]], axis=1)
@@ -105,7 +108,18 @@ class Splitter:
             data.columns.str.startswith("F_")
         ].tolist()
 
-        X = data[feature_cols+['inscrits', 'type', 'annee']+[f'previous{self.vote_variable}', f'previousprevious{self.vote_variable}']].astype(float) # Add dep_num
+        previous_vote_cols = [
+            f"previous{self.vote_variable}",
+            f"previousprevious{self.vote_variable}",
+        ]
+        X = data[feature_cols+['inscrits', 'type', 'annee',  'dep_num']+previous_vote_cols].astype(float)
+        # We may have missing values in the previous vote statitics
+        # Fill NaN with mean within each dep_num group
+        X[previous_vote_cols] = X.groupby(data["dep"])[previous_vote_cols].transform(
+            lambda col: col.fillna(col.mean())
+        ).fillna(
+            X[previous_vote_cols].mean()
+        )
 
         # Replace inf with nan
         # (handled by models - all proposed models should handle missing values)
