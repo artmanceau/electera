@@ -25,10 +25,10 @@ TABLE2: election results.
 
 # Improvements (data quality):
 # - PLM
-# - Forward fill for socio-economic data (to have them for more years)
+# - Forward fill for socio-economic data (to have them for more years) and to project for future elections
 # - All communes that existed (use passage) : if we can recover features from old communes code
 
-# Revoir la config... Et 2027 (PB)
+# Revoir la config... implement new config
 
 class ElectionDataProcessor:
     """Class to handle election data processing pipeline.
@@ -710,14 +710,14 @@ class ElectionDataProcessor:
         features = self.find_features(dataset, meta_cols)
         std_df = dataset.select(features).std()
         cols_with_variation = [
-            col
-            for col, std_val in zip(std_df.columns, std_df.row(0))
-            if std_val is not None and std_val > 0
+                col
+                for col, std_val in zip(std_df.columns, std_df.row(0))
+                if std_val is not None and std_val > 0
         ]
         cols_dropped = [
-            col
-            for col, std_val in zip(std_df.columns, std_df.row(0))
-            if std_val is None or std_val == 0
+                col
+                for col, std_val in zip(std_df.columns, std_df.row(0))
+                if std_val is None or std_val == 0
         ]
 
         print(f"✅ Kept {len(cols_with_variation)} columns with variation.")
@@ -805,7 +805,7 @@ def main():
         relevant_years = election_catalog[election_type]
         for year in relevant_years:
             if int(year) >= processor.config.include_elections_after:
-                if int(year) <= 2024:
+                if int(year) <= 2023:
                     election_code = election_code_mapping[(election_type, year)]
                     logger.info(f"Processing: {election_code}")
                     dataset = processor.create_dataset(

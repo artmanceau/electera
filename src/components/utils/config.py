@@ -29,6 +29,10 @@ class BackTesterConfig(BaseModel):
         description="Type of test election (abbreviated)"
     )
 
+    predict_delta : bool = Field(
+        description='Predict the delta in pvote with previous election or the raw vote statitics'
+    )
+
     model: Literal[
         "trivial_1",
         "trivial_2",

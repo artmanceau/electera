@@ -27,7 +27,7 @@ class ElectionPredictor:
 
         X_result = X[["codecommune"]].astype(str).copy(deep=True)
         X_result['inscrits'] = X['inscrits']
-        breakpoint()
+
         for trend in self.trends:
             # Add a parameter for predict delta
             X_result["pvote" + trend] = self.models[trend].infer(X[self.features[trend]])

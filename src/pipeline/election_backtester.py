@@ -71,20 +71,20 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional_squared",
         "features": None,
-        "n_splits_inner": 2,
-        "n_splits_outer": 2,
-        "n_trials": 2,
+        "n_splits_inner": 10,
+        "n_splits_outer": 10,
+        "n_trials": 10,
         "poll_adj": True,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
         "objective_metric": mean_absolute_error,
-        "weighting": "proportional",
+        "weighting": "proportional_squared",
         "features": None,
         "n_splits_inner": 10,
         "n_splits_outer": 10,
         "n_trials": 10,
-        "poll_adj": False,
+        "poll_adj": True,
         "ponderation": [0.7, 0.3],
     },
 }
@@ -104,7 +104,7 @@ class BackTester:
         self.results = {}
         self.features_after_selection = {}
 
-    def process_and_split_dataset(self, data, k_year, k_political_trends):
+    def process_and_split_dataset(self, data, k_year, k_political_trends, predict_delta):
         """
         Split the dataset into training, validation, and test sets.
         """
@@ -120,7 +120,7 @@ class BackTester:
         for trend in k_political_trends:
             st = Splitter(trend)
             split_method = f"{k_year}_{self.k_t}"
-            X, y, y_split = st.get_Xy(data)
+            X, y, y_split = st.get_Xy(data, predict_delta=predict_delta)
             (
                 self.X_train[trend],
                 self.X_val[trend],
@@ -268,7 +268,7 @@ class BackTester:
         )
 
     def run_backtest(
-        self, k_year, k_type, k_political_trends, model, model_args, version
+        self, k_year, k_type, k_political_trends, model, model_args, predict_delta, version
     ):
         """
         Run the backtesting process.
@@ -282,7 +282,7 @@ class BackTester:
         data = DataLoader.load_dataset(self.config.data_path + self.config.dataset_path)
 
         # 2. Test and split
-        self.process_and_split_dataset(data, k_year, k_political_trends)
+        self.process_and_split_dataset(data, k_year, k_political_trends, predict_delta)
 
         # 3. Train model
         for trend in k_political_trends:
@@ -380,6 +380,7 @@ def main():
     k_year = backtester.config.k_year
     k_type = backtester.config.k_type
     k_political_trends = backtester.config.political_trends
+    predict_delta = backtester.config.predict_delta
     for political_trends in k_political_trends:
         for year in k_year:
             for type_ in k_type:
@@ -392,6 +393,7 @@ def main():
                     k_political_trends=political_trends,
                     model=model,
                     model_args=model_args,
+                    predict_delta=predict_delta,
                     version=version,
                 )
 
