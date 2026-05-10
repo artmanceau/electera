@@ -30,6 +30,7 @@ TABLE2: election results.
 
 # Revoir la config... implement new config
 
+
 class ElectionDataProcessor:
     """Class to handle election data processing pipeline.
 

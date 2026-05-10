@@ -20,26 +20,26 @@ class ElectionPredictor:
     def _check_complete(self):
         pass
 
-    def predict_votes(self, X, Insc=None, agg=False):
+    def predict_votes(self, X, predict_delta, Insc=None, agg=False):
         """Feed with data (codecommune)"""
         if "codecommune" not in X.columns:
             raise Exception("Invalid input data")
-
+        
         X_result = X[["codecommune"]].astype(str).copy(deep=True)
         X_result['inscrits'] = X['inscrits']
 
         for trend in self.trends:
-            # Add a parameter for predict delta
-            X_result["pvote" + trend] = self.models[trend].infer(X[self.features[trend]])
+            if predict_delta:
+                X_result["pvote" + trend] = X[f'previouspvote{trend}'].fillna(X[f'previouspvote{trend}'].mean()) + self.models[trend].infer(X[self.features[trend]])
+            else:
+                X_result["pvote" + trend] = self.models[trend].infer(X[self.features[trend]])
 
         # We have to readjust
         # as X_result[['p'+trend for trend in self.trends if trend!='par']].sum(axis=1) == 1
         trend_w_o_ppar = ["pvote" + trend for trend in self.trends if trend != "par"]
         n = len(trend_w_o_ppar)
         delta = (1 - X_result[trend_w_o_ppar].sum(axis=1)) / n
-        delta_df = pd.concat(
-            [delta.rename(trend_w_o_ppar[i]) for i in range(n)], axis=1
-        )
+        delta_df = pd.concat([delta.rename(trend_w_o_ppar[i]) for i in range(n)], axis=1)
         for trend in trend_w_o_ppar:
             X_result[trend] += delta_df[trend]
 

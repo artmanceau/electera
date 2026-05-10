@@ -59,7 +59,6 @@ class Splitter:
         
         socio_eco_features = [col for col in columns if col.startswith('F_')]
         non_socio_eco_features = list(set(columns)-set(socio_eco_features))
-        breakpoint()
         assert len(non_socio_eco_features) + len(socio_eco_features) == len(columns)
 
         if keep_stationnary:
@@ -94,6 +93,24 @@ class Splitter:
         return X_train[features], X_val[features], X_test[features]
 
     def get_Xy(self, data, predict_delta=False, selected_features=None):
+        feature_cols = data.columns[
+            data.columns.str.startswith("F_")
+        ].tolist()
+
+        previous_vote_cols = [
+            f"previous{self.vote_variable}",
+            f"previousprevious{self.vote_variable}",
+        ]
+        # We may have missing values in the previous vote statitics
+        # Fill NaN with mean within each dep_num group
+        data[previous_vote_cols] = data.groupby(data["dep"])[previous_vote_cols].transform(
+            lambda col: col.fillna(col.mean())
+        ).fillna(
+            data[previous_vote_cols].mean()
+        )
+
+        X = data[feature_cols+['inscrits', 'type', 'annee', 'lat', 'long', 'dep_num'] + previous_vote_cols].astype(float)
+
         if predict_delta:
             y = data[self.vote_variable] - data[f"previouspvote{self.var}"]
             y_split = pd.concat([y, data[["annee", "type"]]], axis=1)
@@ -105,23 +122,6 @@ class Splitter:
             y = data[self.vote_variable]
             y_split = data[[self.vote_variable, "annee", "type"]]
             logger.debug(f"Prediction of vote statistics {self.var}")
-
-        feature_cols = data.columns[
-            data.columns.str.startswith("F_")
-        ].tolist()
-
-        previous_vote_cols = [
-            f"previous{self.vote_variable}",
-            f"previousprevious{self.vote_variable}",
-        ]
-        X = data[feature_cols+['inscrits', 'type', 'annee', 'lat', 'long', 'dep_num'] + previous_vote_cols].astype(float)
-        # We may have missing values in the previous vote statitics
-        # Fill NaN with mean within each dep_num group
-        X[previous_vote_cols] = X.groupby(data["dep"])[previous_vote_cols].transform(
-            lambda col: col.fillna(col.mean())
-        ).fillna(
-            X[previous_vote_cols].mean()
-        )
 
         # Replace inf with nan
         # (handled by models - all proposed models should handle missing values)

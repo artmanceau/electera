@@ -49,7 +49,6 @@ from src.components.utils.read_config import ConfigReader
 # - Modèle pour les votes blancs? Pour l'instant on considère que votants = exprimés,
 # i.e. on ignore le vote blanc pour l'instant.
 # On peut essayer de prédire le nombre de vote exprimés, plutot que les votants
-# - Predict delta (check results)
 
 
 S3_SAVE = True
@@ -71,9 +70,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional_squared",
         "features": None,
-        "n_splits_inner": 10,
-        "n_splits_outer": 10,
-        "n_trials": 10,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
         "poll_adj": True,
     },
     "meta_boosting_multiple": {
@@ -140,7 +139,7 @@ class BackTester:
             )
             self.feature_names[trend] = self.X_train[trend].columns.tolist()
 
-    def organize_vote(self, k_year, k_political_trends):
+    def organize_vote(self, k_year, k_political_trends, predict_delta):
         # Ground truth
         election_type = 'presidentiel' if self.k_t == 0 else 'legislative'
         election_type_code = 'pres' if self.k_t == 0 else 'leg'
@@ -154,6 +153,7 @@ class BackTester:
             + [f"pvote{trend}" for trend in k_political_trends if trend != "par"]
             + ['ppar']
         ]
+        X_true = X_true.dropna()
         str_cols = ["codecommune", "nomcommune"]
         float_cols = [f"pvote{trend}" for trend in k_political_trends if trend != "par"] + ['ppar']
         int_cols = [f'vote{trend}' for trend in k_political_trends if trend != "par"] + [
@@ -171,11 +171,11 @@ class BackTester:
             (data["annee"].astype(int) == int(k_year))
             & (data["type"].astype(int) == int(self.k_t))
         ]
-        X_pred = self.election_predictor.predict_votes(data_election)
+        X_pred = self.election_predictor.predict_votes(data_election, predict_delta)
 
-        logger.info(f'We computed predictions for all the communes, except: {list(set(X_true['codecommune'].to_list()) - set(data_election['codecommune'].to_list()))}')
+        logger.info(f'We computed predictions for all the communes that were in the raw result data, except: {list(set(X_true['codecommune'].to_list()) - set(data_election['codecommune'].to_list()))}')
 
-        agg_results = self.election_predictor.predict_votes(data_election, agg=True)
+        agg_results = self.election_predictor.predict_votes(data_election, predict_delta, agg=True)
         agg_results_show = {
             key: value
             for key, value in agg_results.items()
@@ -343,7 +343,7 @@ class BackTester:
             )
 
         # 4. Predict
-        X_pred, X_true = self.organize_vote(k_year, k_political_trends)
+        X_pred, X_true = self.organize_vote(k_year, k_political_trends, predict_delta)
 
         # 5. Evaluate vote
         X_result = self.election_predictor.evaluate_predictions(X_pred, X_true)
@@ -385,7 +385,7 @@ def main():
         for year in k_year:
             for type_ in k_type:
                 logger.info(
-                    f"Running backtest for  : year: {year}, type: {type_}, political_trends: {political_trends}"
+                    f"Running backtest for  : year: {year}, type: {type_}, political_trends: {political_trends} (delta: {predict_delta})"
                 )
                 backtester.run_backtest(
                     k_year=year,
