@@ -48,8 +48,9 @@ from src.components.utils.read_config import ConfigReader
 # TODO:
 # - Modèle pour les votes blancs? Pour l'instant on considère que votants = exprimés,
 # i.e. on ignore le vote blanc pour l'instant.
+# On peut essayer de prédire le nombre de vote exprimés, plutot que les votants
 # - Predict delta (check results)
-# - circo mapping (PLM) and missing communes
+
 
 S3_SAVE = True
 MODELS = {
@@ -73,7 +74,7 @@ MODEL_ARGS = {
         "n_splits_inner": 2,
         "n_splits_outer": 2,
         "n_trials": 2,
-        "poll_adj": False,
+        "poll_adj": True,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
@@ -172,6 +173,8 @@ class BackTester:
         ]
         X_pred = self.election_predictor.predict_votes(data_election)
 
+        logger.info(f'We computed predictions for all the communes, except: {list(set(X_true['codecommune'].to_list()) - set(data_election['codecommune'].to_list()))}')
+
         agg_results = self.election_predictor.predict_votes(data_election, agg=True)
         agg_results_show = {
             key: value
@@ -180,12 +183,12 @@ class BackTester:
             in [f"tot_pvote{trend}" for trend in k_political_trends if trend != "par"]
         }
         logger.success(
-            f"Total participation predicted {agg_results['tot_ppar']:.3f} vs. result {(X_true['votants'].sum() / X_true['inscrits'].sum()):.3f}. Diff: {np.abs(agg_results['tot_ppar'] - (X_true['votants'].sum() / X_true['inscrits'].sum())):.3f}"
+            f"Total participation predicted {agg_results['tot_ppar']*100:.3f}% vs. result {(X_true['votants'].sum() / X_true['inscrits'].sum())*100:.3f}%. Diff: {np.abs(agg_results['tot_ppar'] - (X_true['votants'].sum() / X_true['inscrits'].sum()))*100:.3f}%"
         )
         for trend in k_political_trends:
             if trend == 'par':
                 continue
-            logger.success(f'Prediction for {trend}: {agg_results_show[f'tot_pvote{trend}']:.3f}. Result for {trend}:  {(X_true[f'vote{trend}'].sum() / X_true['votants'].sum()):.3f}. Diff: {np.abs(agg_results_show[f'tot_pvote{trend}'] - (X_true[f'vote{trend}'].sum() / X_true['votants'].sum())):.3f}')
+            logger.success(f'Prediction for {trend}: {agg_results_show[f'tot_pvote{trend}']*100:.3f}%. Result for {trend}:  {(X_true[f'vote{trend}'].sum() / X_true['votants'].sum())*100:.3f}%. Diff: {np.abs(agg_results_show[f'tot_pvote{trend}'] - (X_true[f'vote{trend}'].sum() / X_true['votants'].sum()))*100:.3f}%')
 
         return X_pred, X_true
 

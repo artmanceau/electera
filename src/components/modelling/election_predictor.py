@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from loguru import logger
+from src.components.data_processing.data_loader import DataLoader
 
 
 class ElectionPredictor:
@@ -28,6 +29,7 @@ class ElectionPredictor:
         X_result['inscrits'] = X['inscrits']
 
         for trend in self.trends:
+            # Add a parameter for predict delta
             X_result["pvote" + trend] = self.models[trend].infer(X[self.features[trend]])
 
         # We have to readjust
@@ -69,7 +71,7 @@ class ElectionPredictor:
                     agg_results[f"tot_pvote{trend}"] = (
                         X_result[f'vote{trend}'].sum()
                         / X_result[
-                            "inscrits"
+                            "votants"
                         ].sum()  # Should be exprimes but we don't take vote blanc into consideration
                     )
 
@@ -95,9 +97,9 @@ class ElectionPredictor:
             ],
         )
 
-        result.loc["inscrits", f"{election_code}_true"] = X["inscrits"].sum()
+        result.loc["inscrits", f"{election_code}_true"] = X["inscrits_true"].sum()
         result.loc["exprimes", f"{election_code}_true"] = X["exprimes"].sum()
-        result.loc["pvoteexpr", f"{election_code}_true"] = X["exprimes"].sum() / X["inscrits"].sum()
+        result.loc["pvoteexpr", f"{election_code}_true"] = X["exprimes"].sum() / X["inscrits_true"].sum()
 
         for m in ["pred", "true"]:
             result.loc["votants", f"{election_code}_{m}"] = X[f"votants_{m}"].sum()
@@ -145,10 +147,27 @@ class ElectionPredictor:
 
     def compute_votes_per_circo(self, X):
         # Find another circo mapping that handles PLM
-        circo_mapping = pd.read_csv("config/mappings/circo_mapping.csv")[
-            ["COMMUNE_RESID", "circo"]
-        ]
-        X = X.drop_duplicates()
+        circo_mapping = DataLoader.load_dataset("s3://arthurmanceau/election_modeling_uhcp/data/raw/insee_geo/circo_composition_2022_.csv", formate='csv')
+        circo_mapping["COMMUNE_RESID"] = (
+            circo_mapping["COMMUNE_RESID"]
+            .astype(str)
+            .str.zfill(5)
+        )
+        # Problem for PLM — multiple communes and multiple circonscriptions with some overlap
+        # Solution : Create a sythetic PARIS-LYON-MARSEILLE and match for all circo
+        plm = pd.DataFrame(index=['PARIS', 'LYON', 'MARSEILLE'], columns=X.columns)
+        plm['codecommune'] = ['75056', '69123', '13055']
+        plm.loc['PARIS', ['inscrits', 'votants'] + [f'vote{trend}' for trend in self.trends if trend != 'par']] = X[X['codecommune'].str.startswith('751')][['inscrits', 'votants'] + [f'vote{trend}' for trend in self.trends if trend != 'par']].sum()
+        plm.loc['LYON', ['inscrits', 'votants'] + [f'vote{trend}' for trend in self.trends if trend != 'par']] = X[X['codecommune'].isin(['69381', '69382', '69383', '69384', '69385', '69386', '69387', '69388', '69389'])][['inscrits', 'votants'] + [f'vote{trend}' for trend in self.trends if trend != 'par']].sum()
+        plm.loc['MARSEILLE', ['inscrits', 'votants'] + [f'vote{trend}' for trend in self.trends if trend != 'par']] = X[X['codecommune'].str.startswith('132')][['inscrits', 'votants'] + [f'vote{trend}' for trend in self.trends if trend != 'par']].sum()
+        plm['pvotepar'] = plm['votants'] / plm['inscrits']
+        for trend in self.trends:
+            if trend == 'par':
+                continue
+            plm[f'pvote{trend}'] = plm[f'vote{trend}'] / plm['votants']
+
+        X = pd.concat([X, plm], axis=0)
+
         X_merged = X.merge(
             circo_mapping,
             left_on="codecommune",
@@ -156,6 +175,12 @@ class ElectionPredictor:
             how="left",
             validate="1:m",
         )
+        communes_with_no_circo = X_merged[X_merged['circo'].isna()]['codecommune'].to_list()
+        communes_with_no_circo_other_than_plm = list(set(communes_with_no_circo)-set(['13201', '13202', '13203', '13204', '13205', '13206', '13207', '13208', '13209', '13210', '13211', '13212', '13213', '13214', '13215', '13216', '69380', '69381', '69382', '69383', '69384', '69385', '69386', '69387', '69388', '69389', '75101', '75102', '75103', '75104', '75105', '75106', '75107', '75108', '75109', '75110', '75111', '75112', '75113', '75114', '75115', '75116', '75117', '75118', '75119', '75120']))
+        if len(communes_with_no_circo_other_than_plm)>0:
+            logger.warning(f'Commune with no circo (other than PLM) : {communes_with_no_circo_other_than_plm}')
+
+
         trends = [f'vote{trend}' for trend in self.trends if trend != "par"] + ["votants"]
         X_circo = X_merged.groupby("circo")[trends].sum().reset_index()
         return X_circo
@@ -190,7 +215,6 @@ class ElectionPredictor:
             - set(["exprimes", "codecommune", "nomcommune", "inscrits"])
         )
 
-        X_pred = X_pred.drop_duplicates()
         X_true = X_true.rename(columns={"ppar": "pvotepar"})
 
         X_merged = X_pred.merge(
@@ -210,7 +234,7 @@ class ElectionPredictor:
         ]
         mean_error = X_merged[diff_cols].mean(axis=0).mean(axis=0)
 
-        logger.success(f"Evaluation completed! Mean error is {mean_error}")
+        logger.success(f"Evaluation completed! Mean error is {mean_error*100:.3f}%")
 
         return X_merged
 

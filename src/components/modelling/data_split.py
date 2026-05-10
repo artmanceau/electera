@@ -56,9 +56,10 @@ class Splitter:
 
         assert set(X_train.columns) == set(X_test.columns) == set(X_val.columns)
         columns = X_train.columns.to_list()
-
-        non_socio_eco_features = [col for col in columns if "/" not in col]
-        socio_eco_features = [col for col in columns if "/" in col]
+        
+        socio_eco_features = [col for col in columns if col.startswith('F_')]
+        non_socio_eco_features = list(set(columns)-set(socio_eco_features))
+        breakpoint()
         assert len(non_socio_eco_features) + len(socio_eco_features) == len(columns)
 
         if keep_stationnary:
@@ -113,7 +114,7 @@ class Splitter:
             f"previous{self.vote_variable}",
             f"previousprevious{self.vote_variable}",
         ]
-        X = data[feature_cols+['inscrits', 'type', 'annee',  'dep_num']+previous_vote_cols].astype(float)
+        X = data[feature_cols+['inscrits', 'type', 'annee', 'lat', 'long', 'dep_num'] + previous_vote_cols].astype(float)
         # We may have missing values in the previous vote statitics
         # Fill NaN with mean within each dep_num group
         X[previous_vote_cols] = X.groupby(data["dep"])[previous_vote_cols].transform(

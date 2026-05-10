@@ -47,7 +47,7 @@ class DataUtils:
         file_path: str,
         fs: object = None,
         columns: Optional[List] | None = None,
-        filters: Optional[List[Tuple]] | None = None,
+        filters: Optional[List[Tuple]] | None = None
     ) -> pd.DataFrame:
         """Reads a parquet file.
 
@@ -72,6 +72,7 @@ class DataUtils:
         fs: object = None,
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
+        **kwargs
     ) -> pd.DataFrame:
         """Reads a parquet file.
 

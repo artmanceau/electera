@@ -23,12 +23,11 @@ TABLE1: commune. This table list all the communes active in 2026, it is the grou
 TABLE2: election results. 
 """
 
-# Improvements:
+# Improvements (data quality):
 # - PLM
-# - Forward fill for socio-economic data
-# - All communes that existed (use passage)
-# - Investigate duplication of communes
-
+# - Forward fill for socio-economic data (to have them for more years)
+# - All communes that existed (use passage) : if we can recover features from old communes code
+# - Dep_num
 
 class ElectionDataProcessor:
     """Class to handle election data processing pipeline.
@@ -640,7 +639,8 @@ class ElectionDataProcessor:
             "NCC",
             "NCCENR",
             "LIBELLE",
-            "dep_num"
+            'lat',
+            'long'
         ] + all_votes + self.previous(all_votes) + self.previousprevious(all_votes)
 
         election_results = electoral_data.filter(
@@ -650,7 +650,7 @@ class ElectionDataProcessor:
         # Merge with commune data
         dataset = election_results.join(
             commune_data.select(
-                "TYPECOM", "codecommune", "NCC", "NCCENR", "LIBELLE", "lat", "long", 'dep_num'
+                "TYPECOM", "codecommune", "NCC", "NCCENR", "LIBELLE", "lat", "long",
             ),
             on="codecommune",
             how="left",
@@ -756,6 +756,15 @@ class ElectionDataProcessor:
         # Rename the feature columns for easy identification
         dataset = dataset.select(meta_cols + [pl.col(features).name.prefix("F_")])
 
+        # Create feature dep_num
+        dataset = dataset.with_columns(
+            dep_num=pl.when(pl.col("codecommune").str.slice(0, 2).is_in(["2A", "2B"]))
+                .then(pl.lit(20.0))
+                .otherwise(pl.col("codecommune").str.slice(0, 2).cast(pl.Float64, strict=False))
+            )
+        assert dataset.select('dep_num').min().item() == 1.0
+        assert dataset.select('dep_num').max().item() == 95.0
+
         return dataset
 
     def save_processed_data(self, agg_data):
@@ -808,7 +817,6 @@ def main():
                 agg_dataset = agg_dataset.rechunk()
 
     # Save to S3
-    breakpoint()
     processor.save_processed_data(agg_dataset.to_pandas())
 
     return None
