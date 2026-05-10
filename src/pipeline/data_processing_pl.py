@@ -27,7 +27,8 @@ TABLE2: election results.
 # - PLM
 # - Forward fill for socio-economic data (to have them for more years)
 # - All communes that existed (use passage) : if we can recover features from old communes code
-# - Dep_num
+
+# Revoir la config... Et 2027 (PB)
 
 class ElectionDataProcessor:
     """Class to handle election data processing pipeline.
@@ -700,7 +701,7 @@ class ElectionDataProcessor:
                 .fill_null(pl.col(c).mean().over("dep"))
                 .fill_null(pl.col(c).mean())  # Fallback to all
                 .alias(c)
-                for c in features
+                for c in features + ['lat', 'long']
             ]
         )
 
@@ -804,17 +805,19 @@ def main():
         relevant_years = election_catalog[election_type]
         for year in relevant_years:
             if int(year) >= processor.config.include_elections_after:
-                election_code = election_code_mapping[(election_type, year)]
-                logger.info(f"Processing: {election_code}")
-                dataset = processor.create_dataset(
-                    election_code, electoral_data, commune_data, socio_economic_data
-                )
-                agg_dataset = (
-                    dataset
-                    if agg_dataset is None
-                    else pl.concat([agg_dataset, dataset], how="diagonal")
-                )
-                agg_dataset = agg_dataset.rechunk()
+                if int(year) <= 2024:
+                    election_code = election_code_mapping[(election_type, year)]
+                    logger.info(f"Processing: {election_code}")
+                    dataset = processor.create_dataset(
+                        election_code, electoral_data, commune_data, socio_economic_data
+                    )
+                    agg_dataset = (
+                        dataset
+                        if agg_dataset is None
+                        else pl.concat([agg_dataset, dataset], how="diagonal")
+                    )
+    
+    agg_dataset = agg_dataset.rechunk()
 
     # Save to S3
     processor.save_processed_data(agg_dataset.to_pandas())
