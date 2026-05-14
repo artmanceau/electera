@@ -54,7 +54,7 @@ winner_pred = (
 
 # Use current_blocs and colors for consistent color mapping
 label_to_color = {
-    f"pvote{bloc}": colors_dict[f"vote{bloc}"] for i, bloc in enumerate(current_blocs)
+    f"pvote{bloc}": colors_dict[f"{bloc}"] for i, bloc in enumerate(current_blocs)
 }
 label_to_color["No data"] = "#dee2e6"
 
@@ -223,7 +223,7 @@ legend_html = "<div style='background: white; padding: 15px; border: 1px solid #
 legend_html += "<b>Légende</b><br>"
 for i, bloc in enumerate(current_blocs):
     bloc_label = trad.get(bloc, bloc)
-    legend_html += f"<div style='display:flex;align-items:center;margin:5px 0;'><span style='display:inline-block;width:20px;height:20px;background:{colors_dict[f'vote{bloc}']};border:1px solid #999;margin-right:8px;'></span><strong>Vote {bloc_label}</strong></div>"
+    legend_html += f"<div style='display:flex;align-items:center;margin:5px 0;'><span style='display:inline-block;width:20px;height:20px;background:{colors_dict[f'{bloc}']};border:1px solid #999;margin-right:8px;'></span><strong>Vote {bloc_label}</strong></div>"
 legend_html += "</div>"
 st.markdown(legend_html, unsafe_allow_html=True)
 

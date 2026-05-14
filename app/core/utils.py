@@ -20,26 +20,50 @@ def diff_show(results, blocs, trad, label, label_show, year, t):
         f"{label_show}_pvote{bloc}": f"Vote {trad[bloc]}" for bloc in blocs
     }
     st.dataframe(
-        results.loc[[f"p{b}" for b in blocs], f"{year}_{t}_{label}"].to_frame().T * 100,
+        results.loc[[f"pvote{b}" for b in blocs], f"{year}_{t}_{label}"].to_frame().T,
         column_config=col_config_error,
         hide_index=True,
     )
 
 
 def results_loc(data_line, year_type, blocs, label, p=""):
-    ind = [f"ppar_{label}"] if p == "p" else [f"votants_{label}", "exprimes"]
+    ind = [f"pvotepar_{label}"] if p == "pvote" else [f"votants_{label}", "exprimes"]
     st.dataframe(
         data_line[ind].reset_index(drop=True),
         hide_index=True,
         column_config={
-            "votants_true": "Nombre de votants",
-            "exprimes": "Nombre de suffrage exprimés",
-        },
+            "votants_true": st.column_config.NumberColumn(
+                "Nombre de votants",
+                format="%.1f%%" if p == "pvote" else None,
+            ),
+            "votants_pred": st.column_config.NumberColumn(
+                "Nombre de votants",
+                format="%.1f%%" if p == "pvote" else None,
+            ),
+            "exprimes": st.column_config.NumberColumn(
+                "Nombre de suffrage exprimés",
+                format="%.1f%%" if p == "pvote" else None,
+            ),
+            "pvotepar_true": st.column_config.NumberColumn(
+               "Taux de participation",
+                format="%.1f%%" if p == "pvote" else None,
+            ),
+            "pvotepar_pred": st.column_config.NumberColumn(
+                "Taux de participation",
+                format="%.1f%%" if p == "pvote" else None,
+            ),
+        }
     )
+    col_config = {}
+    for b in blocs:
+        col_config[f"{p}{b}_{label}"] = st.column_config.NumberColumn(
+            f"Nombre de vote {trad[b]}", format="%.1f%%" if p == "pvote" else None
+        )
+       
     st.dataframe(
         data_line[[f"{p}{b}_{label}" for b in blocs]].reset_index(drop=True),
         hide_index=True,
-        column_config={f"{b}_{label}": f"Nombre de vote {trad[b]}" for b in blocs},
+        column_config=col_config,
     )
     st.bar_chart(
         data=(data_line[[f"{p}{b}_{label}" for b in blocs]].reset_index(drop=True)),
@@ -49,20 +73,36 @@ def results_loc(data_line, year_type, blocs, label, p=""):
 
 
 def results_glob(data_line, year_type, blocs, label, p=""):
-    ind = ["ppar"] if p == "p" else ["votants", "exprimes"]
+    ind = ["pvotepar", 'pvoteexpr'] if p == "pvote" else ["votants", "exprimes"]
     col = f"{year_type}_{label}"
-    st.dataframe(
-        data_line.loc[ind, col].to_frame().T,
-        hide_index=True,
-        column_config={
-            "votants": "Nombre de votants",
-            "exprimes": "Nombre de suffrage exprimés",
-        },
-    )
+
+    if label != 'poll':
+        st.dataframe(
+            data_line.loc[ind, col].to_frame().T,
+            hide_index=True,
+            column_config={
+                "votants": st.column_config.NumberColumn(
+                    "Nombre de votants",
+                    format=None,
+                ),
+                "exprimes": st.column_config.NumberColumn(
+                    "Nombre de suffrage exprimés",
+                    format=None,
+                ),
+                'pvotepar': st.column_config.NumberColumn(
+                    "Taux de participation",
+                    format="%.1f%%",
+                ),
+                'pvoteexpr': st.column_config.NumberColumn(
+                    "Taux de suffrage exprimés",
+                    format="%.1f%%",
+                ),
+            }
+        )
     col_config = {}
     for b in blocs:
         col_config[f"{p}{b}"] = st.column_config.NumberColumn(
-            f"Nombre de vote {trad[b]}", format="%.1f%%" if p == "p" else None
+            f"Nombre de vote {trad[b]}", format="%.1f%%" if p in ['p', "pvote"] else None
         )
 
     st.dataframe(
@@ -78,7 +118,12 @@ def results_glob(data_line, year_type, blocs, label, p=""):
 
 
 def present_results(data_line, year, t, blocs, scale):
-    result_func = results_glob if scale == "global" else results_loc
+    if scale == 'global':
+        result_func = results_glob
+    else:
+        result_func = results_loc
+        pvote_cols = [c for c in data_line.columns if c.startswith("pvote")]
+        data_line[pvote_cols] = data_line[pvote_cols] * 100
 
     tab1, tab2 = st.tabs(["Pourcentage des suffrages", "Nombre de vote"])
 
@@ -90,7 +135,7 @@ def present_results(data_line, year, t, blocs, scale):
             """
             )
             result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p=""
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="vote"
             )
 
         with st.expander("Prédictions", expanded=True):
@@ -100,7 +145,7 @@ def present_results(data_line, year, t, blocs, scale):
             """
             )
             result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p=""
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p="vote"
             )
 
         with st.expander("Erreur", expanded=True):
@@ -111,7 +156,7 @@ def present_results(data_line, year, t, blocs, scale):
             )
             if scale == "local":
                 col_config = {
-                    f"vote{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"vote{b}_diff": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants_diff"] = (
@@ -119,12 +164,12 @@ def present_results(data_line, year, t, blocs, scale):
                 )
 
                 data_element = data_line[
-                    [f"{b}_diff" for b in blocs] + ["votants_diff"]
+                    [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
                 ].reset_index(drop=True)
             else:
                 data_element = (
                     data_line.loc[
-                        [f"{b}" for b in blocs] + ["votants"],
+                        [f"vote{b}" for b in blocs] + ["votants"],
                         f"{year}_{t}_diff_agg",
                     ]
                     .to_frame()
@@ -154,7 +199,7 @@ def present_results(data_line, year, t, blocs, scale):
             """
             )
             result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="p"
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="pvote"
             )
 
         with st.expander("Prédictions", expanded=True):
@@ -164,7 +209,7 @@ def present_results(data_line, year, t, blocs, scale):
             """
             )
             result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p="p"
+                data_line, year_type=f"{year}_{t}", blocs=blocs, label="pred", p="pvote"
             )
 
         if f"{year}_{t}_poll" in data_line.columns:
@@ -186,11 +231,11 @@ def present_results(data_line, year, t, blocs, scale):
             )
             if scale == "local":
                 data_element = data_line[
-                    [f"p{b}_diff" for b in blocs] + ["ppar_diff"]
+                    [f"pvote{b}_diff" for b in blocs] + ["pvotepar_diff"]
                 ].reset_index(drop=True)
 
                 col_config = {
-                    f"p{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants_diff"] = (
@@ -199,7 +244,7 @@ def present_results(data_line, year, t, blocs, scale):
             else:
                 data_element = (
                     data_line.loc[
-                        [f"p{b}" for b in blocs] + ["ppar"],
+                        [f"pvote{b}" for b in blocs] + ["pvotepar"],
                         f"{year}_{t}_diff_agg",
                     ]
                     .to_frame()
@@ -207,7 +252,7 @@ def present_results(data_line, year, t, blocs, scale):
                 )
 
                 col_config = {
-                    f"p{b}": f"Différence avec la prédiction du vote {trad[b]}"
+                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
                     for b in blocs
                 }
                 col_config["votants"] = (
@@ -410,8 +455,8 @@ def plot_backtest(
     for idx, variable in enumerate(variables):
         color = (
             "#008000"
-            if (variable == "ppar")
-            else colors_dict[variable.replace("p", "")]
+            if (variable == "pvotepar")
+            else colors_dict[variable.replace("pvote", "")]
         )
         true_vals = [
             (
@@ -443,9 +488,9 @@ def plot_backtest(
                 y=true_vals,
                 mode="lines+markers",
                 name=(
-                    f"{trad[variable[1:]]} - Réel"
-                    if (variable == "ppar")
-                    else f"Vote {trad[variable[1:]]} - Réel"
+                    f"{trad[variable.replace('pvote', '')]} - Réel"
+                    if (variable == "pvotepar")
+                    else f"Vote {trad[variable.replace('pvote', '')]} - Réel"
                 ),
                 line=dict(color=color, width=3, dash="solid"),
                 marker=dict(size=10, color=color, symbol="triangle-down"),
@@ -457,9 +502,9 @@ def plot_backtest(
                 y=pred_vals,
                 mode="lines+markers",
                 name=(
-                    f"{trad[variable[1:]]} - Prédiction"
-                    if (variable == "ppar")
-                    else f"Vote {trad[variable[1:]]} - Prédiction"
+                    f"{trad[variable.replace('pvote', '')]} - Prédiction"
+                    if (variable == "pvotepar")
+                    else f"Vote {trad[variable.replace('pvote', '')]} - Prédiction"
                 ),
                 line=dict(color=color, width=3, dash="dot"),
                 marker=dict(size=10, color=color, symbol="triangle-up"),

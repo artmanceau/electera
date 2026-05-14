@@ -20,7 +20,7 @@ class ElectionPredictor:
     def _check_complete(self):
         pass
 
-    def predict_votes(self, X, predict_delta, Insc=None, agg=False):
+    def predict_votes(self, X, predict_delta=False, infer_multiple=False, agg=False):
         """Feed with data (codecommune)"""
         if "codecommune" not in X.columns:
             raise Exception("Invalid input data")
@@ -28,11 +28,15 @@ class ElectionPredictor:
         X_result = X[["codecommune"]].astype(str).copy(deep=True)
         X_result['inscrits'] = X['inscrits']
 
-        for trend in self.trends:
+        def prediction_fn(model, X, predict_delta, infer_multiple):
+            preds = model.infer_multiple(X) if infer_multiple else model.infer(X)
             if predict_delta:
-                X_result["pvote" + trend] = X[f'previouspvote{trend}'].fillna(X[f'previouspvote{trend}'].mean()) + self.models[trend].infer(X[self.features[trend]])
+                return preds + X[f'previouspvote{trend}'].fillna(X[f'previouspvote{trend}'].mean())
             else:
-                X_result["pvote" + trend] = self.models[trend].infer(X[self.features[trend]])
+                return preds
+
+        for trend in self.trends:
+            X_result["pvote" + trend] = prediction_fn(self.models[trend], X[self.features[trend]], predict_delta, infer_multiple)
 
         # We have to readjust
         # as X_result[['p'+trend for trend in self.trends if trend!='par']].sum(axis=1) == 1
@@ -57,9 +61,9 @@ class ElectionPredictor:
             X_result["votants"] = (X_result["pvotepar"] * X_result["inscrits"]).astype(int)
             for trend in self.trends:
                 if trend != "par":
-                    X_result[f'vote{trend}'] = (
-                        X_result["pvote" + trend] * X_result["votants"]
-                    ).astype(int)
+                    X_result[f'vote{trend}'] = round(X_result["pvote" + trend] * X_result["votants"], 0).astype(int)
+
+        assert np.abs(X_result[[f'vote{trend}' for trend in self.trends if trend != 'par']].sum(axis=1) - X_result['votants']).mean() < 0.5
 
         if agg:
             agg_results = {}
@@ -72,7 +76,7 @@ class ElectionPredictor:
                         X_result[f'vote{trend}'].sum()
                         / X_result[
                             "votants"
-                        ].sum()  # Should be exprimes but we don't take vote blanc into consideration
+                        ].sum()
                     )
 
             return agg_results
@@ -82,7 +86,7 @@ class ElectionPredictor:
     @staticmethod
     def compute_agg_results(X: pd.DataFrame, blocs: list, election_code: str):
         index = (
-            ["inscrits", "votants", "exprimes", "pvotepar", "pvoteexpr"]
+            ["inscrits", "votants", "exprimes", "exprimes_", "pvotepar", "pvoteexpr"]
             + [f"vote{b}" for b in blocs]
             + [f"pvote{b}" for b in blocs]
         )
@@ -98,55 +102,93 @@ class ElectionPredictor:
         )
 
         result.loc["inscrits", f"{election_code}_true"] = X["inscrits_true"].sum()
+        result.loc["inscrits", f"{election_code}_pred"] = X["inscrits_true"].sum()
+        
         result.loc["exprimes", f"{election_code}_true"] = X["exprimes"].sum()
-        result.loc["pvoteexpr", f"{election_code}_true"] = X["exprimes"].sum() / X["inscrits_true"].sum()
-
+        result.loc["exprimes_", f"{election_code}_true"] = X[[f'vote{trend}_true' for trend in blocs]].sum().sum()
+        result.loc["pvoteexpr", f"{election_code}_true"] = round(X["exprimes"].sum() / X["inscrits_true"].sum()*100, 2)
+        
+        # Start here
         for m in ["pred", "true"]:
             result.loc["votants", f"{election_code}_{m}"] = X[f"votants_{m}"].sum()
+
             result.loc["pvotepar", f"{election_code}_{m}"] = round(
                 result.loc["votants", f"{election_code}_{m}"]
                 / result.loc["inscrits", f"{election_code}_true"]
                 * 100,
                 2,
             )
-        for x in ["votants", "pvotepar"]:
+
+        result.loc["exprimes", f"{election_code}_pred"] = X["votants_pred"].sum()
+        result.loc["exprimes_", f"{election_code}_pred"] = X["votants_pred"].sum()
+        result.loc["pvoteexpr", f"{election_code}_pred"] = result.loc["pvotepar", f"{election_code}_pred"]
+
+        for x in ["votants", "pvotepar", 'pvoteexpr', 'inscrits', 'exprimes', 'exprimes_']:
             result.loc[x, f"{election_code}_diff_agg"] = round(
                 result.loc[x, f"{election_code}_true"]
                 - result.loc[x, f"{election_code}_pred"],
                 2,
             )
-            result.loc[x, f"{election_code}_diff"] = X[f"{x}_diff"].mean()
-            result.loc[x, f"{election_code}_std"] = X[f"{x}_diff"].std()
+            if x == 'votants':
+                result.loc[x, f"{election_code}_diff"] = round(X[f"{x}_diff"].mean()*100, 0)
+                result.loc[x, f"{election_code}_std"] = round(X[f"{x}_diff"].std()*100, 0)
+            if x == 'pvotepar':
+                result.loc[x, f"{election_code}_diff"] = round(X[f"{x}_diff"].mean()*100, 2)
+                result.loc[x, f"{election_code}_std"] = round(X[f"{x}_diff"].std()*100, 2)
+
+        result.loc['inscrits', f"{election_code}_diff"] = 0
+        result.loc['inscrits', f"{election_code}_std"] = 0
+        for x in ['exprimes', 'exprimes_']:
+            result.loc[x, f"{election_code}_diff"] = result.loc['votants', f"{election_code}_diff"]
+            result.loc[x, f"{election_code}_std"] = result.loc['votants', f"{election_code}_diff"]
+
+        result.loc['pvoteexpr', f"{election_code}_diff"] = result.loc['pvotepar', f"{election_code}_diff"]
+        result.loc['pvoteexpr', f"{election_code}_std"] = result.loc['pvotepar', f"{election_code}_diff"]
+
         for b in blocs:
             for m in ["pred", "true"]:
                 result.loc[f'vote{b}', f"{election_code}_{m}"] = X[f"vote{b}_{m}"].sum()
-                result.loc[f"pvote{b}", f"{election_code}_{m}"] = round(
-                    result.loc[f'vote{b}', f"{election_code}_{m}"]
-                    / result.loc["exprimes", f"{election_code}_true"]
-                    * 100,
-                    2,
-                )
 
+        for b in blocs:
+            for m in ["pred", "true"]:
+                if m == 'pred':
+                    result.loc[f"pvote{b}", f"{election_code}_{m}"] = round(
+                        result.loc[f'vote{b}', f"{election_code}_{m}"]
+                        / result.loc["votants", f"{election_code}_pred"]
+                        * 100,
+                        2,
+                    )
+                else:
+                    result.loc[f"pvote{b}", f"{election_code}_{m}"] = round(
+                        result.loc[f'vote{b}', f"{election_code}_{m}"]
+                        / result.loc["exprimes_", f"{election_code}_true"]
+                        * 100,
+                        2,
+                    )
+
+        for b in blocs:
             result.loc[f"vote{b}", f"{election_code}_diff_agg"] = (
                 result.loc[f"vote{b}", f"{election_code}_true"]
                 - result.loc[f"vote{b}", f"{election_code}_pred"]
             )
-            result.loc[f"vote{b}", f"{election_code}_diff"] = X[f"vote{b}_diff"].mean()
-            result.loc[f"vote{b}", f"{election_code}_std"] = X[f"vote{b}_diff"].std()
+            result.loc[f"vote{b}", f"{election_code}_diff"] = round(X[f"vote{b}_diff"].mean(), 0)
+            result.loc[f"vote{b}", f"{election_code}_std"] = round(X[f"vote{b}_diff"].std(), 0)
             result.loc[f"pvote{b}", f"{election_code}_diff_agg"] = round(
                 result.loc[f"pvote{b}", f"{election_code}_true"]
                 - result.loc[f"pvote{b}", f"{election_code}_pred"],
                 2,
             )
-            result.loc[f"pvote{b}", f"{election_code}_diff"] = X[f"pvote{b}_diff"].mean()
-            result.loc[f"pvote{b}", f"{election_code}_std"] = X[f"pvote{b}_diff"].std()
+            result.loc[f"pvote{b}", f"{election_code}_diff"] = round(X[f"pvote{b}_diff"].mean()*100, 2)
+            result.loc[f"pvote{b}", f"{election_code}_std"] = round(X[f"pvote{b}_diff"].std()*100, 2)
 
         result = result.reset_index()
+
+        assert result.isna().astype(int).sum().sum() == 0
 
         return result
 
     def compute_votes_per_circo(self, X):
-        # Find another circo mapping that handles PLM
+        # circo of 2022, have to find another circo mapping for older circonscriptions (not found online ?)
         circo_mapping = DataLoader.load_dataset("s3://arthurmanceau/election_modeling_uhcp/data/raw/insee_geo/circo_composition_2022_.csv", formate='csv')
         circo_mapping["COMMUNE_RESID"] = (
             circo_mapping["COMMUNE_RESID"]
@@ -166,7 +208,8 @@ class ElectionPredictor:
                 continue
             plm[f'pvote{trend}'] = plm[f'vote{trend}'] / plm['votants']
 
-        X = pd.concat([X, plm], axis=0)
+        plm_to_add = plm.loc[~plm["codecommune"].isin(X["codecommune"])]
+        X = pd.concat([X, plm_to_add], axis=0, ignore_index=True)
 
         X_merged = X.merge(
             circo_mapping,
@@ -234,7 +277,7 @@ class ElectionPredictor:
         ]
         mean_error = X_merged[diff_cols].mean(axis=0).mean(axis=0)
 
-        logger.success(f"Evaluation completed! Mean error is {mean_error*100:.3f}%")
+        logger.success(f"Evaluation completed! Mean error is {mean_error*100:.2f}%")
 
         return X_merged
 

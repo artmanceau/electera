@@ -66,23 +66,23 @@ st.header("Erreur du modèle")
 mean_error = (
     results.loc[
         [
-            f"p{b}"
+            f"pvote{b}"
             for b in st.session_state["state"].get_blocs(as_type="code", order="alpha")
         ],
         f"{st.session_state['state'].year}_{st.session_state['state'].get_type(as_type='code')}_diff",
     ].values.mean()
-) * 100
+)
 std_error = (
     results.loc[
         [
-            f"p{b}"
+            f"pvote{b}"
             for b in st.session_state["state"].get_blocs(as_type="code", order="alpha")
         ],
         f"{st.session_state['state'].year}_{st.session_state['state'].get_type(as_type='code')}_diff",
     ].values.std()
-) * 100
-st.write(f"Erreur moyenne des prédictions: {mean_error:1f}%")
-st.write(f"Ecart type de l'erreur de prédiction: {std_error:1f}%")
+)
+st.write(f"Erreur moyenne des prédictions: {round(mean_error, 2)}%")
+st.write(f"Ecart type de l'erreur de prédiction: {round(std_error, 2)}%")
 
 with st.expander("Erreurs moyenne des prédictions (sur l'ensemble des communes)"):
     diff_show(
@@ -106,20 +106,27 @@ with st.expander("Ecart type de l'erreur de prédiction (sur l'ensemble des comm
         st.session_state["state"].get_type(as_type="code"),
     )
 
-st.divider()
+try:
+    st.divider()
 
-load_feature_importance()
+    load_feature_importance()
 
-show_feature_importance(
-    st.session_state["data"].container["feature_importance"],
-    st.session_state["state"].get_blocs(as_type="code", order="political"),
-)
+    show_feature_importance(
+        st.session_state["data"].container["feature_importance"],
+        st.session_state["state"].get_blocs(as_type="code", order="political"),
+    )
 
-st.divider()
+except:
+    st.warning('Feature Importance not computed yet!')
 
-load_shap_values()
+try:
+    st.divider()
 
-show_shap_values(
-    st.session_state["data"].container["shap_values"],
-    BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
-)
+    load_shap_values()
+
+    show_shap_values(
+        st.session_state["data"].container["shap_values"],
+        BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
+    )
+except:
+    st.warning('Shap Values not computed yet!')

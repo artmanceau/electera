@@ -46,9 +46,7 @@ from src.components.utils.config import BackTesterConfig
 from src.components.utils.read_config import ConfigReader
 
 # TODO:
-# - Modèle pour les votes blancs? Pour l'instant on considère que votants = exprimés,
-# i.e. on ignore le vote blanc pour l'instant.
-# On peut essayer de prédire le nombre de vote exprimés, plutot que les votants
+# - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
 
 
 S3_SAVE = True
@@ -68,22 +66,21 @@ MODEL_ARGS = {
     "meta_boosting": {
         "method": "xgboost",
         "objective_metric": mean_squared_error,
-        "weighting": "proportional_squared",
-        "features": None,
-        "n_splits_inner": 2,
-        "n_splits_outer": 2,
-        "n_trials": 2,
-        "poll_adj": True,
-    },
-    "meta_boosting_multiple": {
-        "method": "xgboost",
-        "objective_metric": mean_absolute_error,
-        "weighting": "proportional_squared",
+        "weighting": "proportional",
         "features": None,
         "n_splits_inner": 10,
         "n_splits_outer": 10,
         "n_trials": 10,
-        "poll_adj": True,
+        "poll_adj": False,
+    },
+    "meta_boosting_multiple": {
+        "method": "xgboost",
+        "objective_metric": mean_absolute_error,
+        "weighting": "proportional",
+        "features": None,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
         "ponderation": [0.7, 0.3],
     },
 }
@@ -164,6 +161,8 @@ class BackTester:
         X_true[str_cols] = X_true[str_cols].astype(str)
         X_true[int_cols] = X_true[int_cols].astype(int)
         X_true[float_cols] = X_true[float_cols].astype(float)
+        exprimes_ = X_true[[f'vote{trend}' for trend in k_political_trends if trend != "par"]].sum(axis=1)
+
 
         # Predictions
         data = DataLoader.load_dataset(self.config.data_path + self.config.dataset_path)
@@ -171,11 +170,11 @@ class BackTester:
             (data["annee"].astype(int) == int(k_year))
             & (data["type"].astype(int) == int(self.k_t))
         ]
-        X_pred = self.election_predictor.predict_votes(data_election, predict_delta)
+        X_pred = self.election_predictor.predict_votes(data_election, predict_delta, infer_multiple = (self.config.model == 'meta_boosting_multiple'))
 
         logger.info(f'We computed predictions for all the communes that were in the raw result data, except: {list(set(X_true['codecommune'].to_list()) - set(data_election['codecommune'].to_list()))}')
 
-        agg_results = self.election_predictor.predict_votes(data_election, predict_delta, agg=True)
+        agg_results = self.election_predictor.predict_votes(data_election, predict_delta, infer_multiple = (self.config.model == 'meta_boosting_multiple'), agg=True)
         agg_results_show = {
             key: value
             for key, value in agg_results.items()
@@ -188,7 +187,7 @@ class BackTester:
         for trend in k_political_trends:
             if trend == 'par':
                 continue
-            logger.success(f'Prediction for {trend}: {agg_results_show[f'tot_pvote{trend}']*100:.3f}%. Result for {trend}:  {(X_true[f'vote{trend}'].sum() / X_true['votants'].sum())*100:.3f}%. Diff: {np.abs(agg_results_show[f'tot_pvote{trend}'] - (X_true[f'vote{trend}'].sum() / X_true['votants'].sum()))*100:.3f}%')
+            logger.success(f'Prediction for {trend}: {agg_results_show[f'tot_pvote{trend}']*100:.3f}%. Result for {trend}:  {(X_true[f'vote{trend}'].sum() / exprimes_.sum())*100:.3f}%. Diff: {np.abs(agg_results_show[f'tot_pvote{trend}'] - (X_true[f'vote{trend}'].sum() / exprimes_.sum()))*100:.3f}%')
 
         return X_pred, X_true
 
@@ -313,23 +312,25 @@ class BackTester:
                 "meta_boosting": lambda: instance_model.train(
                     self.X_train[trend],
                     self.y_train[trend],
-                    use_feature_selection=False,
+                    use_feature_selection=True,
                     val_set=(self.X_val[trend], self.y_val[trend]),
                 ),
-                "meta_boosting_multiple": lambda: instance_model.train(
+                "meta_boosting_multiple": lambda: instance_model.train_multiple(
                     election_datasets=[
                         (self.X_train[trend], self.y_train[trend]),
                         (self.X_val[trend], self.y_val[trend]),
-                    ]
+                    ],
+                    use_feature_selection=True
                 ),
             }
 
             trainings[self.config.model]()
 
             # Evaluate the model on the test election
+            predictions = instance_model.infer_multiple(self.X_test[trend]) if self.config.model == 'meta_boosting_multiple' else instance_model.infer(self.X_test[trend])
             self.results[self.config.model] = ModelEvaluator.evaluate(
                 self.y_test[trend],
-                instance_model.infer(self.X_test[trend]),
+                predictions,
                 self.config.model,
             )
 
@@ -381,11 +382,14 @@ def main():
     k_type = backtester.config.k_type
     k_political_trends = backtester.config.political_trends
     predict_delta = backtester.config.predict_delta
+
+    logger.info(f"Model: {model}")
+
     for political_trends in k_political_trends:
         for year in k_year:
             for type_ in k_type:
                 logger.info(
-                    f"Running backtest for  : year: {year}, type: {type_}, political_trends: {political_trends} (delta: {predict_delta})"
+                    f"Running backtest for year: {year}, type: {type_}, political_trends: {political_trends} (delta: {predict_delta})"
                 )
                 backtester.run_backtest(
                     k_year=year,

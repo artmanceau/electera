@@ -40,21 +40,17 @@ temporal_data = load_results_over_time()
 
 st.subheader("📊 Évolution de la Participation")
 
-plot_backtest(temporal_data, "ppar", years=st.session_state["state"].get_years())
+plot_backtest(temporal_data, "pvotepar", years=st.session_state["state"].get_years())
 
 st.divider()
 st.subheader("🗳️ Évolution des Votes par Bloc Politique")
 
-pblocs = [
-    "p" + b
-    for b in st.session_state["state"].get_blocs(as_type="code", order="political")
-]
 
 selected_blocs = st.multiselect(
     "Sélectionnez les tendances politiques à inclure dans le graphique",
-    st.session_state["state"].get_blocs(as_type="code", order="political", prefix="p"),
+    st.session_state["state"].get_blocs(as_type="code", order="political", prefix="pvote"),
     default=st.session_state["state"].get_blocs(
-        as_type="code", order="political", prefix="p"
+        as_type="code", order="political", prefix="pvote"
     ),
 )
 

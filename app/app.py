@@ -1,5 +1,9 @@
 import streamlit as st
 
+# TODO: disjonction des années en fonction des elections
+# Rendering for errors
+# Shap + feature importance (test)
+
 st.set_page_config(page_title="Electera", layout="wide")
 st.title("Electera")
 

@@ -29,7 +29,7 @@ class ExplainCore:
         return model, n_models
 
     def _data_processing(self, data):
-        st = Splitter("p" + self.var)
+        st = Splitter(self.var)
         split_method = f"{self.year}_{self.t}"
         X, y, y_split = st.get_Xy(data)
         _, X_test, _, _, y_test, _ = st.split(

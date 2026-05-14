@@ -5,15 +5,15 @@ RESULT_FULL_PATH = "results_full"
 
 
 colors_dict = {
-    "voteG": "#bb1840",
-    "voteCG": "#ffc0c0",
-    "voteC": "#FED700",
-    "voteCD": "#0066cc",
-    "voteD": "#0D378A",
-    "voteTG": "#ffc0c0",
-    "voteTD": "#0066cc",
-    "voteGCG": "#ffc0c0",
-    "voteDCD": "#0066cc",
+    "G": "#bb1840",
+    "CG": "#ffc0c0",
+    "C": "#FED700",
+    "CD": "#0066cc",
+    "D": "#0D378A",
+    "TG": "#ffc0c0",
+    "TD": "#0066cc",
+    "GCG": "#ffc0c0",
+    "DCD": "#0066cc",
 }
 
 
@@ -23,26 +23,26 @@ def get_colors(blocs, colors_dict):
 
 
 trad = {
-    "voteTD": "à gauche (tout les partis)",
-    "voteTG": "à droite (tout les partis)",
-    "voteGCG": "à gauche et au centre-gauche",
-    "voteDCD": "à droite et au centre-droit",
-    "voteG": "à gauche",
-    "voteCD": "pour le centre-droite",
-    "voteC": "pour le centre",
-    "voteD": "à droite",
-    "voteCG": "pour le centre-gauche",
+    "TD": "à gauche (tout les partis)",
+    "TG": "à droite (tout les partis)",
+    "GCG": "à gauche et au centre-gauche",
+    "DCD": "à droite et au centre-droit",
+    "G": "à gauche",
+    "CD": "pour le centre-droite",
+    "C": "pour le centre",
+    "D": "à droite",
+    "CG": "pour le centre-gauche",
     "par": "participation",
 }
 
 
 def political_align(blocs):
     if len(blocs) == 6:
-        return ["voteG", "voteCG", "voteC", "voteCD", "voteD"]
+        return ["G", "CG", "C", "CD", "D"]
     elif len(blocs) == 4:
-        return ["voteGCG", "voteC", "voteDCD"]
+        return ["GCG", "C", "DCD"]
     else:
-        return ["voteTG", "voteTD"]
+        return ["TG", "TD"]
 
 
 type_trad = {"pres": "présidentielles", "leg": "leglisatives"}
@@ -58,12 +58,12 @@ display_config_converter = {
         "ref": "réferundum",
     },
     "political_division": {
-        str(["voteTG", "voteTD", "par"]): "division gauche / droite",
+        str(["TG", "TD", "par"]): "division gauche / droite",
         str(
-            ["voteGCG", "voteDCD", "voteC", "par"]
+            ["GCG", "DCD", "C", "par"]
         ): "division gauche / droite / centre",
         str(
-            ["voteG", "voteD", "voteCG", "voteCD", "voteC", "par"]
+            ["G", "D", "CG", "CD", "C", "par"]
         ): "division en 5 blocs : gauche / centre gauche / centre / cente droite / droite",
     },
 }

@@ -68,15 +68,18 @@ present_results(
     scale="local",
 )
 
-st.divider()
+try:
+    st.divider()
 
-load_shap_values()
+    load_shap_values()
 
-show_shap_values(
-    st.session_state["data"].container["shap_values"],
-    BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
-    selection_code_commune=st.session_state["state"].codecommune,
-)
+    show_shap_values(
+        st.session_state["data"].container["shap_values"],
+        BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
+        selection_code_commune=st.session_state["state"].codecommune,
+    )
+except:
+    st.warning('Shap values not computed yet!')
 
 # st.divider()
 
