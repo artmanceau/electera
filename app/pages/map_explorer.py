@@ -166,7 +166,7 @@ with col1:
         layers=[pred_layer],
         initial_view_state=view_state,
         tooltip={
-            "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant prédit:</b> {label}",
+            "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant prédit:</b> Vote {label}",
             "style": {
                 "backgroundColor": "steelblue",
                 "color": "white",
@@ -203,7 +203,7 @@ with col2:
         layers=[true_layer],
         initial_view_state=view_state,
         tooltip={
-            "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant réel:</b> {label}",
+            "html": "<b>Commune:</b> {name}<br/><b>Code:</b> {code}<br/><b>Gagnant réel:</b> Vote {label}",
             "style": {
                 "backgroundColor": "darkgreen",
                 "color": "white",
@@ -244,7 +244,7 @@ if len(pred_winners) > 0 and len(true_winners) > 0:
         st.metric("Précision Globale", f"{accuracy:.2%}")
     with col2:
         most_pred = max(set(pred_winners), key=pred_winners.count)
-        st.metric("Gagnant le plus prédit", most_pred.replace("pvote", ""))
+        st.metric("Gagnant le plus prédit", f'Vote {trad[most_pred.replace("pvote", "")]}')
     with col3:
         most_true = max(set(true_winners), key=true_winners.count)
-        st.metric("Gagnant le plus fréquent", most_true.replace("pvote", ""))
+        st.metric("Gagnant le plus fréquent", f'Vote {trad[most_pred.replace("pvote", "")]}')

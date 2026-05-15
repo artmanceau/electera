@@ -4,8 +4,9 @@ import altair as alt
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import shap
+import altair as alt
 import streamlit as st
-from asset.definitions import FEATURES_DICT, colors_dict, get_colors, trad
+from asset.definitions import FEATURES_DICT, colors_dict, get_colors, trad, candidats_2022_mapping
 
 
 def check_home_run():
@@ -16,9 +17,12 @@ def check_home_run():
 
 
 def diff_show(results, blocs, trad, label, label_show, year, t):
-    col_config_error = {
-        f"{label_show}_pvote{bloc}": f"Vote {trad[bloc]}" for bloc in blocs
-    }
+    col_config_error = {}
+    for bloc in blocs:
+        col_config_error[f"pvote{bloc}"] = st.column_config.NumberColumn(
+            f"Vote {trad[bloc]}",
+            format="%.1f%%"
+        )
     st.dataframe(
         results.loc[[f"pvote{b}" for b in blocs], f"{year}_{t}_{label}"].to_frame().T,
         column_config=col_config_error,
@@ -34,30 +38,38 @@ def results_loc(data_line, year_type, blocs, label, p=""):
         column_config={
             "votants_true": st.column_config.NumberColumn(
                 "Nombre de votants",
-                format="%.1f%%" if p == "pvote" else None,
+                format="%.1f%%" if p == "pvote" else "%,.0f",
             ),
             "votants_pred": st.column_config.NumberColumn(
                 "Nombre de votants",
-                format="%.1f%%" if p == "pvote" else None,
+                format="%.1f%%" if p == "pvote" else "%,.0f",
             ),
             "exprimes": st.column_config.NumberColumn(
                 "Nombre de suffrage exprimés",
-                format="%.1f%%" if p == "pvote" else None,
+                help="Le modèle ne prend pas en compte les votes blancs et nuls et considère que ce nombre est égale au nombre de votants.",
+                format="%.1f%%" if p == "pvote" else "%,.0f",
             ),
             "pvotepar_true": st.column_config.NumberColumn(
                "Taux de participation",
-                format="%.1f%%" if p == "pvote" else None,
+                help='Le taux de participation est le nombre de votants sur le nombre d\'inscrits',
+                format="%.1f%%" if p == "pvote" else "%,.0f",
             ),
             "pvotepar_pred": st.column_config.NumberColumn(
                 "Taux de participation",
-                format="%.1f%%" if p == "pvote" else None,
+                help='Le taux de participation est le nombre de votants sur le nombre d\'inscrits',
+                format="%.1f%%" if p == "pvote" else "%,.0f",
             ),
         }
     )
     col_config = {}
     for b in blocs:
         col_config[f"{p}{b}_{label}"] = st.column_config.NumberColumn(
-            f"Nombre de vote {trad[b]}", format="%.1f%%" if p == "pvote" else None
+            f"Vote {trad[b]}" if p == "pvote" else f"Nombre de vote {trad[b]}", 
+            help=f"Le vote {trad[b]} correspond à un vote pour un candidat d'une nuance politique appartenant à ce bloc politique. \
+            Pour plus de détail sur la classification des blocs politique, cf. https://www.unehistoireduconflitpolitique.fr/. \
+            En 2022, le vote {trad[b]} correspondait à un vote pour les candidats : {", ".join(candidats_2022_mapping[b])}. \
+            Lorsqu'un candidat ne peut être classé dans un bloc, ses voix sont répartis à part égal entre l'ensemble des autres blocs",
+            format="%.1f%%" if p == "pvote" else "%,.0f"
         )
        
     st.dataframe(
@@ -65,8 +77,10 @@ def results_loc(data_line, year_type, blocs, label, p=""):
         hide_index=True,
         column_config=col_config,
     )
+    df = data_line[[f"{p}{b}_{label}" for b in blocs]].reset_index(drop=True)
+    df.columns = [f'Vote {trad.get(b, b)}' for b in blocs]
     st.bar_chart(
-        data=(data_line[[f"{p}{b}_{label}" for b in blocs]].reset_index(drop=True)),
+        data=df,
         color=get_colors(blocs, colors_dict),
         horizontal=True,
     )
@@ -83,18 +97,22 @@ def results_glob(data_line, year_type, blocs, label, p=""):
             column_config={
                 "votants": st.column_config.NumberColumn(
                     "Nombre de votants",
-                    format=None,
+                    format="%,.0f",
                 ),
                 "exprimes": st.column_config.NumberColumn(
                     "Nombre de suffrage exprimés",
-                    format=None,
+                    help="Le modèle ne prend pas en compte les votes blancs et nuls et considère que ce nombre est égale au nombre de votants.",
+                    format="%,.0f",
                 ),
                 'pvotepar': st.column_config.NumberColumn(
                     "Taux de participation",
+                    help='Le taux de participation est le nombre de votants sur le nombre d\'inscrits',
                     format="%.1f%%",
                 ),
                 'pvoteexpr': st.column_config.NumberColumn(
                     "Taux de suffrage exprimés",
+                    help="Le taux de suffrage exprimés est le nombre de votes enregistré en retirant les bulletins blancs et nuls. \
+                    Le modèle ne prend pas en compte les votes blancs et nuls et considère que ce taux est égale au taux de participation.",
                     format="%.1f%%",
                 ),
             }
@@ -102,7 +120,12 @@ def results_glob(data_line, year_type, blocs, label, p=""):
     col_config = {}
     for b in blocs:
         col_config[f"{p}{b}"] = st.column_config.NumberColumn(
-            f"Nombre de vote {trad[b]}", format="%.1f%%" if p in ['p', "pvote"] else None
+            f"Vote {trad[b]}" if p in ['p', "pvote"] else f"Nombre de vote {trad[b]}",
+            help=f"Le vote {trad[b]} correspond à un vote pour un candidat d'une nuance politique appartenant à ce bloc politique. \
+            Pour plus de détail sur la classification des blocs politique, cf. https://www.unehistoireduconflitpolitique.fr/. \
+            En 2022, le vote {trad[b]} correspondait à un vote pour les candidats : {", ".join(candidats_2022_mapping[b])}. \
+            Lorsqu'un candidat ne peut être classé dans un bloc, ses voix sont répartis à part égal entre l'ensemble des autres blocs",
+            format="%.1f%%" if p in ['p', "pvote"] else "%,.0f"
         )
 
     st.dataframe(
@@ -110,8 +133,10 @@ def results_glob(data_line, year_type, blocs, label, p=""):
         hide_index=True,
         column_config=col_config,
     )
+    df = data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T
+    df.columns = [f'Vote {trad.get(b, b)}' for b in blocs]
     st.bar_chart(
-        data=(data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T),
+        data=df,
         color=get_colors(blocs, colors_dict),
         horizontal=True,
     )
@@ -151,18 +176,20 @@ def present_results(data_line, year, t, blocs, scale):
         with st.expander("Erreur", expanded=True):
             st.write(
                 """
-                Erreur de la prédictions du modèle pour l'élection
+                Erreur de la prédiction du modèle pour l'élection
             """
             )
             if scale == "local":
-                col_config = {
-                    f"vote{b}_diff": f"Différence avec la prédiction du vote {trad[b]}"
-                    for b in blocs
-                }
-                col_config["votants_diff"] = (
-                    "Différence avec la prédiction pour la participation"
+                col_config = {}
+                for b in blocs:
+                    col_config[f"vote{b}_diff"] = st.column_config.NumberColumn(
+                        f"Différence avec la prédiction du vote {trad[b]}",
+                        format="%,.0f"
+                    )
+                col_config["votants_diff"] = st.column_config.NumberColumn(
+                    "Différence avec la prédiction pour le taux de participation",
+                    format="%,.0f"
                 )
-
                 data_element = data_line[
                     [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
                 ].reset_index(drop=True)
@@ -175,21 +202,26 @@ def present_results(data_line, year, t, blocs, scale):
                     .to_frame()
                     .T
                 )
-
-                col_config = {
-                    f"{b}": f"Différence avec la prédiction du vote {trad[b]}"
-                    for b in blocs
-                }
-                col_config["votants"] = (
-                    "Différence avec la prédiction pour la participation"
-                )
-
+                col_config = {}
+                for b in blocs:
+                    col_config[f"vote{b}"] = st.column_config.NumberColumn(
+                        f"Différence avec la prédiction du vote {trad[b]}",
+                        format="%,.0f"
+                    )
+                col_config["votants"] = st.column_config.NumberColumn(
+                        "Différence avec la prédiction pour la participation",
+                        format="%,.0f"
+                    )
             st.dataframe(
                 data_element,
                 hide_index=True,
                 column_config=col_config,
             )
-            st.bar_chart(data=(data_element).T, sort=False)
+            data_plot = data_element.T.copy()
+            trad_ = trad
+            trad_['votants'] = 'participation'
+            data_plot.index = [f'Vote {trad[c.replace('vote', '').replace('_diff', '')]}' for c in data_plot.index] 
+            st.bar_chart(data=data_plot, sort=False)
 
     with tab1:
         with st.expander("Résultats", expanded=True):
@@ -226,20 +258,24 @@ def present_results(data_line, year, t, blocs, scale):
         with st.expander("Erreur", expanded=True):
             st.write(
                 """
-                Erreur de la prédictions du modèle pour l'élection
+                Erreur de la prédiction du modèle pour l'élection
             """
             )
             if scale == "local":
                 data_element = data_line[
                     [f"pvote{b}_diff" for b in blocs] + ["pvotepar_diff"]
                 ].reset_index(drop=True)
-
-                col_config = {
-                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
-                    for b in blocs
-                }
-                col_config["votants_diff"] = (
-                    "Différence avec la prédiction pour la participation"
+                col_config = {}
+                for b in blocs:
+                    col_config[f"pvote{b}_diff"] = st.column_config.NumberColumn(
+                        f"Différence avec la prédiction du vote {trad[b]}",
+                        help="L\'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l\'echelle agrégée.",
+                        format="%.1f%%"
+                    )
+                col_config["pvotepar_diff"] = st.column_config.NumberColumn(
+                    "Différence avec la prédiction pour la participation",
+                    help="L\'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l\'echelle agrégée.",
+                    format="%.1f%%"
                 )
             else:
                 data_element = (
@@ -250,13 +286,17 @@ def present_results(data_line, year, t, blocs, scale):
                     .to_frame()
                     .T
                 )
-
-                col_config = {
-                    f"pvote{b}": f"Différence avec la prédiction du vote {trad[b]}"
-                    for b in blocs
-                }
-                col_config["votants"] = (
-                    "Différence avec la prédiction pour la participation"
+                col_config = {}
+                for b in blocs:
+                    col_config[f"pvote{b}"] = st.column_config.NumberColumn(
+                        f"Différence avec la prédiction du vote {trad[b]}",
+                        help="L\'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l\'echelle agrégée.",
+                        format="%.1f%%"
+                    )
+                col_config["pvotepar"] = st.column_config.NumberColumn(
+                    "Différence avec la prédiction pour la participation",
+                    help="L\'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l\'echelle agrégée.",
+                    format="%.1f%%"
                 )
 
             st.dataframe(
@@ -264,7 +304,9 @@ def present_results(data_line, year, t, blocs, scale):
                 hide_index=True,
                 column_config=col_config,
             )
-            st.bar_chart(data=(data_element).T, sort=False)
+            data_plot = data_element.T.copy()
+            data_plot.index = [f'Vote {trad[c.replace('pvote', '').replace('_diff', '')]}' for c in data_plot.index]
+            st.bar_chart(data=data_plot, sort=False)
 
 
 def show_feature_importance(importance_df, blocs):

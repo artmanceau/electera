@@ -21,6 +21,29 @@ def get_colors(blocs, colors_dict):
     """Returns a list in the same order as bloc, with the associated elements"""
     return [colors_dict.get(bloc, None) for bloc in blocs]
 
+candidats_2022_mapping = {
+    "G": [
+        "Jean-Luc Mélenchon",
+        "Fabien Roussel",
+        "Philippe Poutou",
+        "Nathalie Arthaud"
+    ],
+    "CG": [
+        "Anne Hidalgo",
+        "Yannick Jadot"
+    ],
+    "C": [
+        "Emmanuel Macron",
+    ],
+    "CD": [
+        "Valérie Pécresse",
+        "Nicolas Dupont-Aignan"
+    ],
+    "D": [
+        "Marine Le Pen",
+        "Éric Zemmour"
+    ]
+}
 
 trad = {
     "TD": "à gauche (tout les partis)",

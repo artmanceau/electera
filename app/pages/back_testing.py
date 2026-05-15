@@ -55,5 +55,5 @@ selected_blocs = st.multiselect(
 )
 
 plot_backtest(
-    temporal_data, selected_blocs, years=st.session_state["state"].get_years()
+    temporal_data, selected_blocs, years=st.session_state["state"].get_years(), yaxis_title='Taux de vote (%)'
 )
