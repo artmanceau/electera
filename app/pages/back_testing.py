@@ -7,21 +7,28 @@ from core.utils import check_home_run, plot_backtest
 def load_results_over_time():
     all_results = []
     for year in st.session_state["state"].get_years():
-        st.session_state["data"].load_result(
-            asset="results_synth",
-            year=year,
-            election_type=st.session_state["state"].get_type(as_type="code"),
-            trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
-            columns=[
-                "index",
-                f"{year}_{st.session_state['state'].get_type(as_type='code')}_pred",
-                f"{year}_{st.session_state['state'].get_type(as_type='code')}_true",
-            ],
-        )
-        all_results.append(
-            st.session_state["data"].container["results_synth"].set_index("index")
-        )
-    return pd.concat(all_results, axis=1)
+        try:
+            st.session_state["data"].load_result(
+                asset="results_synth",
+                year=year,
+                election_type=st.session_state["state"].get_type(as_type="code"),
+                trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
+                columns=[
+                    "index",
+                    f"{year}_{st.session_state['state'].get_type(as_type='code')}_pred",
+                    f"{year}_{st.session_state['state'].get_type(as_type='code')}_true",
+                ],
+            )
+            all_results.append(
+                st.session_state["data"].container["results_synth"].set_index("index")
+            )
+        except:
+            continue
+
+    if len(all_results) == 0:
+        return None
+    else:
+        return pd.concat(all_results, axis=1)
 
 
 check_home_run()
@@ -37,6 +44,9 @@ st.divider()
 
 # Load data for selected years
 temporal_data = load_results_over_time()
+if temporal_data is None:
+    st.warning('No election data fetched!')
+    st.stop()
 
 st.subheader("📊 Évolution de la Participation")
 

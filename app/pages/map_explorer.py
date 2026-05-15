@@ -35,7 +35,11 @@ current_blocs = [
 st.header("Carte des résultats électoraux")
 
 communes_geojson = load_geojson_page(COMMUNES_MAP_PATH, get_fs().fs)
-load_results()
+try:
+    load_results()
+except:
+    st.warning('No election data fetched!')
+    st.stop()
 
 # Prepare results data
 results = st.session_state["data"].container["results_full"]

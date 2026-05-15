@@ -48,25 +48,28 @@ check_home_run()
 
 st.session_state["state"].selection_box()
 
-st.header("Resultat au niveau de chaque commune")
+try:
+    st.header("Resultat au niveau de chaque commune")
 
-load_communes_list()
-st.session_state["state"].commune_selector()
-st.write(
-    f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
-)
+    load_communes_list()
+    st.session_state["state"].commune_selector()
+    st.write(
+        f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
+    )
 
-st.divider()
+    st.divider()
 
-load_results()
+    load_results()
 
-present_results(
-    st.session_state["data"].container["results_commune_selected"],
-    year=st.session_state["state"].year,
-    t=st.session_state["state"].get_type(as_type="code"),
-    blocs=st.session_state["state"].get_blocs(as_type="code", order="political"),
-    scale="local",
-)
+    present_results(
+        st.session_state["data"].container["results_commune_selected"],
+        year=st.session_state["state"].year,
+        t=st.session_state["state"].get_type(as_type="code"),
+        blocs=st.session_state["state"].get_blocs(as_type="code", order="political"),
+        scale="local",
+    )
+except:
+    st.warning('Election not computed yet or doesn\'t exist')
 
 try:
     st.divider()

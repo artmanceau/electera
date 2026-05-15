@@ -1,7 +1,7 @@
 {
     "model_version": "0.0.10",
     "years_to_display": [2022, 2017, 2012, 2007, 2002, 1995, 1988, 1981, 1974],
-    "types_to_display":["pres"],
+    "types_to_display":["pres", "leg"],
     "political_divisions_to_dislay" : [["G", "D", "CG", "CD", "C", "par"]],
     "data_path":"s3://arthurmanceau/election_modeling_uhcp/data"
 }
