@@ -76,6 +76,8 @@ Application pour visualiser les performances du modèle
 streamlit run app/app.py
 ```
 
+Application déployée en ligne : https://electera-fnefwttermgjettzdiwaxd.streamlit.app/ 
+
 ## Modèle mathématique [2]
 
 Le dossier model/ contient les fichiers relatifs à la modélisation mathématique des comportements electoraux.

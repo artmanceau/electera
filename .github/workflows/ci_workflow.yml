@@ -2,124 +2,57 @@ name: CI Pipeline
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-  install_dependencies:
-    name: Install Dependencies
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: "3.9"
 
-      - name: Install Dependencies
+      - name: Create venv and install deps
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt
-          pip install --no-cache-dir pre-commit
+          uv venv
+          . .venv/bin/activate
+          uv pip install -r requirements.txt
+          uv pip install pytest pre-commit ruff mypy pylint bandit
 
-      - name: Cache Dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            .venv
-            .cache/pip
-            .cache/pre-commit
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-  run_tests:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    needs: install_dependencies
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-
-      - name: Restore Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            .venv
-            .cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Run Tests
+      - name: Run tests
         run: |
-          source .venv/bin/activate
-          python -m pytest tests/ -v --tb=short
+          . .venv/bin/activate
+          pytest tests/ -v --tb=short
 
-  code_quality:
-    name: Code Quality Check
-    runs-on: ubuntu-latest
-    needs: install_dependencies
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-
-      - name: Restore Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            .venv
-            .cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Run Pylint
+      - name: Lint (ruff)
         run: |
-          source .venv/bin/activate
-          pip install --no-cache-dir pylint
+          . .venv/bin/activate
+          ruff check src/
+
+      - name: Type check (mypy)
+        run: |
+          . .venv/bin/activate
+          mypy src/
+
+      - name: Pylint
+        run: |
+          . .venv/bin/activate
           pylint src/ --fail-under=6 --reports=no
 
-  pre_commit_check:
-    name: Pre-commit Check
-    runs-on: ubuntu-latest
-    needs: install_dependencies
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-
-      - name: Restore Cache
-        uses: actions/cache@v3
+      - name: Cache uv
+        uses: actions/cache@v4
         with:
           path: |
+            ~/.cache/uv
             .venv
-            .cache/pip
-            .cache/pre-commit
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Run Pre-commit
-        run: |
-          source .venv/bin/activate
-          pre-commit install-hooks
-          pre-commit run --all-files --show-diff-on-failure
+            ${{ runner.os }}-uv-
