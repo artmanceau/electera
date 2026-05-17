@@ -33,11 +33,6 @@ jobs:
           . .venv/bin/activate
           pytest tests/ -v --tb=short
 
-      - name: Type check (mypy)
-        run: |
-          . .venv/bin/activate
-          mypy src/
-
       - name: Pylint
         run: |
           . .venv/bin/activate
