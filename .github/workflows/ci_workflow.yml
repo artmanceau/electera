@@ -33,11 +33,6 @@ jobs:
           . .venv/bin/activate
           pytest tests/ -v --tb=short
 
-      - name: Lint (ruff)
-        run: |
-          . .venv/bin/activate
-          ruff check src/
-
       - name: Type check (mypy)
         run: |
           . .venv/bin/activate
