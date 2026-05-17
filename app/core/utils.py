@@ -6,12 +6,12 @@ import plotly.graph_objects as go
 import shap
 import streamlit as st
 from asset.definitions import (
-    FEATURES_DICT,
     candidats_2022_mapping,
     colors_dict,
     get_colors,
     trad,
 )
+from asset.features import FEATURES_MAP, FEATURE_AUG
 
 
 def check_home_run():
@@ -327,27 +327,34 @@ def show_feature_importance(importance_df, blocs):
     nb_feat = st.slider(
         "Selectionnez un nombre de variable pour visualiser l'importance des variables socio-économiques",
         5,
-        30,
+        50,
     )
     trends = ["par"] + [f"{b}" for b in blocs]
     tabs = st.tabs(["Participation"] + [f"Vote {trad[b]}" for b in blocs])
     for i, tab in enumerate(tabs):
         with tab:
             df = importance_df[trends[i]].copy()
-            # Improve feature names and desc...
-            df["feature_desc"] = df["Feature_gain"].map(FEATURES_DICT)
+            
+            df["feature_name"] = [
+                FEATURE_AUG.get((f.removeprefix("F_") if f.startswith("F_") else f).split('_')[0], '') + FEATURES_MAP.get((f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1], (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1])
+                for f in df["Feature_gain"].values
+            ]
+            with st.expander('Feature utilisés'):
+                st.write(f'{len(df["feature_name"].to_list())} features utilisés (sélection par permutaiion feature importance)')
+                st.info(", ".join(df["feature_name"].to_list()))
+
             st.write("Importance en gain total")
             top_gain = df.nlargest(nb_feat, "Importance_gain")[
-                ["Feature_gain", "Importance_gain", "feature_desc"]
+                ["Feature_gain", "Importance_gain", "feature_name"]
             ]
             top_gain = top_gain.sort_values("Importance_gain", ascending=False)
             chart = (
                 alt.Chart(top_gain)
                 .mark_bar()
                 .encode(
-                    x=alt.X("Feature_gain:N", title="Feature"),
-                    y=alt.Y("Importance_gain:Q", title="Importance"),
-                    tooltip=["Feature_gain", "Importance_gain", "feature_desc"],
+                    x=alt.X("feature_name:N", title="Feature"),
+                    y=alt.Y("Importance_gain:Q", title="Importance", axis=alt.Axis(format=".0%")),
+                    tooltip=["Feature_gain", "Importance_gain", "feature_name"],
                 )
                 .properties(width=600, height=400)
             )
