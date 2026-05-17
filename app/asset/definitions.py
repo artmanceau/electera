@@ -21,28 +21,20 @@ def get_colors(blocs, colors_dict):
     """Returns a list in the same order as bloc, with the associated elements"""
     return [colors_dict.get(bloc, None) for bloc in blocs]
 
+
 candidats_2022_mapping = {
     "G": [
         "Jean-Luc Mélenchon",
         "Fabien Roussel",
         "Philippe Poutou",
-        "Nathalie Arthaud"
+        "Nathalie Arthaud",
     ],
-    "CG": [
-        "Anne Hidalgo",
-        "Yannick Jadot"
-    ],
+    "CG": ["Anne Hidalgo", "Yannick Jadot"],
     "C": [
         "Emmanuel Macron",
     ],
-    "CD": [
-        "Valérie Pécresse",
-        "Nicolas Dupont-Aignan"
-    ],
-    "D": [
-        "Marine Le Pen",
-        "Éric Zemmour"
-    ]
+    "CD": ["Valérie Pécresse", "Nicolas Dupont-Aignan"],
+    "D": ["Marine Le Pen", "Éric Zemmour"],
 }
 
 trad = {
@@ -82,9 +74,7 @@ display_config_converter = {
     },
     "political_division": {
         str(["TG", "TD", "par"]): "division gauche / droite",
-        str(
-            ["GCG", "DCD", "C", "par"]
-        ): "division gauche / droite / centre",
+        str(["GCG", "DCD", "C", "par"]): "division gauche / droite / centre",
         str(
             ["G", "D", "CG", "CD", "C", "par"]
         ): "division en 5 blocs : gauche / centre gauche / centre / cente droite / droite",

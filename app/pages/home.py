@@ -3,15 +3,15 @@ from asset.definitions import client_kwargs
 from core.data_handler import AppData, load_fs
 from core.state_handler import SessionHandler
 
-from src.components.utils.config import AppConfig
-from src.components.utils.read_config import ConfigReader
+from electera.components.utils.config import AppConfig
+from electera.components.utils.read_config import ConfigReader
 
 st.divider()
 
 
 @st.cache_data
 def load_config():
-    return ConfigReader._read_config("config/app_config.json", AppConfig)
+    return ConfigReader._read_config("../config/app_config.json", AppConfig)
 
 
 def instantiate_filesystem():

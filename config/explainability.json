@@ -1,7 +1,7 @@
 {
     "model_version": "0.0.10",
-    "years": [2022, 2017, 2002, 2012, 2007, 1995, 1988, 1981, 1974],
-    "types": ["pres"],
+    "years": [1968, 1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2022],
+    "types": ["leg"],
     "vars_": [[ "C", "CD","CG", "D", "G", "par"]],
     "data_path":"s3://arthurmanceau/election_modeling_uhcp/data/",
     "steps":["feature_importance"]

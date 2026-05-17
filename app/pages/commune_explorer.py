@@ -69,7 +69,7 @@ try:
         scale="local",
     )
 except:
-    st.warning('Election not computed yet or doesn\'t exist')
+    st.warning("Election not computed yet or doesn't exist")
 
 try:
     st.divider()
@@ -82,7 +82,7 @@ try:
         selection_code_commune=st.session_state["state"].codecommune,
     )
 except:
-    st.warning('Shap values not computed yet!')
+    st.warning("Shap values not computed yet!")
 
 # st.divider()
 

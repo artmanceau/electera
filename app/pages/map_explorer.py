@@ -4,7 +4,7 @@ from asset.definitions import COMMUNES_MAP_PATH, colors_dict, trad
 from core.data_handler import get_fs
 from core.utils import check_home_run
 
-from src.components.data_processing.data_loader import DataLoader
+from electera.components.data_processing.data_loader import DataLoader
 
 
 @st.cache_data
@@ -38,7 +38,7 @@ communes_geojson = load_geojson_page(COMMUNES_MAP_PATH, get_fs().fs)
 try:
     load_results()
 except:
-    st.warning('No election data fetched!')
+    st.warning("No election data fetched!")
     st.stop()
 
 # Prepare results data
@@ -248,7 +248,11 @@ if len(pred_winners) > 0 and len(true_winners) > 0:
         st.metric("Précision Globale", f"{accuracy:.2%}")
     with col2:
         most_pred = max(set(pred_winners), key=pred_winners.count)
-        st.metric("Gagnant le plus prédit", f'Vote {trad[most_pred.replace("pvote", "")]}')
+        st.metric(
+            "Gagnant le plus prédit", f"Vote {trad[most_pred.replace('pvote', '')]}"
+        )
     with col3:
         most_true = max(set(true_winners), key=true_winners.count)
-        st.metric("Gagnant le plus fréquent", f'Vote {trad[most_pred.replace("pvote", "")]}')
+        st.metric(
+            "Gagnant le plus fréquent", f"Vote {trad[most_pred.replace('pvote', '')]}"
+        )

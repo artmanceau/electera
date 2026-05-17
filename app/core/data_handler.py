@@ -3,7 +3,7 @@ from typing import List, Literal, Optional, Tuple
 import s3fs
 from loguru import logger
 
-from src.components.data_processing.data_loader import DataLoader
+from electera.components.data_processing.data_loader import DataLoader
 
 
 class FileSystem:
