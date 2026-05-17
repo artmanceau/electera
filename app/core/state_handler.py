@@ -23,24 +23,6 @@ class SessionHandler:
         # User selections
         col1, col2, col3 = st.columns(3)
         with col1:
-            if multiple_years:
-                self.years = st.multiselect(
-                    "Sélectionnez les années à analyser",
-                    st.session_state["config"].years_to_display,
-                    default=st.session_state["config"].years_to_display[
-                        : min(3, len(st.session_state["config"].years_to_display))
-                    ],
-                    on_change=st.cache_data.clear(),
-                )
-
-            else:
-                self.year = st.selectbox(
-                    "Année électorale",
-                    st.session_state["config"].years_to_display,
-                    index=0,
-                    on_change=st.cache_data.clear(),
-                )
-        with col2:
             self.type = st.selectbox(
                 "Type d'élection",
                 [
@@ -50,6 +32,25 @@ class SessionHandler:
                 index=0,
                 on_change=st.cache_data.clear(),
             )
+        with col2:
+            if multiple_years:
+                self.years = st.multiselect(
+                    "Sélectionnez les années à analyser",
+                    st.session_state["config"].years_to_display[reverse_convert("type", self.type)],
+                    default=st.session_state["config"].years_to_display[reverse_convert("type", self.type)][
+                        : min(3, len(st.session_state["config"].years_to_display))
+                    ],
+                    on_change=st.cache_data.clear(),
+                )
+
+            else:
+                self.year = st.selectbox(
+                    "Année électorale",
+                    st.session_state["config"].years_to_display[reverse_convert("type", self.type)],
+                    index=0,
+                    on_change=st.cache_data.clear(),
+                )
+       
         with col3:
             self.blocs = st.selectbox(
                 "Division politique",

@@ -1,4 +1,4 @@
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Dict
 
 from loguru import logger
 from pydantic import BaseModel, Field, HttpUrl, validator
@@ -290,7 +290,7 @@ class ExplanabilityConfig(BaseModel):
 
 class AppConfig(BaseModel):
     model_version: str
-    years_to_display: List[int]
+    years_to_display: Dict[str | None, List[int]]
     types_to_display: List[str]
     political_divisions_to_dislay: List[List[str]]
     data_path: str

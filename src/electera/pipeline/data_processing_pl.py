@@ -105,7 +105,7 @@ class ElectionDataProcessor:
         Initialize the data processor using the configuration file.
         """
         self.config = ConfigReader._read_config(
-            "../config/data_processing.json", DataProcessingConfig
+            "../config/data_processing_pl.json", DataProcessingConfig
         )
 
     @staticmethod

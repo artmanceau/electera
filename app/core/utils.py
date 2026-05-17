@@ -334,6 +334,7 @@ def show_feature_importance(importance_df, blocs):
     for i, tab in enumerate(tabs):
         with tab:
             df = importance_df[trends[i]].copy()
+            # Improve feature names and desc...
             df["feature_desc"] = df["Feature_gain"].map(FEATURES_DICT)
             st.write("Importance en gain total")
             top_gain = df.nlargest(nb_feat, "Importance_gain")[
