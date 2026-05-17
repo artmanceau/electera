@@ -26,6 +26,7 @@ jobs:
           . .venv/bin/activate
           uv pip install -r requirements.txt
           uv pip install pytest pre-commit ruff mypy pylint bandit
+          uv pip install -e .
 
       - name: Run tests
         run: |
