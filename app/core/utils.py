@@ -5,13 +5,8 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import shap
 import streamlit as st
-from asset.definitions import (
-    candidats_2022_mapping,
-    colors_dict,
-    get_colors,
-    trad,
-)
-from asset.features import FEATURES_MAP, FEATURE_AUG
+from asset.definitions import candidats_2022_mapping, colors_dict, get_colors, trad
+from asset.features import FEATURE_AUG, FEATURES_MAP
 
 
 def check_home_run():
@@ -334,13 +329,22 @@ def show_feature_importance(importance_df, blocs):
     for i, tab in enumerate(tabs):
         with tab:
             df = importance_df[trends[i]].copy()
-            
+
             df["feature_name"] = [
-                FEATURE_AUG.get((f.removeprefix("F_") if f.startswith("F_") else f).split('_')[0], '') + FEATURES_MAP.get((f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1], (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1])
+                FEATURE_AUG.get(
+                    (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[0],
+                    "",
+                )
+                + FEATURES_MAP.get(
+                    (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1],
+                    (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1],
+                )
                 for f in df["Feature_gain"].values
             ]
-            with st.expander('Feature utilisés'):
-                st.write(f'{len(df["feature_name"].to_list())} features utilisés (sélection par permutaiion feature importance)')
+            with st.expander("Feature utilisés"):
+                st.write(
+                    f"{len(df['feature_name'].to_list())} features utilisés (sélection par permutaiion feature importance)"
+                )
                 st.info(", ".join(df["feature_name"].to_list()))
 
             st.write("Importance en gain total")
@@ -353,7 +357,11 @@ def show_feature_importance(importance_df, blocs):
                 .mark_bar()
                 .encode(
                     x=alt.X("feature_name:N", title="Feature"),
-                    y=alt.Y("Importance_gain:Q", title="Importance", axis=alt.Axis(format=".0%")),
+                    y=alt.Y(
+                        "Importance_gain:Q",
+                        title="Importance",
+                        axis=alt.Axis(format=".0%"),
+                    ),
                     tooltip=["Feature_gain", "Importance_gain", "feature_name"],
                 )
                 .properties(width=600, height=400)

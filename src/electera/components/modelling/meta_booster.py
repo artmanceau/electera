@@ -204,7 +204,7 @@ class MetaBooster:
         self, X, y, threshold=0.8, method="permuation", nb_feature=50
     ):
         logger.info(
-            "Performing feature selection. Method: threshold best features in gain"
+            f"Performing feature selection. Method: {method}. Number of features: {nb_feature}"
         )
         sample_model = BOOSTING_ALG[self.method]()
         sample_model.fit(X=X, y=y)

@@ -30,13 +30,15 @@ def predictor():
 
 @pytest.fixture
 def sample_df():
-    return pd.DataFrame({
-        "codecommune": ["001", "002"],
-        "inscrits": [100, 200],
-        "previouspvotea": [0.1, 0.2],
-        "previouspvoteb": [0.1, 0.2],
-        "inscrits": [100, 200],
-    })
+    return pd.DataFrame(
+        {
+            "codecommune": ["001", "002"],
+            "inscrits": [100, 200],
+            "previouspvotea": [0.1, 0.2],
+            "previouspvoteb": [0.1, 0.2],
+            "inscrits": [100, 200],
+        }
+    )
 
 
 def test_predict_votes_basic(predictor, sample_df):
@@ -85,19 +87,23 @@ def test_add_model_sets_features():
 def test_evaluate_predictions():
     ep = ElectionPredictor(trends=["a"])
 
-    X_pred = pd.DataFrame({
-        "codecommune": ["001"],
-        "pvotea": [0.6],
-        "inscrits": [100],
-        "exprimes": [90],
-    })
+    X_pred = pd.DataFrame(
+        {
+            "codecommune": ["001"],
+            "pvotea": [0.6],
+            "inscrits": [100],
+            "exprimes": [90],
+        }
+    )
 
-    X_true = pd.DataFrame({
-        "codecommune": ["001"],
-        "pvotea": [0.5],
-        "inscrits": [100],
-        "exprimes": [90],
-    })
+    X_true = pd.DataFrame(
+        {
+            "codecommune": ["001"],
+            "pvotea": [0.5],
+            "inscrits": [100],
+            "exprimes": [90],
+        }
+    )
 
     merged = ep.evaluate_predictions(X_pred, X_true)
 

@@ -36,21 +36,25 @@ class SessionHandler:
             if multiple_years:
                 self.years = st.multiselect(
                     "Sélectionnez les années à analyser",
-                    st.session_state["config"].years_to_display[reverse_convert("type", self.type)],
-                    default=st.session_state["config"].years_to_display[reverse_convert("type", self.type)][
-                        : min(3, len(st.session_state["config"].years_to_display))
+                    st.session_state["config"].years_to_display[
+                        reverse_convert("type", self.type)
                     ],
+                    default=st.session_state["config"].years_to_display[
+                        reverse_convert("type", self.type)
+                    ][: min(3, len(st.session_state["config"].years_to_display))],
                     on_change=st.cache_data.clear(),
                 )
 
             else:
                 self.year = st.selectbox(
                     "Année électorale",
-                    st.session_state["config"].years_to_display[reverse_convert("type", self.type)],
+                    st.session_state["config"].years_to_display[
+                        reverse_convert("type", self.type)
+                    ],
                     index=0,
                     on_change=st.cache_data.clear(),
                 )
-       
+
         with col3:
             self.blocs = st.selectbox(
                 "Division politique",

@@ -3,6 +3,7 @@
 
 # Python cache files
 __pycache__/
+electera.egg-info/
 
 # Ruff cache files
 .ruff_cache
@@ -13,6 +14,7 @@ data/
 untracked/
 results/
 output/
+tmp/
 
 # ML runs
 mlruns

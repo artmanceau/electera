@@ -63,7 +63,7 @@ class Splitter:
 
         if keep_stationnary:
             # Stationnary features are pct_change, rank and delta
-            logger.info("Selecting only stationnary features")
+            logger.info("Selecting only stationnary features (rank and pct_change)")
             socio_eco_features_stationnary = [
                 col for col in socio_eco_features if self.is_stationnary_feature(col)
             ]
@@ -77,6 +77,7 @@ class Splitter:
                 to_drop_correlated = to_drop_correlated.union(
                     self._find_correlated_in(X[socio_eco_features])
                 )
+            logger.warning(f"Features dropped: {to_drop_correlated}")
 
             socio_eco_features = list(set(socio_eco_features) - to_drop_correlated)
 
@@ -94,6 +95,7 @@ class Splitter:
                 f"The following columns in the training dataset contains missing values: {X_train.columns[X_train.isna().any()]}."
             )
 
+        logger.debug(f"Feature list ({len(features)}): {features}")
         return X_train[features], X_val[features], X_test[features]
 
     def get_Xy(self, data, predict_delta=False, selected_features=None):
@@ -112,9 +114,8 @@ class Splitter:
         )
 
         X = data[
-            feature_cols
-            + ["inscrits", "type", "annee", "lat", "long", "dep_num"]
-            + previous_vote_cols
+            feature_cols + ["inscrits", "type", "annee", "lat", "long", "dep_num"]
+            # + previous_vote_cols
         ].astype(float)
 
         if predict_delta:
@@ -277,6 +278,7 @@ class Splitter:
 
         return X_train, X_val, X_test, y_train, y_val, y_test
 
+    # Re-integrate?
     def remove_previous_features(self, X):
         # Remove previous election features from training data
         cols_to_drop = []

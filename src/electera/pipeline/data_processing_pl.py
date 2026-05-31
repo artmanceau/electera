@@ -7,7 +7,7 @@ from loguru import logger
 from shapely.geometry import shape
 
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
-from electera.components.utils.config import DataProcessingConfig, DataProcessingConfigPl
+from electera.components.utils.config import DataProcessingConfigPl
 from electera.components.utils.read_config import ConfigReader
 
 """
@@ -20,7 +20,7 @@ The main challenge is that we have communes that change through time.
 We make the choice to only consider the communes actives in 2026 (this can be re-run to adapt to the new commune).
 
 TABLE1: commune. This table list all the communes active in 2026, it is the ground truth for code commune, commune name and geographic information. Everything will be a left join from this table
-TABLE2: election results. 
+TABLE2: election results.
 """
 
 # Improvements (data quality):
@@ -82,7 +82,7 @@ class ElectionDataProcessor:
         # "voixNON": pl.Float64,
     }
     socio_economic_schema = {
-        'dep': pl.String,  # Key
+        "dep": pl.String,  # Key
         "codecommune": pl.String,  # key
         "raw": pl.Float64,
         "variable": pl.String,
@@ -279,10 +279,7 @@ class ElectionDataProcessor:
             for dir in dirs:
                 for root, _, files in xs.walk(os.path.join(folder_path, dir)):
                     for file in files:
-                        if (
-                            file.endswith(".parquet")
-                            and (not file.startswith("."))
-                        ):
+                        if file.endswith(".parquet") and (not file.startswith(".")):
                             election_type, year, election_code = (
                                 self.interpret_election_path(
                                     os.path.relpath(root, folder_path)
@@ -496,8 +493,8 @@ class ElectionDataProcessor:
                             if file.endswith(".parquet") and (not file.startswith(".")):
                                 if "communes" in file:
                                     key = "codecommune"
-                                elif 'departements' in file:
-                                    key = 'dep'
+                                elif "departements" in file:
+                                    key = "dep"
                                 else:
                                     continue
 
@@ -511,14 +508,16 @@ class ElectionDataProcessor:
                                 logger.debug(f"Processing file : {data_code}")
 
                                 df = pl.scan_parquet(file_path).collect()
-                                
+
                                 # 1. Identify features (time evolution)
                                 all_feature_years = df.select(
                                     cs.matches(r".*\d{4}$")
                                 ).columns
 
                                 if len(all_feature_years) == 0:
-                                    logger.warning('No feature matching the pattern [feature][year]')
+                                    logger.warning(
+                                        "No feature matching the pattern [feature][year]"
+                                    )
                                     continue
 
                                 feature_years = {}
@@ -527,8 +526,10 @@ class ElectionDataProcessor:
                                     year = int(c[-4:])
                                     feature_years.setdefault(feature, []).append(year)
 
-                                feature_years = {k: sorted(v) for k, v in feature_years.items()}
-                                logger.debug(f'Features: {feature_years}')
+                                feature_years = {
+                                    k: sorted(v) for k, v in feature_years.items()
+                                }
+                                logger.debug(f"Features: {feature_years}")
 
                                 # 2. Convert to long format
                                 df_long = (
@@ -547,59 +548,81 @@ class ElectionDataProcessor:
                                             pl.lit(file).str.replace(r"\.parquet$", "")
                                             + "/"
                                             + pl.col("variable").str.head(-4)
-                                        )
+                                        ),
                                     )
                                     .sort([key, "feature_name", "annee"])
                                 )
 
                                 # 3. Linear interpolation for missing years
-                                year_grids = pl.concat([
-                                    pl.DataFrame({
-                                        "feature_name": file.replace(r".parquet", "") + '/' + feature,
-                                        "annee": list(range(min(years), max(years) + 1))
-                                    })
-                                    for feature, years in feature_years.items()
-                                ])
+                                year_grids = pl.concat(
+                                    [
+                                        pl.DataFrame(
+                                            {
+                                                "feature_name": file.replace(
+                                                    r".parquet", ""
+                                                )
+                                                + "/"
+                                                + feature,
+                                                "annee": list(
+                                                    range(min(years), max(years) + 1)
+                                                ),
+                                            }
+                                        )
+                                        for feature, years in feature_years.items()
+                                    ]
+                                )
 
                                 df_full = (
                                     df_long.lazy()
                                     # Get unique (codecommune, feature_name) combos
-                                    .select(key, "feature_name").unique()
+                                    .select(key, "feature_name")
+                                    .unique()
                                     # Join with the per-feature year grid
-                                    .join(year_grids.lazy(), on="feature_name", how="left")
+                                    .join(
+                                        year_grids.lazy(), on="feature_name", how="left"
+                                    )
                                     # Join back original data
-                                    .join(df_long.lazy(), on=[key, "feature_name", "annee"], how="left")
+                                    .join(
+                                        df_long.lazy(),
+                                        on=[key, "feature_name", "annee"],
+                                        how="left",
+                                    )
                                     .sort([key, "feature_name", "annee"])
                                     .with_columns(
                                         pl.col("raw")
                                         .interpolate()
                                         .over(key, "feature_name")
-                                    ).with_columns(
+                                    )
+                                    .with_columns(
                                         variable=pl.concat_str(
-                                        pl.col("feature_name").str.split("/").list.last(),
-                                        pl.col("annee").cast(pl.String),
-                                        separator=''
+                                            pl.col("feature_name")
+                                            .str.split("/")
+                                            .list.last(),
+                                            pl.col("annee").cast(pl.String),
+                                            separator="",
                                         )
                                     )
                                     .collect()
                                 )
-                                
+
                                 # 4. Augmentations
-                                df_full = (df_full.with_columns(
-                                        lag=pl.col("raw")
-                                        .shift(1).round(4)
-                                        .over(key, "feature_name"),
-                                        rank=(pl.col("raw").rank() / pl.count("raw")).round(4)
-                                        .over(key, "feature_name"),
-                                        delta=pl.col("raw")
-                                        .diff(1).round(4)
-                                        .over(key, "feature_name"),
-                                        pct_change=pl.col("raw")
-                                        .pct_change(1).round(4)
-                                        .over(key, "feature_name"),
-                                    )
-                                    .fill_nan(None)
-                                )
+                                df_full = df_full.with_columns(
+                                    lag=pl.col("raw")
+                                    .shift(1)
+                                    .round(4)
+                                    .over(key, "feature_name"),
+                                    rank=(pl.col("raw").rank() / pl.count("raw"))
+                                    .round(4)
+                                    .over(key, "feature_name"),
+                                    delta=pl.col("raw")
+                                    .diff(1)
+                                    .round(4)
+                                    .over(key, "feature_name"),
+                                    pct_change=pl.col("raw")
+                                    .pct_change(1)
+                                    .round(4)
+                                    .over(key, "feature_name"),
+                                ).fill_nan(None)
 
                                 # 5. Sanity checks
                                 float_cols = [
@@ -630,7 +653,7 @@ class ElectionDataProcessor:
                                 )
 
                                 # 6. Append to results
-                                if key == 'codecommune':
+                                if key == "codecommune":
                                     combined_communes = (
                                         df_full
                                         if combined_communes is None
@@ -645,17 +668,24 @@ class ElectionDataProcessor:
 
         socio_economic_data_communes = combined_communes.rechunk().fill_nan(None)
         socio_economic_data_dep = combined_dep.rechunk().fill_nan(None)
-       
-        for socio_economic_data in [socio_economic_data_communes, socio_economic_data_dep]:
+
+        for socio_economic_data in [
+            socio_economic_data_communes,
+            socio_economic_data_dep,
+        ]:
             assert (
-                socio_economic_data.drop("codecommune", 'dep', "feature_name", "variable")
+                socio_economic_data.drop(
+                    "codecommune", "dep", "feature_name", "variable"
+                )
                 .select(pl.all().is_nan().sum())
                 .sum_horizontal()
                 .item()
                 == 0
             )
             assert (
-                socio_economic_data.drop("codecommune",  'dep', "feature_name", "variable")
+                socio_economic_data.drop(
+                    "codecommune", "dep", "feature_name", "variable"
+                )
                 .select(pl.all().is_infinite().sum())
                 .sum_horizontal()
                 .item()
@@ -669,14 +699,19 @@ class ElectionDataProcessor:
             pl.col("annee").unique().sort()
         )
 
-        return socio_economic_data_communes, socio_economic_data_dep, catalog_communes, catalog_dep
+        return (
+            socio_economic_data_communes,
+            socio_economic_data_dep,
+            catalog_communes,
+            catalog_dep,
+        )
 
     @staticmethod
     def get_features_for_years(
         X_communes,
         X_dep,
         year=2022,
-        feature_aug=["raw", "lag", "rank", "delta", "pct_change"]
+        feature_aug=["raw", "lag", "rank", "delta", "pct_change"],
     ):
         # index_cols = ["codecommune"]
         # Base: pivot for the election year
@@ -689,28 +724,32 @@ class ElectionDataProcessor:
                 aggregate_function="first",
             )
             .sort("codecommune")
-            .with_columns(
-                dep=pl.col('codecommune').str.slice(0, 2).alias("dep")
-            )
+            .with_columns(dep=pl.col("codecommune").str.slice(0, 2).alias("dep"))
         )
         data_dep = (
-            X_dep.filter(pl.col('annee') == year)
+            X_dep.filter(pl.col("annee") == year)
             .pivot(
-                on='feature_name',
-                index=['annee', 'dep'],
+                on="feature_name",
+                index=["annee", "dep"],
                 values=feature_aug,
-                aggregate_function='first'
-            ).sort('dep')
+                aggregate_function="first",
+            )
+            .sort("dep")
         )
-        data = data_communes.join(data_dep, on='dep', validate='m:1', coalesce=True)
+        data = data_communes.join(data_dep, on="dep", validate="m:1", coalesce=True)
 
-        return data.drop('annee_right', 'dep')
+        return data.drop("annee_right", "dep")
 
     def find_features(self, dataset, non_features_cols):
         return [col for col in dataset.columns if col not in non_features_cols]
 
     def create_dataset(
-        self, election_code, electoral_data, commune_data, socio_economic_data_communes, socio_economic_data_dep
+        self,
+        election_code,
+        electoral_data,
+        commune_data,
+        socio_economic_data_communes,
+        socio_economic_data_dep,
     ):
         # We allow missing values for meta_cols
         all_votes = (
@@ -906,7 +945,12 @@ def main():
     commune_data = processor.load_communes_data()
 
     logger.info("Step 3: Socio-economic data")
-    socio_economic_data_communes, socio_economic_data_dep, catalog_communes, catalog_dep = processor.load_socio_economic_data()
+    (
+        socio_economic_data_communes,
+        socio_economic_data_dep,
+        catalog_communes,
+        catalog_dep,
+    ) = processor.load_socio_economic_data()
 
     logger.info("Building aggregated training dataset")
     agg_dataset = None
@@ -917,7 +961,11 @@ def main():
                 election_code = election_code_mapping[(election_type, year)]
                 logger.info(f"Processing: {election_code}")
                 dataset = processor.create_dataset(
-                    election_code, electoral_data, commune_data, socio_economic_data_communes, socio_economic_data_dep
+                    election_code,
+                    electoral_data,
+                    commune_data,
+                    socio_economic_data_communes,
+                    socio_economic_data_dep,
                 )
                 agg_dataset = (
                     dataset

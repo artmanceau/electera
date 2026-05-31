@@ -1,4 +1,4 @@
-from typing import Any, List, Literal, Optional, Dict
+from typing import Any, Dict, List, Literal, Optional
 
 from loguru import logger
 from pydantic import BaseModel, Field, HttpUrl, validator
@@ -161,8 +161,8 @@ class DataProcessingConfigPl(BaseModel):
         default="s3://arthurmanceau/election_modeling_uhcp/data/",
         description="S3 path for data storage (or local path like 'data/')",
     )
-    year_inf : int
-    year_sup : int
+    year_inf: int
+    year_sup: int
     elections_type: List[
         Literal["presidentiel", "legislative", "referundum", "municipales"]
     ] = Field(

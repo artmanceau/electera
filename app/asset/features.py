@@ -1,5 +1,8 @@
 # Dict with the description of each features to show in the app
-FEATURE_AUG = {'rank': 'Rang de la commune classé par ', 'pct': 'Taux de variation annuel '}
+FEATURE_AUG = {
+    "rank": "Rang de la commune classé par ",
+    "pct": "Taux de variation annuel ",
+}
 
 FEATURES_MAP = {
     "pop": "population totale",
@@ -35,7 +38,6 @@ FEATURES_MAP = {
     "perage": "percentile de l'âge moyen",
     "perprop014": "percentile de la proportion de 0-14 ans",
     "perprop60p": "percentile de la proportion de 60 ans et plus",
-
     # ========== ÉDUCATION ET DIPLÔMES ==========
     "nodip": "nombre de personnes sans diplôme (25+ ans)",
     "nodipf": "nombre de femmes sans diplôme (25+ ans)",
@@ -53,7 +55,6 @@ FEATURES_MAP = {
     "alpha": "nombre de personnes alphabétisées (20+ ans)",
     "palpha": "proportion de personnes alphabétisées (%)",
     "peralpha": "percentile de la proportion d'alphabétisés",
-
     # ========== EMPLOI ET CSP ==========
     "pact": "population active (25-54 ans)",
     "agri": "nombre d'agriculteurs (25-54 ans)",
@@ -85,7 +86,6 @@ FEATURES_MAP = {
     "perempl": "percentile de la proportion d'employés",
     "perouvr": "percentile de la proportion d'ouvriers",
     "perchom": "percentile de la proportion de chômeurs",
-
     # ========== NATIONALITÉS ET ORIGINES ==========
     "francais": "nombre de personnes de nationalité française",
     "etranger": "nombre de personnes de nationalité étrangère",
@@ -106,7 +106,6 @@ FEATURES_MAP = {
     "natur": "nombre de personnes naturalisées",
     "pnatur": "proportion de personnes naturalisées (%)",
     "pnaturfra": "proportion de naturalisés parmi les français (%)",
-
     # ========== REVENUS ET CAPITAL ==========
     "revratio": "revenu moyen par habitant (ratio national)",
     "revtot": "revenu total (fraction du total national)",
@@ -132,7 +131,6 @@ FEATURES_MAP = {
     "surfacH": "surface moyenne des logements (en m²)",
     "surfaceterrain": "surface moyenne du terrain (en m²)",
     "propappartement": "proportion d'appartements (%)",
-
     # ========== LOGEMENT ET PROPRIÉTÉ ==========
     "nlogement": "nombre total de logements",
     "npropri": "nombre de ménages propriétaires",
@@ -142,7 +140,6 @@ FEATURES_MAP = {
     "surface": "surface agricole totale (en hectares)",
     "psurface50p": "proportion de surfaces agricoles de +50 hectares (%)",
     "persur50p": "percentile de la proportion de surfaces de +50 hectares",
-
     # ========== FISCALITÉ ==========
     "basehabitationratio": "base d'habitation par habitant (ratio national)",
     "basefonciere_ratio": "base foncière par habitant (ratio national)",
@@ -154,14 +151,12 @@ FEATURES_MAP = {
     "tauxfoncierratio": "taux foncier communal (ratio national)",
     "tauximpotslocauxratio": "taux des impôts locaux (ratio national)",
     "recetteratio": "recette communale totale par habitant (ratio national)",
-
     # ========== ÉLECTIONS ==========
     # Participation générale
     "electeurs": "nombre d'électeurs (potentiels)",
     "inscrits": "nombre d'inscrits sur les listes électorales",
     "previouspvotepar": "taux de participation à l'élection précédente (du même type) (%)",
     "previouspreviouspvotepar": "taux de participation il y a deux élections (du même type) (%)",
-
     # Blocs politiques (G: Gauche, D: Droite, C: Centre, CG: Centre-Gauche, CD: Centre-Droit)
     "previouspvoteG": "taux de vote pour le bloc de gauche à l'élection précédente (%)",
     "previouspreviouspvoteG": "taux de vote pour le bloc de gauche il y a deux élections (%)",
@@ -173,7 +168,6 @@ FEATURES_MAP = {
     "previouspreviouspvoteCG": "taux de vote pour le bloc centre-gauche il y a deux élections (%)",
     "previouspvoteCD": "taux de vote pour le bloc centre-droit à l'élection précédente (%)",
     "previouspreviouspvoteCD": "taux de vote pour le bloc centre-droit il y a deux élections (%)",
-
     # ========== GÉOGRAPHIE ET AGGLOMÉRATIONS ==========
     "popagglo": "population de l'agglomération",
     "revratioagglo": "revenu moyen par habitant de l'agglomération (ratio national)",
@@ -186,7 +180,6 @@ FEATURES_MAP = {
     "nomagglo": "nom de l'agglomération",
     "vbbm": "classification village-bourg-banlieue-métropole (1-4)",
     "vbbmpauvresriches": "classification village-bourg-banlieue-métropole par revenu (1-8)",
-
     # ========== SÉCURITÉ ==========
     "ncrimesdelits": "nombre total de crimes et délits",
     "nviolences": "nombre de violences contre les personnes",
@@ -199,11 +192,9 @@ FEATURES_MAP = {
     "pvolsvoitures": "nombre de vols de voitures pour 1000 habitants",
     "pautresvols": "nombre d'autres vols pour 1000 habitants",
     "percrimesdelits": "percentile du nombre de crimes et délits par habitant",
-
     # ========== SOCIAL ==========
     "rsa": "nombre d'allocataires du rsa",
     "isf": "nombre de contribuables à l'isf/ifi",
-
     # ========== GÉOLOCALISATION ==========
     "lat": "latitude",
     "long": "longitude",

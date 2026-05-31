@@ -18,9 +18,12 @@ Election Backtester
 # Based on this we compute the final result and compare it with the actual results
 """
 
+import json
 import os
 from pathlib import Path
 
+import mlflow
+import mlflow.sklearn
 import numpy as np
 from loguru import logger
 from sklearn.linear_model import LinearRegression
@@ -48,7 +51,7 @@ from electera.components.utils.read_config import ConfigReader
 # TODO:
 # - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
 
-
+MLFOW_TRACKING = True
 S3_SAVE = True
 MODELS = {
     "trivial_1": TrivialModel1,
@@ -66,11 +69,11 @@ MODEL_ARGS = {
     "meta_boosting": {
         "method": "xgboost",
         "objective_metric": mean_squared_error,
-        "weighting": "proportional",
+        "weighting": "equiproportional",
         "features": None,
-        "n_splits_inner": 10,
-        "n_splits_outer": 10,
-        "n_trials": 10,
+        "n_splits_inner": 2,
+        "n_splits_outer": 2,
+        "n_trials": 2,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
@@ -99,6 +102,19 @@ class BackTester:
         self.feature_names = {}
         self.results = {}
         self.features_after_selection = {}
+
+        # ML Flow
+        if MLFOW_TRACKING:
+            mlflow.set_tracking_uri(
+                "https://user-arthurmanceau-mlflow.user.lab.sspcloud.fr"
+            )
+            mlflow.set_experiment(
+                getattr(
+                    self.config,
+                    "mlflow_experiment",
+                    "ElectionBacktests",
+                )
+            )
 
     def process_and_split_dataset(
         self, data, k_year, k_political_trends, predict_delta
@@ -359,6 +375,7 @@ class BackTester:
                 if self.config.model == "meta_boosting_multiple"
                 else instance_model.infer(self.X_test[trend])
             )
+
             self.results[self.config.model] = ModelEvaluator.evaluate(
                 self.y_test[trend],
                 predictions,
@@ -401,6 +418,322 @@ class BackTester:
             version=version,
         )
 
+    def run_backtest_with_MLFLOW(
+        self,
+        k_year,
+        k_type,
+        k_political_trends,
+        model,
+        model_args,
+        predict_delta,
+        version,
+    ):
+        """
+        Run the backtesting process.
+        """
+        self.k_t = 0 if k_type == "pres" else 1
+
+        run_name = f"{self.config.model}_{k_type}_{k_year}"
+
+        with mlflow.start_run(run_name=run_name):
+            # ==========================================================
+            # RUN PARAMETERS
+            # ==========================================================
+            mlflow.log_params(
+                {
+                    "model": self.config.model,
+                    "year": k_year,
+                    "election_type": k_type,
+                    "predict_delta": predict_delta,
+                    "version": version,
+                    "trends": ",".join(k_political_trends),
+                }
+            )
+
+            # Log model hyperparameters
+            for k, v in model_args.items():
+                if isinstance(v, (str, int, float, bool)):
+                    mlflow.log_param(k, v)
+
+            self.election_predictor = ElectionPredictor(trends=k_political_trends)
+
+            # ==========================================================
+            # LOAD DATA
+            # ==========================================================
+            data = DataLoader.load_dataset(
+                self.config.data_path + self.config.dataset_path
+            )
+
+            self.process_and_split_dataset(
+                data,
+                k_year,
+                k_political_trends,
+                predict_delta,
+            )
+
+            # ==========================================================
+            # TRAIN ONE MODEL PER TREND
+            # ==========================================================
+            for trend in k_political_trends:
+                logger.info(f"Training model for trend: {trend}")
+
+                if self.config.model == "trivial_1":
+                    model_args["y_prev"] = self.X_test[trend][f"previouspvote{trend}"]
+
+                instance_model = model(**model_args)
+
+                trainings = {
+                    "trivial_1": lambda: instance_model.train(
+                        self.X_train[trend],
+                        self.y_train[trend],
+                    ),
+                    "trivial_2": lambda: instance_model.train(
+                        self.X_train[trend],
+                        self.y_train[trend],
+                    ),
+                    "boosting": lambda: instance_model.train(
+                        self.X_train[trend],
+                        self.y_train[trend],
+                        self.X_val[trend],
+                        self.y_val[trend],
+                    ),
+                    "linear": lambda: instance_model.train(
+                        self.X_train[trend],
+                        self.y_train[trend],
+                    ),
+                    "meta_boosting": lambda: instance_model.train(
+                        self.X_train[trend],
+                        self.y_train[trend],
+                        use_feature_selection=True,
+                        val_set=(
+                            self.X_val[trend],
+                            self.y_val[trend],
+                        ),
+                    ),
+                    "meta_boosting_multiple": lambda: instance_model.train_multiple(
+                        election_datasets=[
+                            (
+                                self.X_train[trend],
+                                self.y_train[trend],
+                            ),
+                            (
+                                self.X_val[trend],
+                                self.y_val[trend],
+                            ),
+                        ],
+                        use_feature_selection=True,
+                    ),
+                }
+
+                trainings[self.config.model]()
+
+                predictions = (
+                    instance_model.infer_multiple(self.X_test[trend])
+                    if self.config.model == "meta_boosting_multiple"
+                    else instance_model.infer(self.X_test[trend])
+                )
+
+                metrics = ModelEvaluator.evaluate(
+                    self.y_test[trend],
+                    predictions,
+                    self.config.model,
+                )
+
+                self.results[trend] = metrics
+
+                # ======================================================
+                # TREND METRICS
+                # ======================================================
+                if isinstance(metrics, dict):
+                    for metric_name, metric_value in metrics.items():
+                        if isinstance(
+                            metric_value,
+                            (int, float, np.integer, np.floating),
+                        ):
+                            mlflow.log_metric(
+                                f"{trend}_{metric_name}",
+                                float(metric_value),
+                            )
+
+                # Feature metadata
+                mlflow.log_param(
+                    f"{trend}_n_clean_features",
+                    len(self.feature_names[trend]),
+                )
+                mlflow.log_param(
+                    f"{trend}_n_selected_features",
+                    len(instance_model.features),
+                )
+
+                # Save feature list as artifact
+                tmp_dir = Path.cwd() / "tmp"
+                tmp_dir.mkdir(exist_ok=True)
+
+                # Save feature files
+                clean_feature_file = tmp_dir / f"{trend}_clean_features.txt"
+                selected_feature_file = tmp_dir / f"{trend}_selected_features.txt"
+
+                with open(clean_feature_file, "w") as f:
+                    f.write("\n".join(self.feature_names[trend]))
+
+                with open(selected_feature_file, "w") as f:
+                    f.write("\n".join(instance_model.features))
+
+                mlflow.log_artifact(
+                    str(clean_feature_file),
+                    artifact_path=f"clean_features/{trend}",
+                )
+
+                mlflow.log_artifact(
+                    str(selected_feature_file),
+                    artifact_path=f"selected_features/{trend}",
+                )
+
+                importance_types = [
+                    "weight",
+                    "gain",
+                    "cover",
+                    "total_gain",
+                    "total_cover",
+                ]
+
+                all_models_importance = {}
+
+                for model_idx, model in enumerate(instance_model.best_models):
+                    booster = model.get_booster()
+
+                    model_importance = {}
+
+                    for importance_type in importance_types:
+                        raw_importance = booster.get_score(
+                            importance_type=importance_type
+                        )
+
+                        total = sum(raw_importance.values())
+
+                        if total > 0:
+                            pct_importance = {
+                                feat: 100.0 * score / total
+                                for feat, score in raw_importance.items()
+                            }
+                        else:
+                            pct_importance = {}
+
+                        model_importance[importance_type] = dict(
+                            sorted(
+                                pct_importance.items(),
+                                key=lambda x: x[1],
+                                reverse=True,
+                            )
+                        )
+
+                    all_models_importance[f"model_{model_idx}"] = model_importance
+
+                with open(
+                    tmp_dir / f"{trend}_all_models_feature_importance_pct.json",
+                    "w",
+                ) as f:
+                    json.dump(all_models_importance, f, indent=2)
+
+                self.election_predictor.add_model(
+                    trend,
+                    instance_model,
+                    features=instance_model.features,
+                )
+
+                self.election_predictor.sign_model(
+                    trend,
+                    self.config.data_path + self.config.dataset_path,
+                    sample=self.X_train[trend][instance_model.features].sample(5),
+                )
+
+            # ==========================================================
+            # ELECTION PREDICTION
+            # ==========================================================
+            X_pred, X_true = self.organize_vote(
+                k_year,
+                k_political_trends,
+                predict_delta,
+            )
+
+            X_result = self.election_predictor.evaluate_predictions(
+                X_pred,
+                X_true,
+            )
+
+            X_synthetic = self.election_predictor.compute_agg_results(
+                X_result,
+                blocs=[trend for trend in k_political_trends if trend != "par"],
+                election_code=f"{k_year}_{k_type}",
+            )
+
+            winner_pred = self.election_predictor.get_winner(
+                X_pred,
+                self.k_t,
+            )
+
+            winner_true = self.election_predictor.get_winner(
+                X_true,
+                self.k_t,
+            )
+
+            logger.success(
+                f"Winner predicted : {winner_pred} | Winner true : {winner_true}"
+            )
+
+            # ==========================================================
+            # ELECTION-LEVEL METRICS
+            # ==========================================================
+            mlflow.log_param(
+                "winner_pred",
+                str(winner_pred),
+            )
+
+            mlflow.log_param(
+                "winner_true",
+                str(winner_true),
+            )
+
+            mlflow.log_metric(
+                "winner_correct",
+                int(winner_pred == winner_true),
+            )
+
+            # ==========================================================
+            # ARTIFACTS
+            # ==========================================================
+            result_path = Path.cwd() / "mlflow_results"
+            result_path.mkdir(exist_ok=True)
+
+            synthetic_file = result_path / f"synthetic_{k_year}_{k_type}.csv"
+
+            detailed_file = result_path / f"detailed_{k_year}_{k_type}.csv"
+
+            X_synthetic.to_csv(
+                synthetic_file,
+                index=False,
+            )
+
+            X_result.to_csv(
+                detailed_file,
+                index=False,
+            )
+
+            mlflow.log_artifact(str(synthetic_file))
+            mlflow.log_artifact(str(detailed_file))
+
+            # ==========================================================
+            # SAVE LEGACY OUTPUTS
+            # ==========================================================
+            self.save_results(
+                model=self.election_predictor,
+                result=(X_result, X_synthetic),
+                k_year=k_year,
+                k_type=k_type,
+                k_political_trends=k_political_trends,
+                version=version,
+            )
+
 
 def main():
     backtester = BackTester()
@@ -422,7 +755,12 @@ def main():
                 logger.info(
                     f"Running backtest for year: {year}, type: {type_}, political_trends: {political_trends} (delta: {predict_delta})"
                 )
-                backtester.run_backtest(
+                backtest_function = (
+                    backtester.run_backtest_with_MLFLOW
+                    if MLFOW_TRACKING
+                    else backtester.run_backtest
+                )
+                backtest_function(
                     k_year=year,
                     k_type=type_,
                     k_political_trends=political_trends,
