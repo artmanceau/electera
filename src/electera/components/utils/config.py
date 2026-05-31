@@ -156,6 +156,21 @@ class TrainModelsConfig(BaseModel):
     )
 
 
+class DataProcessingConfigPl(BaseModel):
+    data_path: str = Field(
+        default="s3://arthurmanceau/election_modeling_uhcp/data/",
+        description="S3 path for data storage (or local path like 'data/')",
+    )
+    year_inf : int
+    year_sup : int
+    elections_type: List[
+        Literal["presidentiel", "legislative", "referundum", "municipales"]
+    ] = Field(
+        default=["presidentiel", "legislative"],
+        description="Types of elections to include in the dataset",
+    )
+
+
 class DataProcessingConfig(BaseModel):
     """Configuration class for the data processing pipeline."""
 
