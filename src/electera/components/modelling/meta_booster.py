@@ -117,7 +117,7 @@ class MetaBooster:
                 f"The following features are not in X: {set(features) - (set(features) & set(X.columns))}"
             )
 
-        return X_train
+        return X_train[features]
 
     def train(self, X, y, use_feature_selection=False, val_set=None):
         logger.info("Training meta-booster model")

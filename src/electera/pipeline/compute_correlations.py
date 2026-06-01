@@ -1,6 +1,10 @@
+import multiprocessing as mp
+import os
+
 import numpy as np
 import polars as pl
 import polars_distance as pld
+from loguru import logger
 from tqdm import tqdm
 
 from electera.pipeline.data_processing_pl import ElectionDataProcessor
@@ -10,13 +14,11 @@ from electera.pipeline.data_processing_pl import ElectionDataProcessor
 # - participation tour 2 (modify schema)
 # - vote oui/non referundum (modify schema)
 # - vote blancs/nuls tour 1 et 2 (tour 1 easy, tour 2 (modify schema))
-# - vote droite / gauche tour 1 (easy)
-# Générer les plots
 
 S3_BASE = "s3://arthurmanceau/election_modeling_uhcp/data/derived/spatial_correlations/distance_bins"
 
 
-def get_pairs_for_bin(bin_id: int):
+def get_pairs_for_bin(bin_edges: pl.DataFrame, bin_id: int):
     pairs = pl.scan_parquet(
         f"{S3_BASE}/distance_bin={bin_id}/*.parquet",
         hive_partitioning=True,
@@ -30,18 +32,89 @@ def get_pairs_for_bin(bin_id: int):
     }
 
 
-if __name__ == "__main__":
-    processor = ElectionDataProcessor()
+def compute_election(args):
+    election_code, Z, bin_edges = args
 
-    electoral_data, election_catalogs = processor.load_electoral_data()
-    election_catalog, election_code_mapping = election_catalogs
+    n_bins = len(bin_edges)
 
-    commune_data = processor.load_communes_data()
+    denum = Z.with_columns(x=pl.col("tau_minus_m") ** 2).select("x").mean().item()
 
-    var = "pvotepar"
+    local_results = []
 
-    if var == "pvoteTD":
+    z_src = Z.select("codecommune", "tau_minus_m")
+    z_dst = Z.select("codecommune", "tau_minus_m").rename(
+        {
+            "codecommune": "codecommune_dest",
+            "tau_minus_m": "tau_minus_m_beta",
+        }
+    )
+
+    for r in range(n_bins):
+        pairs = get_pairs_for_bin(bin_edges, r)
+
+        C_tau_r = (
+            pairs["pairs"]
+            .join(
+                z_src,
+                on="codecommune",
+                how="inner",
+            )
+            .rename({"tau_minus_m": "tau_minus_m_alpha"})
+            .join(
+                z_dst,
+                on="codecommune_dest",
+                how="inner",
+            )
+            .with_columns(num=pl.col("tau_minus_m_alpha") * pl.col("tau_minus_m_beta"))
+            .select(pl.mean("num"))
+            .with_columns(C_tau=pl.col("num") / denum)
+            .select("C_tau")
+            .item()
+        )
+
+        local_results.append(
+            {
+                "election_code": election_code,
+                "bin": r,
+                "C_tau": C_tau_r,
+            }
+        )
+
+    return local_results
+
+
+def run_all_multiprocessing(
+    election_codes: list, X_binned: pl.DataFrame, bin_eges: pl.DataFrame
+):
+    tasks = [
+        (code, X_binned.filter(pl.col("election_code") == code), bin_eges)
+        for code in election_codes
+    ]
+
+    results = []
+    n_proc = min(len(tasks), os.cpu_count() or 1)
+    ctx = mp.get_context("spawn")  # safe default on macOS
+
+    with ctx.Pool(processes=n_proc) as pool:
+        for out in tqdm(
+            pool.imap_unordered(compute_election, tasks, chunksize=1),
+            total=len(tasks),
+            desc="Elections",
+        ):
+            results.extend(out)
+
+    return results
+
+
+def main(var, electoral_data, commune_data):
+    if var in ["pvoteTD", "pvoteTG"]:
         electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.5))
+    elif var in ["pvoteGCG", "pvoteDCD"]:
+        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.33))
+    elif var in ["pvoteD", "pvoteG", "pvoteCG", "pvoteCD", "pvoteC"]:
+        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.2))
+    else:
+        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.0))
 
     X = (
         electoral_data.filter(pl.col("inscrits") > 0)
@@ -84,6 +157,8 @@ if __name__ == "__main__":
         .item()
         == 0
     )
+    assert X.filter(pl.col("p_alpha") > 1.0).height == 0
+    assert X.filter(pl.col("p_alpha") < 0.0).height == 0
 
     n_communes = 1000
 
@@ -189,50 +264,85 @@ if __name__ == "__main__":
             )
         )
 
-    results = []
-    n_bins = len(distance_breaks) + 1
-
     election_codes = (
         X_binned.select("election_code").unique().get_column("election_code").to_list()
     )
-    for election_code in tqdm(election_codes):
-        Z = X_binned.filter(pl.col("election_code") == election_code)
-        denum = Z.with_columns(x=pl.col("tau_minus_m") ** 2).select("x").mean().item()
-        for r in tqdm(range(n_bins)):
-            pairs = get_pairs_for_bin(r)
-            C_tau_r = (
-                pairs["pairs"]
-                .join(
-                    Z.select("codecommune", "tau_minus_m"),
-                    on="codecommune",
-                    how="inner",
-                )
-                .rename({"tau_minus_m": "tau_minus_m_alpha"})
-                .join(
-                    Z.select("codecommune", "tau_minus_m").rename(
-                        {
-                            "codecommune": "codecommune_dest",
-                            "tau_minus_m": "tau_minus_m_beta",
-                        }
-                    ),
-                    on="codecommune_dest",
-                    how="inner",
-                )
-                .with_columns(
-                    num=pl.col("tau_minus_m_alpha") * pl.col("tau_minus_m_beta"),
-                )
-                .mean()
-                .with_columns(C_tau=pl.col("num") / denum)
-                .select("C_tau")
-                .item()
-            )
-            results.append({"election_code": election_code, "bin": r, "C_tau": C_tau_r})
+
+    results = run_all_multiprocessing(election_codes, X_binned, bin_edges)
 
     df_c_tau = pl.DataFrame(results)
+
     df_c_tau = df_c_tau.join(
-        bin_edges, left_on="bin", right_on="distance_bin", validate="m:1"
+        bin_edges,
+        left_on="bin",
+        right_on="distance_bin",
+        validate="m:1",
     )
+    # for election_code in tqdm(election_codes):
+    #     Z = X_binned.filter(pl.col("election_code") == election_code)
+    #     denum = Z.with_columns(x=pl.col("tau_minus_m") ** 2).select("x").mean().item()
+    #     for r in tqdm(range(n_bins)):
+    #         pairs = get_pairs_for_bin(r)
+    #         C_tau_r = (
+    #             pairs["pairs"]
+    #             .join(
+    #                 Z.select("codecommune", "tau_minus_m"),
+    #                 on="codecommune",
+    #                 how="inner",
+    #             )
+    #             .rename({"tau_minus_m": "tau_minus_m_alpha"})
+    #             .join(
+    #                 Z.select("codecommune", "tau_minus_m").rename(
+    #                     {
+    #                         "codecommune": "codecommune_dest",
+    #                         "tau_minus_m": "tau_minus_m_beta",
+    #                     }
+    #                 ),
+    #                 on="codecommune_dest",
+    #                 how="inner",
+    #             )
+    #             .with_columns(
+    #                 num=pl.col("tau_minus_m_alpha") * pl.col("tau_minus_m_beta"),
+    #             )
+    #             .mean()
+    #             .with_columns(C_tau=pl.col("num") / denum)
+    #             .select("C_tau")
+    #             .item()
+    #         )
+    #         results.append({"election_code": election_code, "bin": r, "C_tau": C_tau_r})
+
+    # df_c_tau = pl.DataFrame(results)
+    # df_c_tau = df_c_tau.join(
+    #     bin_edges, left_on="bin", right_on="distance_bin", validate="m:1"
+    # )
 
     df_c_tau.write_parquet(
         f"s3://arthurmanceau/election_modeling_uhcp/data/derived/spatial_correlations/c_tau_{var}_r.parquet"
     )
+
+
+if __name__ == "__main__":
+    processor = ElectionDataProcessor()
+
+    electoral_data, election_catalogs = processor.load_electoral_data()
+    election_catalog, election_code_mapping = election_catalogs
+
+    commune_data = processor.load_communes_data()
+
+    for var in [
+        "pvotepar",
+        "pvoteTD",
+        "pvoteD",
+        "pvoteTG",
+        "pvoteG",
+        "pvoteC",
+        "pvoteCD",
+        "pvoteDCD",
+        "pvoteGCG",
+        "pvoteCG",
+        "pvoteabs",
+        "pvoteblancsnuls",
+    ]:
+        logger.info(var)
+        main(var, electoral_data, commune_data)
+        logger.success("Computation terminated")

@@ -20,8 +20,10 @@ Election Backtester
 
 import json
 import os
+import tempfile
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
 import numpy as np
@@ -542,98 +544,223 @@ class BackTester:
                 self.results[trend] = metrics
 
                 # ======================================================
-                # TREND METRICS
+                # LOG ARTEFACTS
                 # ======================================================
                 if isinstance(metrics, dict):
                     for metric_name, metric_value in metrics.items():
                         if isinstance(
-                            metric_value,
-                            (int, float, np.integer, np.floating),
+                            metric_value, (int, float, np.integer, np.floating)
                         ):
                             mlflow.log_metric(
-                                f"{trend}_{metric_name}",
-                                float(metric_value),
+                                f"{trend}_{metric_name}", float(metric_value)
                             )
 
-                # Feature metadata
+                # -------- Feature metadata as params --------
                 mlflow.log_param(
-                    f"{trend}_n_clean_features",
-                    len(self.feature_names[trend]),
+                    f"{trend}_n_clean_features", len(self.feature_names[trend])
                 )
                 mlflow.log_param(
-                    f"{trend}_n_selected_features",
-                    len(instance_model.features),
+                    f"{trend}_n_selected_features", len(instance_model.features)
                 )
+                mlflow.log_param(f"{trend}_n_models", len(instance_model.best_models))
 
-                # Save feature list as artifact
-                tmp_dir = Path.cwd() / "tmp"
-                tmp_dir.mkdir(exist_ok=True)
+                with tempfile.TemporaryDirectory() as _tmp:
+                    tmp_dir = Path(_tmp)
 
-                # Save feature files
-                clean_feature_file = tmp_dir / f"{trend}_clean_features.txt"
-                selected_feature_file = tmp_dir / f"{trend}_selected_features.txt"
+                    # -------- Feature lists --------
+                    clean_feature_file = tmp_dir / f"{trend}_clean_features.txt"
+                    selected_feature_file = tmp_dir / f"{trend}_selected_features.txt"
 
-                with open(clean_feature_file, "w") as f:
-                    f.write("\n".join(self.feature_names[trend]))
+                    with open(clean_feature_file, "w") as f:
+                        f.write("\n".join(self.feature_names[trend]))
 
-                with open(selected_feature_file, "w") as f:
-                    f.write("\n".join(instance_model.features))
+                    with open(selected_feature_file, "w") as f:
+                        f.write("\n".join(instance_model.features))
 
-                mlflow.log_artifact(
-                    str(clean_feature_file),
-                    artifact_path=f"clean_features/{trend}",
-                )
+                    mlflow.log_artifact(
+                        str(clean_feature_file), artifact_path=f"features/{trend}"
+                    )
+                    mlflow.log_artifact(
+                        str(selected_feature_file), artifact_path=f"features/{trend}"
+                    )
 
-                mlflow.log_artifact(
-                    str(selected_feature_file),
-                    artifact_path=f"selected_features/{trend}",
-                )
-
-                importance_types = [
-                    "weight",
-                    "gain",
-                    "cover",
-                    "total_gain",
-                    "total_cover",
-                ]
-
-                all_models_importance = {}
-
-                for model_idx, model in enumerate(instance_model.best_models):
-                    booster = model.get_booster()
-
-                    model_importance = {}
-
-                    for importance_type in importance_types:
-                        raw_importance = booster.get_score(
-                            importance_type=importance_type
+                    # Also log feature names as JSON (easier to load later)
+                    feature_names_file = tmp_dir / f"{trend}_feature_names.json"
+                    with open(feature_names_file, "w") as f:
+                        json.dump(
+                            {
+                                "clean_features": self.feature_names[trend],
+                                "selected_features": instance_model.features,
+                                "n_clean": len(self.feature_names[trend]),
+                                "n_selected": len(instance_model.features),
+                            },
+                            f,
+                            indent=2,
                         )
+                    mlflow.log_artifact(
+                        str(feature_names_file), artifact_path=f"features/{trend}"
+                    )
 
-                        total = sum(raw_importance.values())
+                    # -------- Per-model loop --------
+                    importance_types = [
+                        "weight",
+                        "gain",
+                        "cover",
+                        "total_gain",
+                        "total_cover",
+                    ]
+                    all_models_importance = {}
+                    all_models_params = {}
 
-                        if total > 0:
-                            pct_importance = {
-                                feat: 100.0 * score / total
-                                for feat, score in raw_importance.items()
-                            }
-                        else:
+                    for model_idx, boosting_model in enumerate(
+                        instance_model.best_models
+                    ):
+                        booster = boosting_model.get_booster()
+                        model_key = f"model_{model_idx}"
+
+                        # -- Importance --
+                        model_importance = {}
+                        for importance_type in importance_types:
+                            raw_importance = booster.get_score(
+                                importance_type=importance_type
+                            )
+                            total = sum(raw_importance.values())
                             pct_importance = {}
+                            for feat, score in raw_importance.items():
+                                # XGBoost feature ids when trained on np.array: f0, f1, ...
+                                import re
 
-                        model_importance[importance_type] = dict(
-                            sorted(
-                                pct_importance.items(),
-                                key=lambda x: x[1],
-                                reverse=True,
+                                m = re.fullmatch(r"f(\d+)", str(feat))
+                                if m:
+                                    idx = int(m.group(1))
+                                    mapped_feat = (
+                                        instance_model.features[idx]
+                                        if 0 <= idx < len(instance_model.features)
+                                        else feat
+                                    )
+                                else:
+                                    mapped_feat = feat
+
+                                pct_importance[mapped_feat] = pct_importance.get(
+                                    mapped_feat, 0.0
+                                ) + (100.0 * score / total)
+                            model_importance[importance_type] = dict(
+                                sorted(
+                                    pct_importance.items(),
+                                    key=lambda x: x[1],
+                                    reverse=True,
+                                )
                             )
+
+                        all_models_importance[model_key] = model_importance
+
+                        # -- Parameters --
+                        wrapper_params = boosting_model.get_params(deep=True)
+                        xgb_params = (
+                            boosting_model.get_xgb_params()
+                            if hasattr(boosting_model, "get_xgb_params")
+                            else {}
+                        )
+                        booster_attrs = booster.attributes() or {}
+
+                        all_models_params[model_key] = {
+                            "wrapper_params": wrapper_params,
+                            "xgb_params": xgb_params,
+                            "booster_attrs": booster_attrs,
+                        }
+
+                        # Log scalar params to MLflow
+                        for k, v in xgb_params.items():
+                            if isinstance(v, (int, float, str, bool)):
+                                mlflow.log_param(f"{trend}_{model_key}_{k}", v)
+
+                        # -- Plot all importance types in subplots --
+                        n_types = len(importance_types)
+                        fig, axes = plt.subplots(1, n_types, figsize=(6 * n_types, 8))
+
+                        if n_types == 1:
+                            axes = [axes]
+
+                        for ax, importance_type in zip(axes, importance_types):
+                            top_10 = dict(
+                                list(model_importance[importance_type].items())[:10]
+                            )
+                            ax.barh(
+                                list(top_10.keys()),
+                                list(top_10.values()),
+                                color="steelblue",
+                            )
+                            ax.set_xlabel(f"{importance_type} (%)")
+                            ax.set_title(f"{importance_type}")
+                            ax.invert_yaxis()
+
+                        fig.suptitle(
+                            f"{model_key} - Top 10 Features per Importance Type ({trend})",
+                            fontsize=14,
+                        )
+                        plt.tight_layout()
+
+                        plot_path = (
+                            tmp_dir / f"{trend}_{model_key}_all_importance_types.png"
+                        )
+                        fig.savefig(plot_path, dpi=100, bbox_inches="tight")
+                        plt.close()
+                        mlflow.log_artifact(
+                            str(plot_path),
+                            artifact_path=f"feature_importance/plots/{trend}",
                         )
 
-                    all_models_importance[f"model_{model_idx}"] = model_importance
+                        # -- Importance JSON per model --
+                        imp_path = tmp_dir / f"{trend}_{model_key}_importance.json"
+                        with open(imp_path, "w") as f:
+                            json.dump(model_importance, f, indent=2)
+                        mlflow.log_artifact(
+                            str(imp_path),
+                            artifact_path=f"feature_importance/json/{trend}",
+                        )
 
-                with open(
-                    tmp_dir / f"{trend}_all_models_feature_importance_pct.json",
-                    "w",
-                ) as f:
-                    json.dump(all_models_importance, f, indent=2)
+                        # -- Params JSON per model --
+                        params_path = tmp_dir / f"{trend}_{model_key}_params.json"
+                        with open(params_path, "w") as f:
+                            json.dump(all_models_params[model_key], f, indent=2)
+                        mlflow.log_artifact(
+                            str(params_path), artifact_path=f"parameters/{trend}"
+                        )
+
+                        # -- Native booster model --
+                        booster_path = tmp_dir / f"{trend}_{model_key}_booster.json"
+                        booster.save_model(str(booster_path))
+                        mlflow.log_artifact(
+                            str(booster_path), artifact_path=f"boosters/{trend}"
+                        )
+
+                        # -- Full booster config --
+                        config_path = (
+                            tmp_dir / f"{trend}_{model_key}_booster_config.json"
+                        )
+                        with open(config_path, "w") as f:
+                            f.write(booster.save_config())
+                        mlflow.log_artifact(
+                            str(config_path), artifact_path=f"booster_configs/{trend}"
+                        )
+
+                    # -------- Aggregated JSONs --------
+                    all_imp_path = (
+                        tmp_dir / f"{trend}_all_models_feature_importance_pct.json"
+                    )
+                    with open(all_imp_path, "w") as f:
+                        json.dump(all_models_importance, f, indent=2)
+                    mlflow.log_artifact(
+                        str(all_imp_path),
+                        artifact_path=f"feature_importance/json/{trend}",
+                    )
+
+                    all_params_path = tmp_dir / f"{trend}_all_models_parameters.json"
+                    with open(all_params_path, "w") as f:
+                        json.dump(all_models_params, f, indent=2)
+                    mlflow.log_artifact(
+                        str(all_params_path), artifact_path=f"parameters/{trend}"
+                    )
 
                 self.election_predictor.add_model(
                     trend,

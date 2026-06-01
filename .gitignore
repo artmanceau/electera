@@ -18,6 +18,7 @@ tmp/
 
 # ML runs
 mlruns
+mlflow_results/
 
 # Catboost
 catboost_info

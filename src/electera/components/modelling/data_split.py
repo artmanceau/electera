@@ -77,7 +77,9 @@ class Splitter:
                 to_drop_correlated = to_drop_correlated.union(
                     self._find_correlated_in(X[socio_eco_features])
                 )
-            logger.warning(f"Features dropped: {to_drop_correlated}")
+            logger.warning(
+                f"Features dropped ({len(to_drop_correlated)}) (correlated more than 95%): {to_drop_correlated}"
+            )
 
             socio_eco_features = list(set(socio_eco_features) - to_drop_correlated)
 

@@ -4,6 +4,7 @@
     "year_sup": 2022,
     "elections_type": [
         "presidentiel",
-        "legislative"
+        "legislative",
+        "municipales"
     ]
 }

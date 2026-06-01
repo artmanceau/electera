@@ -42,11 +42,21 @@ class ElectionDataProcessor:
     A clean dataset is built for each election, they are then stacked together
     """
 
-    vote = ["inscrits", "votants", "exprimes", "abstentions"]
-    pvote = ["pvotepar", "pvoteabs"]
+    vote = ["inscrits", "votants", "exprimes", "abstentions", "blancsnuls"]
+    pvote = ["pvotepar", "pvoteabs", "pvoteblancsnuls"]
+
+    # T2
+    voteT2 = ["inscritsT2", "votantsT1", "exprimesT2", "abstentionsT2", "blancsnulsT2"]
+    pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2"]
+
     tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD"]
     tendances_column_vote = [f"vote{tendance}" for tendance in tendances]
     tendances_column_pvote = ["p" + col for col in tendances_column_vote]
+
+    # Refs
+    refs_tendances = ["OUI", "NON"]
+    refs_tendances_column_vote = [f"vote{tendance}" for tendance in refs_tendances]
+    refs_tendances_column_pvote = ["p" + col for col in refs_tendances_column_vote]
 
     def previous(self, cols):
         return [f"previous{col}" for col in cols]
@@ -54,6 +64,9 @@ class ElectionDataProcessor:
     def previousprevious(self, cols):
         return [f"previousprevious{col}" for col in cols]
 
+    # For T1 (politiques)
+    # For ref : include OUI/NON (other dataset because the checks will be different)
+    # For T2 : include T2 var (other dataset because the checks will be different)
     electoral_schema = {
         "dep": pl.String,
         "nomdep": pl.String,
@@ -414,6 +427,7 @@ class ElectionDataProcessor:
             electoral_data.with_columns(
                 pvotepar=pl.col("votants") / pl.col("inscrits"),
                 abstentions=pl.col("inscrits") - pl.col("votants"),
+                blancsnuls=pl.col("votants") - pl.col("exprimes_"),
                 pvoteG=pl.col("voteG") / pl.col("exprimes_"),
                 pvoteCG=pl.col("voteCG") / pl.col("exprimes_"),
                 pvoteC=pl.col("voteC") / pl.col("exprimes_"),
@@ -428,6 +442,7 @@ class ElectionDataProcessor:
             )
             .with_columns(
                 pvoteabs=pl.col("abstentions") / pl.col("inscrits"),
+                pvoteblancsnuls=pl.col("blancsnuls") / pl.col("inscrits"),
             )
             .with_columns(
                 # Replace NaN (0/0) and inf (n/0) with 0
