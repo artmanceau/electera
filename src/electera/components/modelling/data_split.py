@@ -20,8 +20,8 @@ class Splitter:
 
     @staticmethod
     def is_stationnary_feature(feature):
-        return ("pct_change" in feature) 
-        #return ("pct_change" in feature) | ("rank" in feature)
+        return "pct_change" in feature
+        # return ("pct_change" in feature) | ("rank" in feature)
 
     def clean_features_list(
         self,

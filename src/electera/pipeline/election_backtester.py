@@ -41,7 +41,7 @@ from electera.components.modelling.benchmark_models import (
 from electera.components.modelling.boosting.boosting import BoostingModel
 
 # from electera.components.modelling.benchmark_models import TrivialModel2
-from electera.components.modelling.data_split import Splitter
+from electera.components.modelling.data_split_pl import get_Xy_pl
 from electera.components.modelling.election_predictor import ElectionPredictor
 from electera.components.modelling.evaluation import ModelEvaluator
 from electera.components.modelling.meta_booster import (
@@ -135,9 +135,8 @@ class BackTester:
 
         # Retrieve the rows matching the years for each dataset
         for trend in k_political_trends:
-            st = Splitter(trend)
-            split_method = f"{k_year}_{self.k_t}"
-            breakpoint()
+            # st = Splitter(trend)
+            # split_method = f"{k_year}_{self.k_t}"
             (
                 self.X_train[trend],
                 self.X_val[trend],
@@ -145,12 +144,20 @@ class BackTester:
                 self.y_train[trend],
                 self.y_val[trend],
                 self.y_test[trend],
-            ) = st.get_Xy(data, predict_delta=predict_delta, split_method=split_method)
-            (self.X_train[trend], self.X_val[trend], self.X_test[trend]) = (
-                st.clean_features_list(
-                    self.X_train[trend], self.X_val[trend], self.X_test[trend]
-                )
+            ) = get_Xy_pl(
+                data,
+                vote_variable=f"pvote{trend}",
+                year=k_year,
+                election_type=self.k_type,
+                predict_delta=predict_delta,
+                predict_perc=True,
+                selected_groups=["rank", "geo", "other"],
             )
+            # (self.X_train[trend], self.X_val[trend], self.X_test[trend]) = (
+            #     st.clean_features_list(
+            #         self.X_train[trend], self.X_val[trend], self.X_test[trend]
+            #     )
+            # )
             self.feature_names[trend] = self.X_train[trend].columns.tolist()
 
     def organize_vote(self, k_year, k_political_trends, predict_delta):
@@ -315,12 +322,15 @@ class BackTester:
         Run the backtesting process.
         """
         self.k_t = 0 if k_type == "pres" else 1
+        self.k_type = "presidentiel" if k_type == "pres" else "legislative"
 
         # For now only one backtesting model
         self.election_predictor = ElectionPredictor(trends=k_political_trends)
 
         # 1. Load all dataset
-        data = DataLoader.load_dataset(self.config.data_path + self.config.dataset_path)
+        data = DataLoader.load_dataset(
+            self.config.data_path + self.config.dataset_path, engine="polars"
+        )
 
         # 2. Test and split
         self.process_and_split_dataset(data, k_year, k_political_trends, predict_delta)
@@ -429,6 +439,7 @@ class BackTester:
         Run the backtesting process.
         """
         self.k_t = 0 if k_type == "pres" else 1
+        self.k_type = "presidentiel" if k_type == "pres" else "legislative"
 
         run_name = f"{self.config.model}_{k_type}_{k_year}"
 
@@ -458,7 +469,7 @@ class BackTester:
             # LOAD DATA
             # ==========================================================
             data = DataLoader.load_dataset(
-                self.config.data_path + self.config.dataset_path
+                self.config.data_path + self.config.dataset_path, engine="polars"
             )
 
             self.process_and_split_dataset(

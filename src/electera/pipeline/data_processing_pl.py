@@ -4,6 +4,7 @@ from datetime import datetime
 
 import polars as pl
 import polars.selectors as cs
+import polars_distance as pld
 from loguru import logger
 from shapely.geometry import shape
 
@@ -64,6 +65,9 @@ class ElectionDataProcessor:
 
     def previousprevious(self, cols):
         return [f"previousprevious{col}" for col in cols]
+
+    def percentile(self, cols):
+        return [f"percentile{col}" for col in cols]
 
     # For T1 (politiques)
     # For ref : include OUI/NON (other dataset because the checks will be different)
@@ -192,6 +196,8 @@ class ElectionDataProcessor:
 
         # Join geo_data
         geo_data = self.add_geographical_data()
+        PARIS_LAT = 48.8566
+        PARIS_LON = 2.3522
         communes = (
             communes.join(geo_data, on="codecommune", how="left")
             # Step 1: fill from parent commune
@@ -213,6 +219,23 @@ class ElectionDataProcessor:
                 pl.col("lat").fill_nan(None),
                 pl.col("long").fill_nan(None),
             )
+            .with_columns(
+                # Create struct column for your coordinates
+                pl.struct(latitude=pl.col("lat"), longitude=pl.col("long")).alias(
+                    "coords"
+                )
+            )
+            .with_columns(
+                pl.lit({"latitude": PARIS_LAT, "longitude": PARIS_LON}).alias(
+                    "paris_coords"
+                )
+            )
+            .with_columns(
+                pld.col("coords")
+                .dist.haversine("paris_coords", "km")
+                .alias("distanceparis")
+            )
+            .drop("coords", "paris_coords")
         )
         return communes
 
@@ -465,6 +488,15 @@ class ElectionDataProcessor:
             == 0
         )
 
+        # Adding ranks
+        rank_expr = [
+            (pl.col(c).rank() / pl.count(c))
+            .round(4)
+            .over("type", "annee")
+            .alias(f"percentile{c}")
+            for c in self.tendances_column_pvote
+        ]
+
         # Adding previous and previousprevious election results
         lag1_exprs = [
             pl.col(c)
@@ -488,7 +520,9 @@ class ElectionDataProcessor:
             + self.tendances_column_vote
         ]
 
-        electoral_data = electoral_data.with_columns(lag1_exprs + lag2_exprs)
+        electoral_data = electoral_data.with_columns(
+            rank_expr + lag1_exprs + lag2_exprs
+        )
 
         return electoral_data, (catalog, election_code_mapping)
 
@@ -501,7 +535,9 @@ class ElectionDataProcessor:
         year_cols = [c for c in all_cols if re.search(r"\d{4}$", c)]
 
         if not year_cols:
-            logger.warning(f"No feature matching pattern [feature][year] in {source_stem}")
+            logger.warning(
+                f"No feature matching pattern [feature][year] in {source_stem}"
+            )
             return None
 
         df = (
@@ -513,7 +549,9 @@ class ElectionDataProcessor:
             )
             .with_columns(
                 # Extract the 4-digit year suffix
-                annee=pl.col("variable_with_year").str.extract(r"(\d{4})$").cast(pl.Int32),
+                annee=pl.col("variable_with_year")
+                .str.extract(r"(\d{4})$")
+                .cast(pl.Int32),
                 # Feature
                 feature=pl.lit(source_stem)
                 + "/"
@@ -521,7 +559,7 @@ class ElectionDataProcessor:
                 # Cast value to Float64
                 raw=pl.col("raw").cast(pl.Float64, strict=False),
             )
-            .drop('variable_with_year')
+            .drop("variable_with_year")
             .sort([key, "feature", "annee"])
         )
 
@@ -648,36 +686,51 @@ class ElectionDataProcessor:
                             "pct_change": pl.Float64,
                         }
                         schema = df.collect_schema()
-                        df = (
-                            df.cast(
-                                {k: v for k, v in target_schema.items() if k in schema.names()},
-                                strict=True,
-                            )
-                            .match_to_schema(
-                                target_schema,
-                                missing_columns="insert",
-                                extra_columns="ignore",
-                            )
+                        df = df.cast(
+                            {
+                                k: v
+                                for k, v in target_schema.items()
+                                if k in schema.names()
+                            },
+                            strict=True,
+                        ).match_to_schema(
+                            target_schema,
+                            missing_columns="insert",
+                            extra_columns="ignore",
                         )
                         float_cols = [
-                                    c
-                                    for c, dtype in zip(schema.names(), schema.dtypes())
-                                    if dtype in (pl.Float32, pl.Float64)
-                                ]
+                            c
+                            for c, dtype in zip(schema.names(), schema.dtypes())
+                            if dtype in (pl.Float32, pl.Float64)
+                        ]
                         df = df.with_columns(
-                                    [
-                                        pl.when(pl.col(c).is_infinite())
-                                        .then(None)
-                                        .otherwise(pl.col(c))
-                                        .alias(c)
-                                        for c in float_cols
-                                    ]
-                                )
+                            [
+                                pl.when(pl.col(c).is_infinite())
+                                .then(None)
+                                .otherwise(pl.col(c))
+                                .alias(c)
+                                for c in float_cols
+                            ]
+                        )
                         df = df.collect()
 
-                        assert df.select(cs.float().is_nan().sum()).sum_horizontal().item() == 0
-                        assert df.select(cs.float().is_infinite().sum()).sum_horizontal().item() == 0
-                        assert df.select(key, 'feature', 'annee').select(pl.all().is_null().sum()).sum_horizontal().item() == 0
+                        assert (
+                            df.select(cs.float().is_nan().sum()).sum_horizontal().item()
+                            == 0
+                        )
+                        assert (
+                            df.select(cs.float().is_infinite().sum())
+                            .sum_horizontal()
+                            .item()
+                            == 0
+                        )
+                        assert (
+                            df.select(key, "feature", "annee")
+                            .select(pl.all().is_null().sum())
+                            .sum_horizontal()
+                            .item()
+                            == 0
+                        )
 
                         if key == "codecommune":
                             communes_frames.append(df)
@@ -685,9 +738,9 @@ class ElectionDataProcessor:
                             dep_frames.append(df)
 
         socio_economic_communes, catalog_communes = self._concat_and_check(
-            communes_frames, 'codecommune'
+            communes_frames, "codecommune"
         )
-        socio_economic_dep, catalog_dep = self._concat_and_check(dep_frames, 'dep')
+        socio_economic_dep, catalog_dep = self._concat_and_check(dep_frames, "dep")
 
         return (
             socio_economic_communes,
@@ -1060,8 +1113,10 @@ class ElectionDataProcessor:
                 "LIBELLE",
                 "lat",
                 "long",
+                "distanceparis",
             ]
             + all_votes
+            + self.percentile(self.tendances_column_pvote)
             + self.previous(all_votes)
             + self.previousprevious(all_votes)
         )
@@ -1267,5 +1322,4 @@ def main():
 
 
 if __name__ == "__main__":
-    breakpoint()
     main()

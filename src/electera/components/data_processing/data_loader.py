@@ -7,6 +7,7 @@ import shutil
 from typing import List, Optional, Tuple
 
 import pandas as pd
+import polars as pl
 import s3fs
 from loguru import logger
 
@@ -65,6 +66,20 @@ class DataUtils:
             data = pd.read_parquet(
                 file_path, filesystem=fs, columns=columns, filters=filters
             )
+        return data
+
+    @staticmethod
+    def _read_parquet_pl(
+        file_path: str,
+        fs: object = None,
+        columns: Optional[List] | None = None,
+        filters: Optional[List[Tuple]] | None = None,
+    ) -> pd.DataFrame:
+        logger.debug(f"Loading dataset from {file_path}...")
+        if fs is None:
+            data = pl.scan_parquet(file_path).collect()
+        else:
+            data = pl.scan_parquet(file_path).collect()
         return data
 
     def _read_csv(
@@ -182,6 +197,7 @@ class DataLoader:
         formate: str = "parquet",
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
+        engine="pandas",
     ) -> pd.DataFrame:
         """Loads a dataset either locally or in S3 depending on the file_path
 
@@ -194,13 +210,16 @@ class DataLoader:
         Returns:
             pd.DataFrame: dataframe with the content of the dataset
         """
-        read_method = {"csv": DataUtils._read_csv, "parquet": DataUtils._read_parquet}
+        read_method = {
+            "pandas": {"csv": DataUtils._read_csv, "parquet": DataUtils._read_parquet},
+            "polars": {"parquet": DataUtils._read_parquet_pl},
+        }
         # S3 path - starts with s3://
         if not fs:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if not DataUtils._exists(file_path, fs):
             raise FileNotFoundError(f"The file {file_path} can't be found.")
-        data = read_method[formate](file_path, fs, columns, filters)
+        data = read_method[engine][formate](file_path, fs, columns, filters)
         logger.debug(f"Dataset loaded: {data.shape}")
         return data
 
