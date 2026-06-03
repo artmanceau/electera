@@ -1,11 +1,11 @@
 {
     "political_trends": [["par", "TG", "TD"]],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
-    "dataset_path": "derived/processed/data_processed_presidentiel_legislative_from1958_to2022_20260531_100855.parquet",
+    "dataset_path": "derived/processed/data_processed_presidentiel_legislative_municipales_from1800_to2022_20260603_124221.parquet",
     "random_seed": 42,
     "k_year": [2002, 2007, 2012, 2017, 2022],
     "k_type": ["pres", "leg"],
-    "predict_delta":false,
+    "predict_delta": true,
     "model" : "meta_boosting",
-    "version" : "0.2.5"
+    "version" : "0.2.6"
 }

@@ -74,9 +74,9 @@ MODEL_ARGS = {
         "objective_metric": root_mean_squared_error,
         "weighting": "equiproportional",
         "features": None,
-        "n_splits_inner": 3,
+        "n_splits_inner": 2,
         "n_splits_outer": 2,
-        "n_trials": 5,
+        "n_trials": 2,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
@@ -137,7 +137,7 @@ class BackTester:
         for trend in k_political_trends:
             st = Splitter(trend)
             split_method = f"{k_year}_{self.k_t}"
-            X, y, y_split = st.get_Xy(data, predict_delta=predict_delta)
+            breakpoint()
             (
                 self.X_train[trend],
                 self.X_val[trend],
@@ -145,11 +145,7 @@ class BackTester:
                 self.y_train[trend],
                 self.y_val[trend],
                 self.y_test[trend],
-            ) = st.split(
-                X,
-                y_split,
-                split_method=split_method,
-            )
+            ) = st.get_Xy(data, predict_delta=predict_delta, split_method=split_method)
             (self.X_train[trend], self.X_val[trend], self.X_test[trend]) = (
                 st.clean_features_list(
                     self.X_train[trend], self.X_val[trend], self.X_test[trend]
@@ -548,12 +544,15 @@ class BackTester:
                     self.config.model,
                     extended=True,
                 )
-                metrics_baseline = ModelEvaluator.evaluate(
-                    self.y_test[trend],
-                    self.X_test[trend][f"previouspvote{trend}"],
-                    self.config.model,
-                    extended=True,
-                )
+                if f"previouspvote{trend}" in self.X_test[trend]:
+                    metrics_baseline = ModelEvaluator.evaluate(
+                        self.y_test[trend],
+                        self.X_test[trend][f"previouspvote{trend}"],
+                        self.config.model,
+                        extended=True,
+                    )
+                else:
+                    metrics_baseline = None
 
                 self.results[trend] = metrics
 
