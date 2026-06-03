@@ -21,6 +21,7 @@ Election Backtester
 import json
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -29,7 +30,7 @@ import mlflow.sklearn
 import numpy as np
 from loguru import logger
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import (
@@ -70,12 +71,12 @@ MODEL_ARGS = {
     "boosting": {},
     "meta_boosting": {
         "method": "xgboost",
-        "objective_metric": mean_squared_error,
+        "objective_metric": root_mean_squared_error,
         "weighting": "equiproportional",
         "features": None,
-        "n_splits_inner": 2,
+        "n_splits_inner": 3,
         "n_splits_outer": 2,
-        "n_trials": 2,
+        "n_trials": 5,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
@@ -110,13 +111,13 @@ class BackTester:
             mlflow.set_tracking_uri(
                 "https://user-arthurmanceau-mlflow.user.lab.sspcloud.fr"
             )
-            mlflow.set_experiment(
-                getattr(
-                    self.config,
-                    "mlflow_experiment",
-                    "ElectionBacktests",
-                )
+            experiment_base = getattr(
+                self.config,
+                "mlflow_experiment",
+                "ElectionBacktests",
             )
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            mlflow.set_experiment(f"{experiment_base}_{timestamp}")
 
     def process_and_split_dataset(
         self, data, k_year, k_political_trends, predict_delta
@@ -379,9 +380,7 @@ class BackTester:
             )
 
             self.results[self.config.model] = ModelEvaluator.evaluate(
-                self.y_test[trend],
-                predictions,
-                self.config.model,
+                self.y_test[trend], predictions, self.config.model, extended=True
             )
 
             self.election_predictor.add_model(
@@ -534,11 +533,26 @@ class BackTester:
                     if self.config.model == "meta_boosting_multiple"
                     else instance_model.infer(self.X_test[trend])
                 )
+                predictions_in_sample = (
+                    instance_model.infer_multiple(self.X_train[trend])
+                    if self.config.model == "meta_boosting_multiple"
+                    else instance_model.infer(self.X_train[trend])
+                )
 
                 metrics = ModelEvaluator.evaluate(
-                    self.y_test[trend],
-                    predictions,
+                    self.y_test[trend], predictions, self.config.model, extended=True
+                )
+                metrics_in_sample = ModelEvaluator.evaluate(
+                    self.y_train[trend],
+                    predictions_in_sample,
                     self.config.model,
+                    extended=True,
+                )
+                metrics_baseline = ModelEvaluator.evaluate(
+                    self.y_test[trend],
+                    self.X_test[trend][f"previouspvote{trend}"],
+                    self.config.model,
+                    extended=True,
                 )
 
                 self.results[trend] = metrics
@@ -553,6 +567,22 @@ class BackTester:
                         ):
                             mlflow.log_metric(
                                 f"{trend}_{metric_name}", float(metric_value)
+                            )
+                if isinstance(metrics_in_sample, dict):
+                    for metric_name, metric_value in metrics_in_sample.items():
+                        if isinstance(
+                            metric_value, (int, float, np.integer, np.floating)
+                        ):
+                            mlflow.log_metric(
+                                f"{trend}_{metric_name}_in_sample", float(metric_value)
+                            )
+                if isinstance(metrics_baseline, dict):
+                    for metric_name, metric_value in metrics_in_sample.items():
+                        if isinstance(
+                            metric_value, (int, float, np.integer, np.floating)
+                        ):
+                            mlflow.log_metric(
+                                f"{trend}_{metric_name}_trivial", float(metric_value)
                             )
 
                 # -------- Feature metadata as params --------

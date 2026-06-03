@@ -29,7 +29,7 @@ class Splitter:
         X_test,
         nan_threshold=0.9,
         keep_stationnary=True,
-        remove_correlated=True,
+        remove_correlated=False,
         features_to_save=[],
     ):
         """
@@ -116,8 +116,9 @@ class Splitter:
         )
 
         X = data[
-            feature_cols + ["inscrits", "type", "annee", "lat", "long", "dep_num"]
-            # + previous_vote_cols
+            feature_cols
+            + ["inscrits", "type", "annee", "lat", "long", "dep_num"]
+            + previous_vote_cols
         ].astype(float)
 
         if predict_delta:

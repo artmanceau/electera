@@ -1,6 +1,6 @@
 {
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
-    "year_inf": 1958,
+    "year_inf": 1800,
     "year_sup": 2022,
     "elections_type": [
         "presidentiel",

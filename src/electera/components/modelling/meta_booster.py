@@ -30,17 +30,17 @@ BOOSTING_ALG = {"xgboost": XGBRegressor, "catboost": CatBoostRegressor}
 
 BOOSTING_PARAM = {
     "xgboost": lambda trial: {
-        "max_depth": trial.suggest_int("max_depth", 2, 8),
-        "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.3),
-        "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
+        "max_depth": trial.suggest_int("max_depth", 3, 15),
+        "learning_rate": trial.suggest_float("learning_rate", 0.0001, 0.5),
+        "n_estimators": trial.suggest_int("n_estimators", 100, 5000),
         "subsample": trial.suggest_float("subsample", 0.5, 0.9),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 0.9),
         "colsample_bynode": trial.suggest_float("colsample_bynode", 0.5, 0.9),
         "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.5, 0.9),
-        "min_child_weight": trial.suggest_int("min_child_weight", 5, 20),
-        "gamma": trial.suggest_float("gamma", 0.5, 5),
-        "alpha": trial.suggest_float("alpha", 0.5, 5),
-        "lambda": trial.suggest_float("lambda", 0.5, 5),
+        "min_child_weight": trial.suggest_int("min_child_weight", 1, 50),
+        "gamma": trial.suggest_float("gamma", 0.0, 5),
+        "alpha": trial.suggest_float("alpha", 0.0, 5),
+        "lambda": trial.suggest_float("lambda", 0.0, 5),
         "min_split_loss": trial.suggest_float("min_split_loss", 0.5, 1.0),
     },
     "catboost": lambda trial: {
@@ -201,7 +201,7 @@ class MetaBooster:
             return preds
 
     def feature_selection(
-        self, X, y, threshold=0.8, method="permuation", nb_feature=50
+        self, X, y, threshold=0.8, method="total_gain", nb_feature=30
     ):
         logger.info(
             f"Performing feature selection. Method: {method}. Number of features: {nb_feature}"
