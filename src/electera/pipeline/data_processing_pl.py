@@ -494,7 +494,7 @@ class ElectionDataProcessor:
             .round(4)
             .over("type", "annee")
             .alias(f"percentile{c}")
-            for c in self.tendances_column_pvote
+            for c in self.tendances_column_pvote + ["pvotepar"]
         ]
 
         # Adding previous and previousprevious election results
@@ -507,6 +507,7 @@ class ElectionDataProcessor:
             + self.pvote
             + self.vote
             + self.tendances_column_vote
+            + self.percentile(self.tendances_column_pvote + ["pvotepar"])
         ]
 
         lag2_exprs = [
@@ -520,8 +521,8 @@ class ElectionDataProcessor:
             + self.tendances_column_vote
         ]
 
-        electoral_data = electoral_data.with_columns(
-            rank_expr + lag1_exprs + lag2_exprs
+        electoral_data = electoral_data.with_columns(rank_expr).with_columns(
+            lag1_exprs + lag2_exprs
         )
 
         return electoral_data, (catalog, election_code_mapping)
@@ -1116,8 +1117,9 @@ class ElectionDataProcessor:
                 "distanceparis",
             ]
             + all_votes
-            + self.percentile(self.tendances_column_pvote)
+            + self.percentile(self.tendances_column_pvote + ["pvotepar"])
             + self.previous(all_votes)
+            + self.previous(self.percentile(self.tendances_column_pvote + ["pvotepar"]))
             + self.previousprevious(all_votes)
         )
 
@@ -1135,6 +1137,7 @@ class ElectionDataProcessor:
                 "LIBELLE",
                 "lat",
                 "long",
+                "distanceparis",
             ),
             on="codecommune",
             how="left",

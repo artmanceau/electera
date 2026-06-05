@@ -128,6 +128,7 @@ class MetaBooster:
             self.feature_selection(X_val, y_val)
 
         X = self._check_feature_consistency(X, self.features)
+        print(list(X.columns)[0])
 
         (
             self.best_models,
@@ -182,6 +183,7 @@ class MetaBooster:
         else:
             # Predictions are the average predictions of the best models
             X = self._check_feature_consistency(X, self.features)
+            print(list(X.columns)[0])
             X = np.array(X)
             preds = np.zeros(len(X))
             n_models = len(self.best_models)
@@ -201,7 +203,7 @@ class MetaBooster:
             return preds
 
     def feature_selection(
-        self, X, y, threshold=0.5, method="total_gain", nb_feature=30
+        self, X, y, threshold=0.95, method="total_gain", nb_feature=30
     ):
         logger.info(
             f"Performing feature selection. Method: {method}. Number of features: {nb_feature}"

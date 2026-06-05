@@ -35,13 +35,13 @@ BASE_PARAMS = {
 class BoostingModel:
     """_summary_"""
 
-    def __init__(self):
+    def __init__(self, parameters=None):
         """_summary_"""
         # Future attributes
         self.boosting_method = None
         self.method = None
         self.features_selected = None
-        self.parameters = None
+        self.parameters = parameters
         self.model = None
         self.signature = None
 
@@ -98,6 +98,8 @@ class BoostingModel:
         if self.parameters is None:
             self.params = BASE_PARAMS[self.method]
             logger.debug(f"With parameters: {self.params}")
+        else:
+            self.params = self.parameters
 
         # Apply feature selection
         X_train_boosting = X_train[self.features_selected].copy(deep=True)

@@ -33,14 +33,22 @@ class BackTesterConfig(BaseModel):
         description="Predict the delta in pvote with previous election or the raw vote statitics"
     )
 
-    model: Literal[
-        "trivial_1",
-        "trivial_2",
-        "boosting",
-        "linear",
-        "meta_boosting",
-        "meta_boosting_multiple",
-    ] = Field(default="trivial_2", description="Model to use")
+    predict_percentile: bool
+
+    organize_vote: bool
+
+    use_mlflow: bool
+
+    models: List[
+        Literal[
+            "trivial_1",
+            "trivial_2",
+            "boosting",
+            "linear",
+            "meta_boosting",
+            "meta_boosting_multiple",
+        ]
+    ] = Field(default=["trivial_2"], description="Model to use")
 
     version: str
 

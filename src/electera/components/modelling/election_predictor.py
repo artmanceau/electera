@@ -41,7 +41,7 @@ class ElectionPredictor:
         for trend in self.trends:
             X_result["pvote" + trend] = prediction_fn(
                 self.models[trend],
-                X[self.features[trend]],
+                X,
                 predict_delta,
                 infer_multiple,
             )
@@ -381,7 +381,7 @@ class ElectionPredictor:
 
     def get_winner(self, X, k_type):
         """Determine trend that gets more voice"""
-        if k_type == 0:
+        if k_type == "presidentiel":
             winner = (
                 X[[f"vote{trend}" for trend in self.trends if trend != "par"]]
                 .sum(axis=0)

@@ -15,18 +15,31 @@ def get_Xy_pl(
 ):
     data = data.with_columns(
         [
-            pl.col(col).fill_nan(pl.col(col).mean().over("dep"))
-            for col in [f"previous{vote_variable}", f"previousprevious{vote_variable}"]
+            pl.col(col).fill_null(pl.col(col).mean().over("dep"))
+            for col in [
+                f"previous{vote_variable}",
+                f"previousprevious{vote_variable}",
+            ]  # f"previouspercentile{vote_variable}"
         ],
-        y_delta=pl.col(vote_variable) - pl.col(f"previous{vote_variable}"),
+    ).with_columns(
+        (pl.col(vote_variable) - pl.col(f"previous{vote_variable}")).alias(
+            f"delta{vote_variable}"
+        ),
+        (
+            pl.col(f"previous{vote_variable}")
+            - pl.col(f"previousprevious{vote_variable}")
+        ).alias(f"previousdelta{vote_variable}"),
     )
 
     if predict_delta:
-        y = "y_delta"
+        y = f"delta{vote_variable}"
+        y_prev = f"previousdelta{vote_variable}"
     elif predict_perc:
         y = f"percentile{vote_variable}"
+        y_prev = f"previouspercentile{vote_variable}"
     else:
         y = vote_variable
+        y_prev = f"previous{vote_variable}"
 
     data.select(
         # Features
@@ -41,9 +54,9 @@ def get_Xy_pl(
             "distanceparis",
             "dep_num",
             y,
-            f"previous{vote_variable}",
-            f"previousprevious{vote_variable}",
+            y_prev,
         ]
+        + ["codecommune", "dep"]
     )
     data = data.drop_nulls(subset=y)
 
@@ -68,8 +81,9 @@ def get_Xy_pl(
             "Not possible because we don't have enough past elections. Choosing random elections years instead"
         )
 
+    # Change here the splitting logic
     data_train = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") == int(train_year)
+        pl.col("annee") <= int(train_year)
     )
     data_test = data.filter(pl.col("election_type") == election_type).filter(
         pl.col("annee") == int(test_year)
@@ -82,23 +96,6 @@ def get_Xy_pl(
         f"Test election: {test_year}, train election: {train_year}, validation election: {validation_year}"
     )
 
-    # Drop missing values (means the feature is not available)
-    cols_to_drop = list(
-        set(
-            s.name
-            for df in [data_train, data_test, data_validation]
-            for s in df
-            if s.null_count() > 0
-        )
-    )
-    data_train, data_test, data_validation = [
-        df.drop(cols_to_drop) for df in [data_train, data_test, data_validation]
-    ]
-
-    # Assert no null
-    for df in [data_train, data_test, data_validation]:
-        assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
-
     if selected_features is not None:
         features = selected_features
     else:
@@ -106,29 +103,57 @@ def get_Xy_pl(
             "rank": list(cs.expand_selector(data_train, cs.starts_with("F_rank"))),
             "raw": list(cs.expand_selector(data_train, cs.starts_with("F_raw"))),
             "pct_change": list(
-                cs.expand_selector(data_train, cs.starts_with("F_rank"))
+                cs.expand_selector(data_train, cs.starts_with("F_pct_change"))
             ),
             "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
             "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
-            "geo": ["lat", "long"],
-            "previous_vote": set(
-                [f"previous{vote_variable}", f"previousprevious{vote_variable}"]
-            ).intersection(set(data_train.columns)),
+            "geo": ["lat", "long"],  # 'distanceparis'
+            "previous_vote": set([y_prev, f"previous{y_prev}"]).intersection(
+                set(data_train.columns)
+            ),
             "other": ["inscrits", "dep_num"],
         }
         features = [
             col for group in selected_groups for col in feature_groups.get(group, [])
         ]
 
-    X_train, X_val, X_test = (
-        data_train.select(features).to_pandas(),
-        data_test.select(features).to_pandas(),
-        data_validation.select(features).to_pandas(),
-    )
     y_train, y_val, y_test = (
-        data_train.get_column(y).to_pandas(),
-        data_test.get_column(y).to_pandas(),
-        data_validation.get_column(y).to_pandas(),
+        data_train.get_column(y),
+        data_validation.get_column(y),
+        data_test.get_column(y),
+    )
+    y_previous = (
+        data.filter(pl.col("election_type") == election_type)
+        .filter(pl.col("annee") == int(test_year))
+        .get_column(y_prev)
     )
 
-    return X_train, X_val, X_test, y_train, y_val, y_test
+    X_train, X_test, X_val = (
+        data_train.select(features),
+        data_test.select(features),
+        data_validation.select(features),
+    )
+    meta_cols = ["codecommune", "dep", "inscrits"]
+
+    meta_train, meta_test, meta_val = (
+        data_train.select(meta_cols),
+        data_test.select(meta_cols),
+        data_validation.select(meta_cols),
+    )
+
+    # Assert no null
+    # for df in [X_train, X_test, X_val]:
+    #     assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
+
+    return (
+        X_train.to_pandas(),
+        X_val.to_pandas(),
+        X_test.to_pandas(),
+        y_train.to_pandas(),
+        y_val.to_pandas(),
+        y_test.to_pandas(),
+        y_previous.to_pandas(),
+        meta_train.to_pandas(),
+        meta_val.to_pandas(),
+        meta_test.to_pandas(),
+    )

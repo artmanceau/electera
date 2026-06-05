@@ -29,7 +29,6 @@ class ModelEvaluator:
         if extended:
             mape = mean_absolute_percentage_error(y_test, y_pred)
             medae = median_absolute_error(y_test, y_pred)
-            msle = mean_squared_log_error(y_test, y_pred)
             evs = explained_variance_score(y_test, y_pred)
             maxerr = max_error(y_test, y_pred)
             r2 = r2_score(y_test, y_pred)
@@ -42,7 +41,6 @@ class ModelEvaluator:
                 "explained_variance": evs,
                 "max_error": maxerr,
                 "r2": r2,
-                "msle": msle,
                 "predictions": y_pred,
                 "spearman_corr": spearman_corr,
                 "kendall_corr": kendall_corr,
@@ -50,7 +48,7 @@ class ModelEvaluator:
 
             logger.success(
                 f"MAPE: {mape:.4f}, MedAE: {medae:.4f}, EVS: {evs:.4f}, "
-                f"MaxErr: {maxerr:.4f}, R²: {r2:.4f}, MSLE: {evs:.4f}, "
+                f"MaxErr: {maxerr:.4f}, R²: {r2:.4f}"
                 f"Spearman: {spearman_corr:.4f}, Kendall: {kendall_corr:.4F}"
             )
 
