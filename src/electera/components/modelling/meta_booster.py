@@ -145,7 +145,6 @@ class MetaBooster:
         logger.info(
             f"Fit completed. Meta-Booster consist of {len(self.best_models)} models."
         )
-
         # Train an adjusted model f(x_i) = alpha * b_i + beta * p_i + gamma.
         if self.poll_adj:
             preds = self.infer(X, with_adjustment=False)

@@ -1,0 +1,44 @@
+BASE_FEATURES = [
+    "lat", "long", "inscrits", "distanceparis",
+    "F_{metric}_capitalimmobiliercommunes/capitalratio",
+    "F_{metric}_etrangerscommunes/petranger",
+    "F_{metric}_revcommunes/revratio",
+    "F_{metric}_popdepartements/popcom5u",
+    "F_{metric}_agesexcommunes/age",
+    "F_{metric}_agesexcommunes/prop014",
+    "F_{metric}_agesexcommunes/prop1539",
+    "F_{metric}_agesexcommunes/prop4059",
+    "F_{metric}_agesexcommunes/prop60p",
+    "F_{metric}_cspcommunes/pagri",
+    "F_{metric}_cspcommunes/paica",
+    "F_{metric}_cspcommunes/paind",
+    "F_{metric}_cspcommunes/pcadr",
+    "F_{metric}_cspcommunes/pcapi",
+    "F_{metric}_cspcommunes/pempl",
+    "F_{metric}_cspcommunes/pindp",
+    "F_{metric}_cspcommunes/pint",
+    "F_{metric}_cspcommunes/pouem",
+    "F_{metric}_cspcommunes/pouvr",
+    "F_{metric}_cspcommunes/ppint",
+    "F_{metric}_diplomescommunes/pbac",
+    "F_{metric}_diplomescommunes/psup",
+    "F_{metric}_proprietairescommunes/ppropri",
+    "F_{metric}_pibcommunes/pibratio",
+    "F_{metric}_revcommunes/revratiofoy",
+    "F_{metric}_rsacommunes/prsa",
+    "F_{metric}_capitalimmobiliercommunes/prixm2ratio",
+    "F_{metric}_capitalimmobiliercommunes/propappartement",
+    "F_{metric}_naticommunes/pimmigre",
+    "F_{metric}_naticommunes/pnatur",
+    "F_{metric}_basesfiscalescommunes/baseimpotslocauxratio",
+    "F_{metric}_basesfiscalescommunes/recetteimpotslocaux",
+    "F_{metric}_basesfiscalescommunes/recetteimpotslocauxratio",
+    "F_{metric}_basesfiscalescommunes/recetteratio",
+    "F_{metric}_basesfiscalescommunes/tauximpotslocauxratio",
+]
+
+def make_features(metric="pct_change"):
+    return [
+        f.format(metric=metric) if "{metric}" in f else f
+        for f in BASE_FEATURES
+    ]

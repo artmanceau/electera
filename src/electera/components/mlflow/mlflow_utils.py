@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
 from contextlib import contextmanager
 
 
@@ -16,12 +17,12 @@ def mlflow_tracker(enabled: bool, run_name: str | None = None):
         with mlflow.start_run(run_name=run_name) as run:
             yield run
 
-def _log_numeric_metrics(trend: str, values: dict, suffix: str = "") -> None:
+def _log_numeric_metrics(trend: str, values: dict, model_name: str, suffix: str = "") -> None:
         if not isinstance(values, dict):
             return
         for metric_name, metric_value in values.items():
             if isinstance(metric_value, (int, float, np.number)) and np.isfinite(metric_value):
-                mlflow.log_metric(f"{trend}_{metric_name}{suffix}", float(metric_value))
+                mlflow.log_metric(f"{model_name}_{trend}_{metric_name}{suffix}", float(metric_value))
 
 def _map_feature_name(raw_feat: Any, feature_names: list[str]) -> str:
         feat = str(raw_feat)

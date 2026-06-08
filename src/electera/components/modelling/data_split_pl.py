@@ -19,24 +19,39 @@ def get_Xy_pl(
             for col in [
                 f"previous{vote_variable}",
                 f"previousprevious{vote_variable}",
-            ]  # f"previouspercentile{vote_variable}"
+                f"previouspercentile{vote_variable}"
+            ]
         ],
     ).with_columns(
-        (pl.col(vote_variable) - pl.col(f"previous{vote_variable}")).alias(
+        (
+            pl.col(vote_variable) - pl.col(f"previous{vote_variable}")
+        ).alias(
             f"delta{vote_variable}"
+        ),
+        (
+            pl.col(f"percentile{vote_variable}")-pl.col(f"previouspercentile{vote_variable}")
+        ).alias(
+            f"deltapercentile{vote_variable}"
+        ),
+        (
+            pl.lit(0.0)
+        ).alias(
+            f"previousdeltapercentile{vote_variable}"
         ),
         (
             pl.col(f"previous{vote_variable}")
             - pl.col(f"previousprevious{vote_variable}")
-        ).alias(f"previousdelta{vote_variable}"),
+        ).alias(
+            f"previousdelta{vote_variable}"
+        ),
     )
+
+    if predict_perc:
+        vote_variable = f"percentile{vote_variable}"
 
     if predict_delta:
         y = f"delta{vote_variable}"
         y_prev = f"previousdelta{vote_variable}"
-    elif predict_perc:
-        y = f"percentile{vote_variable}"
-        y_prev = f"previouspercentile{vote_variable}"
     else:
         y = vote_variable
         y_prev = f"previous{vote_variable}"
@@ -89,11 +104,11 @@ def get_Xy_pl(
         pl.col("annee") == int(test_year)
     )
     data_validation = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") == int(validation_year)
+        pl.col("annee") <= int(validation_year)
     )
 
     logger.debug(
-        f"Test election: {test_year}, train election: {train_year}, validation election: {validation_year}"
+        f"Test election: {data_test.unique('annee').get_column('annee').to_list()}, train election: {data_train.unique('annee').get_column('annee').to_list()}, validation election: {data_validation.unique('annee').get_column('annee').to_list()}"
     )
 
     if selected_features is not None:

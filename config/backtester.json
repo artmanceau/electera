@@ -3,12 +3,12 @@
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "dataset_path": "derived/processed/data_processed_presidentiel_legislative_municipales_from1800_to2022_20260605_125905.parquet",
     "random_seed": 42,
-    "k_year": [2012, 2017, 2022],
+    "k_year": [2012, 2017, 2022, 2007, 2002, 1995],
     "k_type": ["pres"],
-    "predict_delta": true,
+    "predict_delta": false,
     "predict_percentile": false,
     "organize_vote": true,
     "use_mlflow": true,
-    "models" : ["boosting"],
-    "version" : "0.2.8TESTTEST"
+    "models" : ["meta_boosting"],
+    "version" : "0.3.1"
 }

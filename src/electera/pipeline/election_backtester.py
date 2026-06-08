@@ -22,7 +22,7 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-
+import pickle
 import mlflow
 import mlflow.sklearn
 import numpy as np
@@ -31,7 +31,7 @@ import polars as pl
 from loguru import logger
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-
+from assets.delta_pred_features import make_features
 import electera.components.mlflow.mlflow_utils as mlf_utils
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import (
@@ -54,6 +54,8 @@ from electera.components.utils.read_config import ConfigReader
 
 # TODO:
 # - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
+FEATURES = make_features('rank')
+
 
 S3_SAVE = True
 MODELS = {
@@ -85,19 +87,19 @@ MODEL_ARGS = {
     },
     "meta_boosting": {
         "method": "xgboost",
-        "objective_metric": mean_absolute_error,
-        "weighting": "equiproportional",
-        "features": None,
-        "n_splits_inner": 2,
-        "n_splits_outer": 2,
-        "n_trials": 2,
+        "objective_metric": mean_squared_error,
+        "weighting": "sqrt",
+        "features": FEATURES,
+        "n_splits_inner": 3,
+        "n_splits_outer": 3,
+        "n_trials": 3,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
         "objective_metric": mean_absolute_error,
         "weighting": "proportional",
-        "features": None,
+        "features": FEATURES,
         "n_splits_inner": 2,
         "n_splits_outer": 2,
         "n_trials": 2,
@@ -120,6 +122,7 @@ class BackTester:
         self.results = {}
         self.results_in_sample = {}
         self.baseline_results = {}
+        self.constant_results = {}
         self.features_after_selection = {}
 
         # ML Flow
@@ -166,13 +169,13 @@ class BackTester:
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
                 selected_groups=["pct_change"],
+                selected_features=FEATURES
             )
 
             for name, value in zip(container_names, values):
                 getattr(self, name)[trend] = value
 
             self.feature_names[trend] = self.X_train[trend].columns.tolist()
-            breakpoint()
 
 
     def organize_vote(self, k_year, k_type, k_political_trends, model_name):
@@ -390,7 +393,7 @@ class BackTester:
                     "meta_boosting": lambda: instance_model.train(
                         self.X_train[trend],
                         self.y_train[trend],
-                        use_feature_selection=True,
+                        use_feature_selection=False,
                         val_set=(self.X_val[trend], self.y_val[trend]),
                     ),
                     "meta_boosting_multiple": lambda: instance_model.train_multiple(
@@ -440,6 +443,13 @@ class BackTester:
                 self.baseline_results[model_name] = ModelEvaluator.evaluate(
                     self.y_test[trend], self.y_prev[trend], model_name, extended=True
                 )
+                logger.info(
+                    "Baseline predictions (constant)"
+                )
+                # Adjust to the problem
+                self.constant_results[model_name] = ModelEvaluator.evaluate(
+                    self.y_test[trend], self.y_test[trend] * 0.0 + 0.0, model_name, extended=False
+                )
 
                 # Log metric
                 if self.config.use_mlflow:
@@ -459,13 +469,16 @@ class BackTester:
                         mlflow.log_artifact(csv_path, artifact_path="predictions")
 
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.results[model_name]
+                        trend=trend, values=self.results[model_name], model_name=model_name
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.results_in_sample[model_name]
+                        trend=trend, values=self.results_in_sample[model_name], model_name=model_name
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.baseline_results[model_name]
+                        trend=trend, values=self.baseline_results[model_name], model_name=model_name
+                    )
+                    mlf_utils._log_numeric_metrics(
+                        trend=trend, values=self.constant_results[model_name], model_name=model_name
                     )
 
                     # Log feature list
@@ -534,6 +547,13 @@ class BackTester:
                     sample=self.X_train[trend].sample(5),
                 )
 
+            if self.config.use_mlflow:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    pickle_path = f"{tmpdir}/model.pkl"
+                    with open(pickle_path, "wb") as f:
+                        pickle.dump(self.election_predictor, f, protocol=pickle.HIGHEST_PROTOCOL)
+                    mlflow.log_artifact(pickle_path, artifact_path="model")
+
             if self.config.organize_vote:
                 # 4. Predict
                 X_pred, X_true = self.organize_vote(
@@ -588,7 +608,7 @@ class BackTester:
                 )
 
 
-def main():
+if __name__ == "__main__":
     backtester = BackTester()
     # List
     models = backtester.config.models
@@ -622,7 +642,3 @@ def main():
                         model_args=model_args,
                         model_name=model_name,
                     )
-
-
-if __name__ == "__main__":
-    dataset = main()
