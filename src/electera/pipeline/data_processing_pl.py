@@ -525,6 +525,10 @@ class ElectionDataProcessor:
             lag1_exprs + lag2_exprs
         )
 
+        # Finally remove - PARIS and LYON/MARSEILLE (arrondissement)
+        # See: Annex for why
+        electoral_data.filter(~(pl.col('codecommune').is_in(['75056']+[f'1320{i}' for i in range(1, 9 + 1)] + [f"132{i}" for i in range(10, 16 + 1)]+[f"69328{i}" for i in range(1, 9 + 1)])))
+
         return electoral_data, (catalog, election_code_mapping)
 
     def _process_parquet_file(self, file_path: str, key: str) -> pl.LazyFrame | None:
@@ -619,10 +623,12 @@ class ElectionDataProcessor:
 
     def _augment(self, df, key):
         return df.with_columns(
-            lag=pl.col("raw").shift(1).round(4).over(key, "feature"),
-            rank=(pl.col("raw").rank() / pl.count("raw")).round(4).over(key, "feature"),
-            delta=pl.col("raw").diff(1).round(4).over(key, "feature"),
-            pct_change=pl.col("raw").pct_change(1).round(4).over(key, "feature"),
+            lag=(pl.col("raw").shift(1).round(4)).over(key, "feature", order_by="annee"),
+            rank=(
+                pl.col("raw").rank(descending=True) / pl.col("raw").count()
+            ).round(4).over("feature", "annee"),
+            delta=(pl.col("raw").diff(1).round(4)).over(key, "feature", order_by="annee"),
+            pct_change=(pl.col("raw").pct_change(1).round(4)).over(key, "feature", order_by="annee")
         ).fill_nan(None)
 
     def load_socio_economic_data(self):

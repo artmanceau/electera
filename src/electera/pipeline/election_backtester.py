@@ -54,7 +54,7 @@ from electera.components.utils.read_config import ConfigReader
 
 # TODO:
 # - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
-FEATURES = make_features('rank')
+FEATURES = list(set(make_features('rank')).union(set(make_features('pct_change'))))
 
 
 S3_SAVE = True
@@ -73,16 +73,17 @@ MODEL_ARGS = {
     "boosting": {
         'parameters': {
             'min_child_weight': 50,
-            'max_depth': 6,
-            'objective': 'reg:absoluteerror',
+            'max_depth': 15,
+            'objective': 'reg:squarederror',
             'colsample_bytree': 0.8,
             'colsample_bylevel': 0.8,
             'colsample_bynode': 0.8,
             'learning_rate': 0.001,
             'min_split_loss': 0.5,
-            'gamma': 4,
-            'alpha': 4,
-            'early_stopping_rounds': 50
+            'gamma': 5,
+            'alpha': 5,
+            'lambda': 5,
+            'early_stopping_rounds': 100
         }
     },
     "meta_boosting": {
@@ -90,18 +91,18 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "sqrt",
         "features": FEATURES,
-        "n_splits_inner": 3,
-        "n_splits_outer": 3,
-        "n_trials": 3,
+        "n_splits_inner": 4,
+        "n_splits_outer": 4,
+        "n_trials": 4,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
-        "objective_metric": mean_absolute_error,
+        "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": FEATURES,
         "n_splits_inner": 2,
-        "n_splits_outer": 2,
+        "n_splits_outer": 10,
         "n_trials": 2,
         "ponderation": [0.7, 0.3],
     },
@@ -174,7 +175,7 @@ class BackTester:
 
             for name, value in zip(container_names, values):
                 getattr(self, name)[trend] = value
-
+            
             self.feature_names[trend] = self.X_train[trend].columns.tolist()
 
 
@@ -469,16 +470,16 @@ class BackTester:
                         mlflow.log_artifact(csv_path, artifact_path="predictions")
 
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.results[model_name], model_name=model_name
+                        trend=trend, values=self.results[model_name], model_name=model_name, suffix='ML'
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.results_in_sample[model_name], model_name=model_name
+                        trend=trend, values=self.results_in_sample[model_name], model_name=model_name, suffix='in_sample'
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.baseline_results[model_name], model_name=model_name
+                        trend=trend, values=self.baseline_results[model_name], model_name=model_name, suffix='baseline_previous'
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.constant_results[model_name], model_name=model_name
+                        trend=trend, values=self.constant_results[model_name], model_name=model_name, suffix='baseline_random'
                     )
 
                     # Log feature list
@@ -537,6 +538,15 @@ class BackTester:
                                     str(plot_path),
                                     artifact_path=f"feature_importance/plots/{trend}",
                                 )
+
+                                importance_df = pd.DataFrame(model_importance).reset_index()
+                                importance_path = Path(tmpdir) / f"{trend}_{model_key}_importance.csv"
+                                importance_df.to_csv(importance_path, index=False)
+
+                                mlflow.log_artifact(
+                                    str(importance_path),
+                                    artifact_path=f"feature_importance/data/{trend}",
+                                )           
 
                 self.election_predictor.add_model(
                     trend, instance_model, features=self.feature_names[trend]
@@ -620,7 +630,6 @@ if __name__ == "__main__":
     data = DataLoader.load_dataset(
         backtester.config.data_path + backtester.config.dataset_path, engine="polars"
     )
-
     for model_name in models:
         logger.info(f"Model: {model_name}")
         model, model_args = (

@@ -22,7 +22,7 @@ def _log_numeric_metrics(trend: str, values: dict, model_name: str, suffix: str 
             return
         for metric_name, metric_value in values.items():
             if isinstance(metric_value, (int, float, np.number)) and np.isfinite(metric_value):
-                mlflow.log_metric(f"{model_name}_{trend}_{metric_name}{suffix}", float(metric_value))
+                mlflow.log_metric(f"{model_name}_{trend}_{metric_name}_{suffix}", float(metric_value))
 
 def _map_feature_name(raw_feat: Any, feature_names: list[str]) -> str:
         feat = str(raw_feat)

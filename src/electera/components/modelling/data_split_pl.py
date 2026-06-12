@@ -81,31 +81,35 @@ def get_Xy_pl(
     # Assert no inf
     assert data.select(pl.sum_horizontal(cs.float().is_infinite())).sum().item() == 0
 
-    available_years = sorted(
-        data.filter(pl.col("election_type") == election_type)
-        .unique("annee")
-        .get_column("annee")
-        .to_list()
-    )
+    # available_years = sorted(
+    #     data.filter(pl.col("election_type") == election_type)
+    #     .unique("annee")
+    #     .get_column("annee")
+    #     .to_list()
+    # )
     test_year = year
-    x = available_years.index(test_year)
-    train_year, validation_year = available_years[x - 1], available_years[x - 2]
+    #x = available_years.index(test_year)
+    #train_year, validation_year = available_years[x - 1], available_years[x - 2]
 
-    if x < 2:
-        logger.warning(
-            "Not possible because we don't have enough past elections. Choosing random elections years instead"
-        )
+    # if x < 2:
+    #     logger.warning(
+    #         "Not possible because we don't have enough past elections. Choosing random elections years instead"
+    #     )
 
     # Change here the splitting logic
     data_train = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") <= int(train_year)
+        pl.col("annee") < int(test_year)
+    ).filter(
+        pl.col('annee') >= int(test_year) - 15
     )
     data_test = data.filter(pl.col("election_type") == election_type).filter(
         pl.col("annee") == int(test_year)
     )
     data_validation = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") <= int(validation_year)
+        pl.col("annee") < int(test_year)
     )
+
+    assert len(data_train) > 0
 
     logger.debug(
         f"Test election: {data_test.unique('annee').get_column('annee').to_list()}, train election: {data_train.unique('annee').get_column('annee').to_list()}, validation election: {data_validation.unique('annee').get_column('annee').to_list()}"
