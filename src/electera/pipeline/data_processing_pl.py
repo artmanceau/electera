@@ -625,7 +625,7 @@ class ElectionDataProcessor:
         return df.with_columns(
             lag=(pl.col("raw").shift(1).round(4)).over(key, "feature", order_by="annee"),
             rank=(
-                pl.col("raw").rank(descending=True) / pl.col("raw").count()
+                pl.col("raw").rank(descending=False) / pl.col("raw").count()
             ).round(4).over("feature", "annee"),
             delta=(pl.col("raw").diff(1).round(4)).over(key, "feature", order_by="annee"),
             pct_change=(pl.col("raw").pct_change(1).round(4)).over(key, "feature", order_by="annee")

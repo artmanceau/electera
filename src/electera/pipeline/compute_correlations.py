@@ -147,6 +147,7 @@ def main(var, electoral_data, commune_data):
             "long",
         )
     )
+
     assert (
         X.select(
             pl.col("tau").null_count().alias("null_count"),
@@ -208,12 +209,12 @@ def main(var, electoral_data, commune_data):
             ).join(bin_edges, on="N_bin_index", how="left")
         )
 
+    # Compute the mean tau by bin for each election
     X_binned = (
         pl.concat(results)
         .with_columns(m=pl.col("tau").mean().over("election_code", "N_bin_index"))
         .with_columns(tau_minus_m=pl.col("tau") - pl.col("m"))
     )
-    # Compute the mean tau by bin for each election
 
     # Distances
     df = (
