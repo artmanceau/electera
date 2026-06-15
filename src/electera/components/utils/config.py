@@ -87,47 +87,30 @@ class TrainModelsConfig(BaseModel):
 
     # Target
     vote_variable: Literal[
-        "ppar",
-        "ppar",
-        "pvoteG",
-        "pvoteC",
-        "pvoteD",
-        "pvoteCG",
-        "pvoteCD",
-        "pvoteTG",
-        "pvoteTD",
-        "pvoteGCG",
-        "pvoteDCD",
+        "par",
+        "G",
+        "C",
+        "D",
+        "CG",
+        "CD",
+        "TG",
+        "TD",
+        "GCG",
+        "DCD",
     ] = Field(default="ppar", description="Model for this variable (target)")
 
     # Data
     dataset_path: str = Field(description="Path to the dataset file (local or S3)")
-    remove_previous_features: bool = Field(
-        default=False, description="Whether to remove previous election target"
-    )
-
-    # Split
-    split_method: str = Field(
-        default="shuffle", description="Method for splitting the data"
-    )
 
     predict_delta: bool = Field(
         default=False,
         description="Predict the delta in vote statistics with previous or vote statistics",
     )
 
-    val_size: float = Field(
-        default=0.2,
-        ge=0.0,
-        le=1.0,
-        description="Proportion of data to use for validation",
+    predict_perc: bool = Field(
+        default=False,
+        description="Predict the delta in vote statistics with previous or vote statistics",
     )
-    test_size: float = Field(
-        default=0.2, ge=0.0, le=1.0, description="Proportion of data to use for testing"
-    )
-
-    # Random seed
-    random_state: int = Field(default=42, description="Random seed for reproducibility")
 
     # Parameters tuning
     param_search_methods: List[str] = Field(
@@ -145,7 +128,7 @@ class TrainModelsConfig(BaseModel):
 
     # MLFlow
     use_MLFlow: bool = Field(
-        default=False, description="Whether to use MLFlow for experiment tracking"
+        default=True, description="Whether to use MLFlow for experiment tracking"
     )
 
     # Models

@@ -202,7 +202,7 @@ class MetaBooster:
             return preds
 
     def feature_selection(
-        self, X, y, threshold=0.95, method="permuation", nb_feature=45
+        self, X, y, threshold=0.95, method="permuation", nb_feature=30
     ):
         logger.info(
             f"Performing feature selection. Method: {method}. Number of features: {nb_feature}"

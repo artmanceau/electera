@@ -1,5 +1,5 @@
 BASE_FEATURES = [
-    "lat", "long", "inscrits", "distanceparis",
+    "lat", "long", "inscrits", "distanceparis", 'dep_num',
     "F_raw_popcommunesvbbm/vbbm",
     "F_raw_popcommunesvbbm/vbbmpauvresriches",
     "F_{metric}_pibdepartements/pib",

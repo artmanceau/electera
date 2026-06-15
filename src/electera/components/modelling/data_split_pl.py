@@ -1,6 +1,39 @@
 import polars as pl
 import polars.selectors as cs
 from loguru import logger
+from sklearn.model_selection import train_test_split
+
+
+def split_method(data, way='random', election_type=None, test_year=None, train_year=None, validation_year=None):
+    if way == 'time-serie-cv':
+        data_train = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") < int(test_year)
+        )
+        data_test = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") == int(test_year)
+        )
+        data_validation = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") < int(test_year)
+        )
+    elif way == 'last-only':
+        data_train = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") == int(train_year)
+        )
+        data_test = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") == int(test_year)
+        )
+        data_validation = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") < int(validation_year)
+        )
+    elif way == 'random':
+        data_train_val, data_test = train_test_split(
+            data, test_size=0.33, random_state=42, shuffle=True)
+        data_train, data_validation = train_test_split(
+            data_train_val, test_size=0.33, random_state=42, shuffle=True)
+    else:
+        logger.error('Split method not implemented, no splits implemented')
+        data_train, data_test, data_validation = data, data, data
+    return data_train, data_test, data_validation
 
 
 def get_Xy_pl(
@@ -10,12 +43,12 @@ def get_Xy_pl(
     election_type,
     predict_delta=False,
     predict_perc=False,
-    selected_groups=["raw", "rank", "delta", "geo", "previous_vote", "other"],
+    selected_groups=["raw", "rank", "delta", "geo", "previous_vote", "other", 'meta'],
     selected_features=None,
 ):
     data = data.with_columns(
         [
-            pl.col(col).fill_null(pl.col(col).mean().over("dep"))
+            pl.col(col).fill_null(pl.col(col).mean().over("dep", 'annee'))
             for col in [
                 f"previous{vote_variable}",
                 f"previousprevious{vote_variable}",
@@ -81,33 +114,22 @@ def get_Xy_pl(
     # Assert no inf
     assert data.select(pl.sum_horizontal(cs.float().is_infinite())).sum().item() == 0
 
-    # available_years = sorted(
-    #     data.filter(pl.col("election_type") == election_type)
-    #     .unique("annee")
-    #     .get_column("annee")
-    #     .to_list()
-    # )
+    available_years = sorted(
+         data.filter(pl.col("election_type") == election_type)
+         .unique("annee")
+         .get_column("annee")
+         .to_list()
+    )
     test_year = year
-    #x = available_years.index(test_year)
-    #train_year, validation_year = available_years[x - 1], available_years[x - 2]
+    x = available_years.index(test_year)
+    train_year, validation_year = available_years[x - 1], available_years[x - 2]
 
     # if x < 2:
     #     logger.warning(
     #         "Not possible because we don't have enough past elections. Choosing random elections years instead"
     #     )
 
-    # Change here the splitting logic
-    data_train = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") < int(test_year)
-    ).filter(
-        pl.col('annee') >= int(test_year) - 15
-    )
-    data_test = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") == int(test_year)
-    )
-    data_validation = data.filter(pl.col("election_type") == election_type).filter(
-        pl.col("annee") < int(test_year)
-    )
+    data_train, data_test, data_validation = split_method(data, way='random', election_type=election_type, test_year=test_year, train_year=train_year, validation_year=validation_year)
 
     assert len(data_train) > 0
 
@@ -131,6 +153,7 @@ def get_Xy_pl(
                 set(data_train.columns)
             ),
             "other": ["inscrits", "dep_num"],
+            "meta": ['annee', 'election_type']
         }
         features = [
             col for group in selected_groups for col in feature_groups.get(group, [])
@@ -142,9 +165,7 @@ def get_Xy_pl(
         data_test.get_column(y),
     )
     y_previous = (
-        data.filter(pl.col("election_type") == election_type)
-        .filter(pl.col("annee") == int(test_year))
-        .get_column(y_prev)
+        data_test.get_column(y_prev)
     )
 
     X_train, X_test, X_val = (

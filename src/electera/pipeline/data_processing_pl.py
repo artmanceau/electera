@@ -45,11 +45,11 @@ class ElectionDataProcessor:
     """
 
     vote = ["inscrits", "votants", "exprimes", "abstentions", "blancsnuls"]
-    pvote = ["pvotepar", "pvoteabs", "pvoteblancsnuls"]
+    pvote = ["pvotepar", "pvoteabs", "pvoteblancsnuls", 'pvoteexpr']
 
     # T2
     voteT2 = ["inscritsT2", "votantsT1", "exprimesT2", "abstentionsT2", "blancsnulsT2"]
-    pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2"]
+    pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2", 'pvoteexprT2']
 
     tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD"]
     tendances_column_vote = [f"vote{tendance}" for tendance in tendances]
@@ -68,6 +68,9 @@ class ElectionDataProcessor:
 
     def percentile(self, cols):
         return [f"percentile{col}" for col in cols]
+
+    def tau(self, cols):
+        return [col.replace('pvote', 'pvotetau') for col in cols]
 
     # For T1 (politiques)
     # For ref : include OUI/NON (other dataset because the checks will be different)
@@ -452,6 +455,7 @@ class ElectionDataProcessor:
                 pvotepar=pl.col("votants") / pl.col("inscrits"),
                 abstentions=pl.col("inscrits") - pl.col("votants"),
                 blancsnuls=pl.col("votants") - pl.col("exprimes_"),
+                pvoteexpr=pl.col('exprimes_') / pl.col("inscrits"),
                 pvoteG=pl.col("voteG") / pl.col("exprimes_"),
                 pvoteCG=pl.col("voteCG") / pl.col("exprimes_"),
                 pvoteC=pl.col("voteC") / pl.col("exprimes_"),
@@ -488,6 +492,30 @@ class ElectionDataProcessor:
             == 0
         )
 
+        # Logit
+        tau_expr = [
+            pl.when(pl.col("exprimes") == 0)
+            .then(None)
+            .when(pl.col(c) == 1.0)
+            .then((pl.col("exprimes") - 0.5) / pl.col("exprimes"))
+            .when(pl.col(c) == 0.0)
+            .then(0.5 / pl.col("exprimes"))
+            .otherwise(pl.col(c))
+            .pipe(lambda e: (e / (1 - e)).log())
+            .alias(c.replace("pvote", "pvotetau"))
+            for c in self.tendances_column_pvote
+        ] + [
+            pl.when(pl.col("inscrits") == 0)
+            .then(None)
+            .when(pl.col('pvotepar') == 1.0)
+            .then((pl.col("inscrits") - 0.5) / pl.col('inscrits'))
+            .when(pl.col('pvotepar') == 0.0)
+            .then(0.5 / pl.col("inscrits"))
+            .otherwise(pl.col('pvotepar'))
+            .pipe(lambda e: (e / (1 - e)).log())
+            .alias('pvotetaupar')
+        ]
+
         # Adding ranks
         rank_expr = [
             (pl.col(c).rank() / pl.count(c))
@@ -508,6 +536,7 @@ class ElectionDataProcessor:
             + self.vote
             + self.tendances_column_vote
             + self.percentile(self.tendances_column_pvote + ["pvotepar"])
+            + self.tau(self.tendances_column_pvote + ["pvotepar"])
         ]
 
         lag2_exprs = [
@@ -519,9 +548,14 @@ class ElectionDataProcessor:
             + self.pvote
             + self.vote
             + self.tendances_column_vote
+            + self.tau(self.tendances_column_pvote + ["pvotepar"])
         ]
 
-        electoral_data = electoral_data.with_columns(rank_expr).with_columns(
+        electoral_data = electoral_data.with_columns(
+            rank_expr
+        ).with_columns(
+            tau_expr
+        ).with_columns(
             lag1_exprs + lag2_exprs
         )
 
@@ -1184,14 +1218,14 @@ class ElectionDataProcessor:
 
         dataset = dataset.drop(cols_dropped)
 
-        # Remaining missing values are imputed with the departemental mean,
+        # Remaining missing values are imputed with the departemental mean (in the same year),
         # and if not the average for the whole country
         features = self.find_features(dataset, meta_cols)
         dataset = dataset.with_columns(
             [
                 pl.col(c)
-                .fill_null(pl.col(c).mean().over("dep"))
-                .fill_null(pl.col(c).mean())  # Fallback to all
+                .fill_null(pl.col(c).mean().over("dep", 'annee'))
+                .fill_null(pl.col(c).mean().over('annee'))  # Fallback to all
                 .alias(c)
                 for c in features + ["lat", "long"]
             ]

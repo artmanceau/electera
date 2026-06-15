@@ -18,7 +18,7 @@ from sklearn.metrics import mean_squared_error
 from electera.components.data_processing.data_loader import DataLoader
 from electera.components.modelling.benchmark_models import BenchmarkModels
 from electera.components.modelling.boosting.boosting import BoostingModel
-from electera.components.modelling.data_split import Splitter
+from electera.components.modelling.data_split_pl import get_Xy_pl
 from electera.components.modelling.evaluation import ModelEvaluator
 from electera.components.modelling.meta_booster import (
     MetaBooster,
@@ -26,9 +26,7 @@ from electera.components.modelling.meta_booster import (
 )
 from electera.components.utils.config import TrainModelsConfig
 from electera.components.utils.read_config import ConfigReader
-
-# Try some other targert encoding / year, type encoding...
-# Revoir le storage des modèles et effectuer un lineage direct avec le backtester
+from assets.delta_pred_features import make_features
 
 
 class ElectionModelTrainer:
@@ -58,39 +56,35 @@ class ElectionModelTrainer:
         """Prepare training and testing data"""
         logger.info("Preparing data splits...")
 
-        # Split target and features.
-        # Remove index key codecommune
-        splitter = Splitter(self.var)
-        X, y, y_split = splitter.get_Xy(data)
-        self.X_train, self.X_val, self.X_test, self.y_train, self.y_val, self.y_test = (
-            splitter.split(
-                X,
-                y_split,
-                split_method=self.config.split_method,
-                test_size=self.config.test_size,
-                val_size=self.config.val_size,
-                random_seed=self.config.random_state,
-            )
+        container_names = (
+            "X_train",
+            "X_val",
+            "X_test",
+            "y_train",
+            "y_val",
+            "y_test",
+            "y_prev",
+            "meta_train",
+            "meta_val",
+            "meta_test",
         )
 
-        # Get y_prev from self.vote_variableprevious
-        if f"pvoteprevious{self.var}" in X.columns:
-            if self.config.predict_delta:
-                self.y_prev = pd.Series(0.0, index=self.X_test.index)
-            else:
-                self.y_prev = self.X_test[f"pvoteprevious{self.var}"]
+        # Reset feature names for this run
+        self.feature_names = {}
 
-        if self.config.remove_previous_features:
-            self.X_train = splitter.remove_previous_features(self.X_train)
-            self.X_val = splitter.remove_previous_features(self.X_val)
-            self.X_test = splitter.remove_previous_features(self.X_test)
-
-        # Clean the list of features for the three datasets
-        self.X_train, self.X_val, self.X_test = splitter.clean_features_list(
-            self.X_train, self.X_val, self.X_test
+        values = get_Xy_pl(
+                data,
+                vote_variable=f"pvote{self.var}",
+                year=2022,
+                election_type="presidentiel",
+                predict_delta=self.config.predict_delta,
+                predict_perc=self.config.predict_perc,
         )
 
-        self.feature_names = list(self.X_train.columns)
+        for name, value in zip(container_names, values):
+            setattr(self, name, value)
+
+        self.feature_names = self.X_train.columns.tolist()
 
         logger.info(
             f"Data prepared: Train {self.X_train.shape}, Test {self.X_test.shape}"
@@ -220,7 +214,7 @@ def main():
     trainer = ElectionModelTrainer()
 
     # Load dataset (after running the data preprocessing pipeline)
-    data = DataLoader.load_dataset(trainer.config.dataset_path)
+    data = DataLoader.load_dataset(trainer.config.dataset_path, engine='polars')
 
     # Process data
     trainer.data_processing(data)
@@ -229,14 +223,14 @@ def main():
     if "trivial_1" in trainer.config.models:
         y_1 = BenchmarkModels.train_trivial_1(trainer.y_prev, trainer.y_test)
         trainer.results["trivial_previous"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_1, "trivial_previous"
+            trainer.y_test, y_1, "trivial_previous", extended=True
         )
 
     # Trivial model 2 : mean
     if "trivial_2" in trainer.config.models:
         y_2 = BenchmarkModels.train_trivial_2(trainer.y_train, trainer.X_test)
         trainer.results["trivial_mean"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_2, "trivial_mean"
+            trainer.y_test, y_2, "trivial_mean", extended=True
         )
 
     # Linear model 1 : Linear model
@@ -248,7 +242,7 @@ def main():
             linear_model=LinearRegression,
         )
         trainer.results["linear_regression"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_3, "linear_regression"
+            trainer.y_test, y_3, "linear_regression", extended=True
         )
 
     # Linear model 2 : Elastic net
@@ -257,7 +251,7 @@ def main():
             trainer.X_train, trainer.y_train, trainer.X_test, linear_model=ElasticNetCV
         )
         trainer.results["elastic_net_regression"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_3, "elastic_net_regression"
+            trainer.y_test, y_3, "elastic_net_regression", extended=True
         )
 
     if "boosting" in trainer.config.models:
@@ -305,7 +299,7 @@ def main():
 
                     # 4. Evaluate
                     trainer.results[model_name] = ModelEvaluator.evaluate(
-                        trainer.y_test, boosting_model.infer(trainer.X_test), model_name
+                        trainer.y_test, boosting_model.infer(trainer.X_test), model_name, extended=True
                     )
 
     if "meta_boosting" in trainer.config.models:
@@ -333,6 +327,7 @@ def main():
                     trainer.y_test,
                     y_pred,
                     f"meta_booster_{method}_featselect:{feature_selection_method}",
+                    extended=True
                 )
 
     if "meta_boosting_multiple" in trainer.config.models:
@@ -363,6 +358,7 @@ def main():
                     trainer.y_test,
                     y_pred,
                     f"meta_booster_multiple_{method}_featselect:{feature_selection_method}",
+                    extended=True
                 )
 
     # Compare models

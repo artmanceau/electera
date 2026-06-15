@@ -107,22 +107,14 @@ def run_all_multiprocessing(
 
 
 def main(var, electoral_data, commune_data):
-    if var in ["pvoteTD", "pvoteTG"]:
-        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.5))
-    elif var in ["pvoteGCG", "pvoteDCD"]:
-        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.33))
-    elif var in ["pvoteD", "pvoteG", "pvoteCG", "pvoteCD", "pvoteC"]:
-        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.2))
-    else:
-        electoral_data = electoral_data.with_columns(pl.col(var).fill_null(0.0))
-
+    filtering_cols = 'inscrits' if var == 'pvotepar' else 'exprimes'
     X = (
-        electoral_data.filter(pl.col("inscrits") > 0)
+        electoral_data.drop_nulls(var).filter(pl.col(filtering_cols) > 0)
         .with_columns(
             p_alpha=pl.when(pl.col(var) == 1.0)
-            .then((pl.col("inscrits") - 0.5) / pl.col("inscrits"))
+            .then((pl.col(filtering_cols) - 0.5) / pl.col(filtering_cols))
             .when(pl.col(var) == 0.0)
-            .then(0.5 / pl.col("inscrits"))
+            .then(0.5 / pl.col(filtering_cols))
             .otherwise(pl.col(var))
         )
         .with_columns(tau=(pl.col("p_alpha") / (1 - pl.col("p_alpha"))).log())
