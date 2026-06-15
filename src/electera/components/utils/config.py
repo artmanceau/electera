@@ -86,18 +86,7 @@ class TrainModelsConfig(BaseModel):
     """Configuration class for the model training pipeline."""
 
     # Target
-    vote_variable: Literal[
-        "par",
-        "G",
-        "C",
-        "D",
-        "CG",
-        "CD",
-        "TG",
-        "TD",
-        "GCG",
-        "DCD",
-    ] = Field(default="ppar", description="Model for this variable (target)")
+    vote_variable: str = Field(default="par", description="Model for this variable (target)")
 
     # Data
     dataset_path: str = Field(description="Path to the dataset file (local or S3)")

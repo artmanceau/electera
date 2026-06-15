@@ -713,6 +713,9 @@ class ElectionDataProcessor:
                         # Build year grids and fill gaps (linear interpolation)
                         df = self._build_year_grids(df, key)
 
+                        # Projections
+                        breakpoint()
+
                         # Augmentations
                         df = self._augment(df, key)
 
@@ -754,7 +757,9 @@ class ElectionDataProcessor:
                             ]
                         )
                         df = df.collect()
-
+                        
+                        # df.unique('feature').write_csv(f'debug/{file}.csv')
+                        
                         assert (
                             df.select(cs.float().is_nan().sum()).sum_horizontal().item()
                             == 0
@@ -1161,6 +1166,9 @@ class ElectionDataProcessor:
             + self.previous(all_votes)
             + self.previous(self.percentile(self.tendances_column_pvote + ["pvotepar"]))
             + self.previousprevious(all_votes)
+            + self.tau(self.tendances_column_pvote + ["pvotepar"])
+            + self.previous(self.tau(self.tendances_column_pvote + ["pvotepar"]))
+            + self.previousprevious(self.tau(self.tendances_column_pvote + ["pvotepar"]))
         )
 
         election_results = electoral_data.filter(
@@ -1182,7 +1190,6 @@ class ElectionDataProcessor:
             on="codecommune",
             how="left",
         )
-
         year = int(election_code[-4:])
         X = self.get_features_for_years(
             socio_economic_data_communes,

@@ -32,7 +32,7 @@ BOOSTING_PARAM = {
     "xgboost": lambda trial: {
         "max_depth": trial.suggest_int("max_depth", 3, 20),
         "learning_rate": trial.suggest_float("learning_rate", 0.0001, 1.0),
-        "n_estimators": trial.suggest_int("n_estimators", 100, 10000),
+        "n_estimators": trial.suggest_int("n_estimators", 100, 5000),
         "subsample": trial.suggest_float("subsample", 0.5, 0.9),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 0.9),
         "colsample_bynode": trial.suggest_float("colsample_bynode", 0.5, 0.9),

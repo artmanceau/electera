@@ -282,7 +282,7 @@ class BackTester:
             for trend in k_political_trends:
                 if trend != "par":
                     letter = trend.replace("vote", "")
-                    result_synthetic.loc["p" + trend, f"{k_year}_{k_type}_poll"] = (
+                    result_synthetic.loc["pvote" + trend, f"{k_year}_{k_type}_poll"] = (
                         round(poll_results[letter], 2)
                     )
         else:

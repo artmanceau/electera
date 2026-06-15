@@ -14,13 +14,13 @@ from xgboost import XGBRegressor
 BASE_PARAMS = {
     "xgboost": {
         "subsample": 0.75,  # the ratio of the training instances used
-        "n_estimators": 2000,
+        "n_estimators": 100,
         "min_child_weight": 250,  # the minimum sum of instance weight needed in a leaf
         "max_depth": 15,
         "colsample_bytree": 0.8,  # the ratio of features used by tree
         "colsample_bylevel": 0.8,  # the ratio of features used by level
         "colsample_bynode": 0.8,  # the ratio of features used by node
-        "learning_rate": 0.001,  # the learning rate of our GBM
+        "learning_rate": 0.1,  # the learning rate of our GBM
         # (i.e. how much we update our prediction with each successive tree)
         "min_split_loss": 0.5,  # the minimum loss reduction required to make a further split
         "early_stopping_rounds": 150,

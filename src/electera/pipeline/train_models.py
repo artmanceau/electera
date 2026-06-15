@@ -7,7 +7,10 @@ This module handles model training, evaluation, and comparison for the election 
 import argparse
 import re
 from datetime import datetime
-
+import tempfile
+import shutil
+import os
+import numpy as np
 import mlflow
 import mlflow.sklearn
 import pandas as pd
@@ -27,6 +30,8 @@ from electera.components.modelling.meta_booster import (
 from electera.components.utils.config import TrainModelsConfig
 from electera.components.utils.read_config import ConfigReader
 from assets.delta_pred_features import make_features
+
+FEATURES = list(set(make_features('rank')).union(set(make_features('pct_change'))))
 
 
 class ElectionModelTrainer:
@@ -79,6 +84,8 @@ class ElectionModelTrainer:
                 election_type="presidentiel",
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_perc,
+                selected_groups=['rank', 'pct_change', 'other', 'meta', 'geo', 'previous'],
+                selected_features=FEATURES
         )
 
         for name, value in zip(container_names, values):
@@ -116,95 +123,113 @@ class ElectionModelTrainer:
 
         return comparison_df
 
-    def save_results(self, experiment_name=None, sample_size=10):
-        """Save all model results using MLflow"""
+    def save_results(self, experiment_name=None):
+        """Save all model results and artifacts to MLflow."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if experiment_name is None:
             experiment_name = f"pipeline_train_models_{timestamp}"
 
+        mlflow.set_experiment(experiment_name)
+        logger.info(f"Starting MLflow experiment: {experiment_name}")
+
+        with mlflow.start_run():
+            # Log config
+            if hasattr(self, "config") and self.config is not None:
+                for key, value in self.config.model_dump().items():
+                    param_value = str(value)[:500]
+                    mlflow.log_param(f"config_{key}", param_value)
+
+            # Log each model with type-specific artifacts
+            for model_name, model in self.models.items():
+                self._log_model_to_mlflow(model_name, model)
+
+            # Log global metadata
+            mlflow.log_param("timestamp", timestamp)
+            mlflow.log_param("num_models", len(self.models))
+            mlflow.set_tag("experiment_type", "model_training")
+            mlflow.set_tag("framework", "scikit-learn")
+
+            run_id = mlflow.active_run().info.run_id
+            logger.info(f"Results logged to MLflow run: {run_id}")
+
+    def _log_model_to_mlflow(self, model_name: str, model) -> None:
+        """Log individual model with type-specific artifacts."""
+        model_name_safe = re.sub(r"[:\s]", "_", model_name)
+        model_results = self.results.get(model_name, {})
+        input_example = self.input_examples.get(model_name)
+
+        # Ensure input_example is 2D
+        if input_example is not None and hasattr(input_example, "ndim"):
+            if input_example.ndim == 1:
+                input_example = input_example.reshape(1, -1)
+
+        mlflow.sklearn.log_model(
+            model,
+            name=model_name_safe,
+            registered_model_name=model_name_safe,
+            input_example=input_example,
+        )
+
+        for metric_name, metric_value in model_results.items():
+            if metric_name == "predictions":
+                continue
+            if isinstance(metric_value, (int, float)):
+                mlflow.log_metric(metric_name, float(metric_value))
+            else:
+                mlflow.log_param(f"param_{metric_name}", str(metric_value)[:500])
+
+        self._log_model_artifacts(model_name_safe, model, model_results)
+        logger.info(f"Successfully logged model: {model_name}")
+
+    def _log_model_artifacts(self, model_name_safe: str, model, model_results: dict) -> None:
+        """Log type-specific artifacts (feature importance, coefficients, etc.)."""
+        artifacts_dir = tempfile.mkdtemp()
         try:
-            # Set experiment
-            mlflow.set_experiment(experiment_name)
-            logger.info(f"Starting MLflow experiment: {experiment_name}")
+            if hasattr(model, "feature_importances_"):
+                importance_df = pd.DataFrame({
+                    "feature": model.feature_names_in_,
+                    "importance": model.feature_importances_,
+                }).sort_values("importance", ascending=False)
+                importance_path = os.path.join(artifacts_dir, "feature_importance.csv")
+                importance_df.to_csv(importance_path, index=False)
+                mlflow.log_artifact(importance_path, artifact_path=f"{model_name_safe}/artifacts")
 
-            with mlflow.start_run():
-                # Log config as parameters and artifact
-                if hasattr(self, "config") and self.config is not None:
-                    logger.info("Logging configuration")
+            if hasattr(model, "get_booster"):
+                try:
+                    booster = model.get_booster()
+                    for importance_type in ["weight", "gain", "cover", "total_gain", "total_cover"]:
+                        importance_dict = booster.get_score(importance_type=importance_type)
+                        if importance_dict:
+                            total_importance = sum(importance_dict.values())
+                            importance_data = [
+                                {"feature": feat, "importance": score, "importance_pct": (score / total_importance * 100) if total_importance > 0 else 0,}
+                                for feat, score in importance_dict.items()
+                            ]
+                            importance_df = pd.DataFrame(importance_data).sort_values("importance", ascending=False)
+                            importance_path = os.path.join(artifacts_dir, f"feature_importance_{importance_type}.csv")
+                            importance_df.to_csv(importance_path, index=False)
+                            mlflow.log_artifact(importance_path, artifact_path=f"{model_name_safe}/artifacts")
+                except Exception as e:
+                    logger.warning(f"Could not extract booster importances for {model_name_safe}: {e}")
 
-                    # Log individual config parameters
-                    for key, value in self.config.items():
-                        try:
-                            # MLflow parameters must be strings and <= 500 chars
-                            param_value = (
-                                str(value)[:500]
-                                if len(str(value)) > 500
-                                else str(value)
-                            )
-                            mlflow.log_param(f"config_{key}", param_value)
-                        except Exception as e:
-                            logger.warning(f"Could not log config parameter {key}: {e}")
+            if hasattr(model, "coef_"):
+                coef_df = pd.DataFrame({
+                    "feature": self.feature_names,
+                    "coefficient": model.coef_,
+                }).sort_values("coefficient", key=abs, ascending=False)
+                coef_path = os.path.join(artifacts_dir, "coefficients.csv")
+                coef_df.to_csv(coef_path, index=False)
+                mlflow.log_artifact(coef_path, artifact_path=f"{model_name_safe}/artifacts")
 
-                else:
-                    logger.warning("No config available to log")
-
-                # Log trained models and their results
-                logger.info(f"Logging {len(self.models)} trained models")
-                for model_name, model in self.models.items():
-                    model_name_ = re.sub(":", "_", model_name)
-                    mlflow.sklearn.log_model(
-                        model,
-                        f"{model_name_}",
-                        registered_model_name=f"{model_name_}",
-                        input_example=self.input_examples[model_name],
-                    )
-                    logger.info(f"Successfully logged model: {model_name_}")
-
-                    # Log individual model results as metrics
-                    if (
-                        hasattr(self, "results")
-                        and self.results is not None
-                        and model_name in self.results
-                    ):
-                        model_results = self.results[model_name]
-                        logger.info(f"Logging results for model: {model_name}")
-
-                        # Log metrics if they exist
-                        for metric_name, metric_value in model_results.items():
-                            try:
-                                metric_name = metric_name.split("_").pop()
-                                # Only log numeric values as metrics
-                                if isinstance(metric_value, (int, float)):
-                                    mlflow.set_tag("model_name", model_name)
-                                    mlflow.log_metric(metric_name, metric_value)
-                                else:
-                                    # Log non-numeric as parameters (converted to string)
-                                    mlflow.log_param(
-                                        metric_name,
-                                        str(metric_value),
-                                    )
-                            except Exception as e:
-                                logger.warning(
-                                    f"Could not log {metric_name} for {model_name}: {e}"
-                                )
-
-                        logger.info(
-                            f"Successfully logged results for model: {model_name}"
-                        )
-                    else:
-                        logger.warning(f"No results found for model: {model_name}")
-
-                # Log additional parameters/tags
-                mlflow.log_param("timestamp", timestamp)
-                mlflow.log_param("num_models", len(self.models))
-                mlflow.set_tag("experiment_type", "model_training")
-
-                run_id = mlflow.active_run().info.run_id
-                logger.info(f"Results logged to MLflow run: {run_id}")
-
-        except Exception as e:
-            logger.error(f"Failed to save results to MLflow: {e}")
-            raise
+            if "predictions" in model_results:
+                preds = model_results["predictions"]
+                if hasattr(preds, "to_numpy"):
+                    preds = preds.to_numpy()
+                pred_path = os.path.join(artifacts_dir, "predictions.npy")
+                np.save(pred_path, preds)
+                mlflow.log_artifact(pred_path, artifact_path=f"{model_name_safe}/artifacts")
+        finally:
+            shutil.rmtree(artifacts_dir, ignore_errors=True)
 
 
 def main():
@@ -304,31 +329,32 @@ def main():
 
     if "meta_boosting" in trainer.config.models:
         # meta-boosting
-        for feature_selection_method in trainer.config.feature_selection_methods:
-            for method in trainer.config.boosting_methods:
-                meta_booster = MetaBooster(
-                    method=method,
-                    objective_metric=mean_squared_error,
-                    weighting="proportional",
-                    features=None,
-                    n_splits_outer=2,
-                    n_splits_inner=2,
-                    n_trials=2,
-                )
-                meta_booster.train(
-                    trainer.X_train,
-                    trainer.y_train,
-                    use_feature_selection=(feature_selection_method == "gain"),
-                )
-                y_pred = meta_booster.infer(trainer.X_test)
-                trainer.results[
-                    f"meta_booster_{method}_featselect:{feature_selection_method}"
-                ] = ModelEvaluator.evaluate(
-                    trainer.y_test,
-                    y_pred,
-                    f"meta_booster_{method}_featselect:{feature_selection_method}",
-                    extended=True
-                )
+        for k in range(2, 6+1):
+            for feature_selection_method in trainer.config.feature_selection_methods:
+                for method in trainer.config.boosting_methods:
+                    meta_booster = MetaBooster(
+                        method=method,
+                        objective_metric=mean_squared_error,
+                        weighting="sqrt",
+                        features=None,
+                        n_splits_outer=k,
+                        n_splits_inner=k,
+                        n_trials=k,
+                    )
+                    meta_booster.train(
+                        trainer.X_train,
+                        trainer.y_train,
+                        use_feature_selection=(feature_selection_method == "gain"),
+                    )
+                    y_pred = meta_booster.infer(trainer.X_test)
+                    trainer.results[
+                        f"meta_booster_{method}_featselect:{feature_selection_method}_{k}"
+                    ] = ModelEvaluator.evaluate(
+                        trainer.y_test,
+                        y_pred,
+                        f"meta_booster_{method}_featselect:{feature_selection_method}",
+                        extended=True
+                    )
 
     if "meta_boosting_multiple" in trainer.config.models:
         # meta-boosting using average predictions over multiple elections used for training

@@ -26,6 +26,8 @@ def split_method(data, way='random', election_type=None, test_year=None, train_y
             pl.col("annee") < int(validation_year)
         )
     elif way == 'random':
+        # Only "recent" elections
+        data = data.filter(pl.col('annee')>1950)
         data_train_val, data_test = train_test_split(
             data, test_size=0.33, random_state=42, shuffle=True)
         data_train, data_validation = train_test_split(
@@ -46,13 +48,16 @@ def get_Xy_pl(
     selected_groups=["raw", "rank", "delta", "geo", "previous_vote", "other", 'meta'],
     selected_features=None,
 ):
+    # Tau is monotonic
+    vote_variable_perc = vote_variable if 'tau' not in vote_variable else vote_variable.replace('tau', '')
+
     data = data.with_columns(
         [
             pl.col(col).fill_null(pl.col(col).mean().over("dep", 'annee'))
             for col in [
                 f"previous{vote_variable}",
                 f"previousprevious{vote_variable}",
-                f"previouspercentile{vote_variable}"
+                f"previouspercentile{vote_variable_perc}"
             ]
         ],
     ).with_columns(
@@ -62,7 +67,7 @@ def get_Xy_pl(
             f"delta{vote_variable}"
         ),
         (
-            pl.col(f"percentile{vote_variable}")-pl.col(f"previouspercentile{vote_variable}")
+            pl.col(f"percentile{vote_variable_perc}")-pl.col(f"previouspercentile{vote_variable_perc}")
         ).alias(
             f"deltapercentile{vote_variable}"
         ),
@@ -85,6 +90,7 @@ def get_Xy_pl(
     if predict_delta:
         y = f"delta{vote_variable}"
         y_prev = f"previousdelta{vote_variable}"
+
     else:
         y = vote_variable
         y_prev = f"previous{vote_variable}"
@@ -95,6 +101,7 @@ def get_Xy_pl(
         # Other columns, target and previous vote cols
         + [
             "inscrits",
+            "type",
             "election_type",
             "annee",
             "lat",
@@ -148,12 +155,12 @@ def get_Xy_pl(
             ),
             "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
             "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
-            "geo": ["lat", "long"],  # 'distanceparis'
+            "geo": ["lat", "long", "distanceparis"],
             "previous_vote": set([y_prev, f"previous{y_prev}"]).intersection(
                 set(data_train.columns)
             ),
             "other": ["inscrits", "dep_num"],
-            "meta": ['annee', 'election_type']
+            "meta": ['annee', 'type']
         }
         features = [
             col for group in selected_groups for col in feature_groups.get(group, [])
