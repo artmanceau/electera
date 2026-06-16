@@ -665,6 +665,42 @@ class ElectionDataProcessor:
             pct_change=(pl.col("raw").pct_change(1).round(4)).over(key, "feature", order_by="annee")
         ).fill_nan(None)
 
+    def _project(self, df, key):
+        return (
+            df.group_by(
+                [key, "feature"]
+            ).agg(
+                pl.int_range(pl.col("annee").min(), 2028).alias("annee"),
+                pl.col("annee").max().alias('last_year'),
+                pl.col('annee').min().alias('first_year')
+            )
+            .explode(
+                "annee"
+            ).join(
+                df.with_columns(
+                    from_left=pl.lit(1)
+                ),
+                on=["feature", key, "annee"],
+                how="left",
+            ).sort(
+                'feature', key, 'annee'
+            ).with_columns(
+                (pl.col("raw").pct_change()).alias('growth_rates'),
+                (pl.col('annee')-pl.col('last_year')).alias('k')
+            ).with_columns(
+                pl.col('raw').fill_null(strategy='forward'),
+                pl.col('growth_rates').fill_null(strategy='forward')
+            ).with_columns(
+                raw=pl.when(
+                    pl.col('from_left') == 1
+                ).then(
+                    pl.col('raw')
+                ).otherwise(
+                    pl.col('raw')*((1+pl.col('growth_rates')).pow(pl.col('k')))
+                )
+            )
+        )
+
     def load_socio_economic_data(self):
         folder_path = os.path.join(self.config.data_path, "raw/")
         communes_frames: list[pl.LazyFrame] = []
@@ -714,7 +750,7 @@ class ElectionDataProcessor:
                         df = self._build_year_grids(df, key)
 
                         # Projections
-                        breakpoint()
+                        df = self._project(df, key)
 
                         # Augmentations
                         df = self._augment(df, key)
@@ -744,7 +780,7 @@ class ElectionDataProcessor:
                         )
                         float_cols = [
                             c
-                            for c, dtype in zip(schema.names(), schema.dtypes())
+                            for c, dtype in zip(df.collect_schema().names(), df.collect_schema().dtypes())
                             if dtype in (pl.Float32, pl.Float64)
                         ]
                         df = df.with_columns(
@@ -757,9 +793,9 @@ class ElectionDataProcessor:
                             ]
                         )
                         df = df.collect()
-                        
+
                         # df.unique('feature').write_csv(f'debug/{file}.csv')
-                        
+
                         assert (
                             df.select(cs.float().is_nan().sum()).sum_horizontal().item()
                             == 0
@@ -794,299 +830,6 @@ class ElectionDataProcessor:
             catalog_communes,
             catalog_dep,
         )
-
-    # def load_socio_economic_data_(self):
-    #     folder_path = os.path.join(self.config.data_path, "raw/")
-    #     communes_frames = []
-    #     dep_frames = []
-    #     xs = (
-    #         DataUtils._create_fs()
-    #         if DataUtils._detect_s3(self.config.data_path)
-    #         else os
-    #     )
-    #     for root, dirs, files in xs.walk(folder_path):
-    #         for dir in dirs:
-    #             if dir != "elections":
-    #                 for root, _, files in xs.walk(os.path.join(folder_path, dir)):
-    #                     for file in files:
-    #                         if file.endswith(".parquet") and (not file.startswith(".")):
-    #                             if "communes" in file:
-    #                                 key = "codecommune"
-    #                             elif "departements" in file:
-    #                                 key = "dep"
-    #                             else:
-    #                                 continue
-
-    #                             if file[:5] == "codes":
-    #                                 continue
-
-    #                             file_path = DataUtils.path_helper(
-    #                                 folder_path, os.path.join(root, file)
-    #                             )
-    #                             data_code = file_path.split("/")[-1].split(".")[0]
-    #                             logger.debug(f"Processing file : {data_code}")
-
-    #                             df = pl.scan_parquet(file_path).collect()
-    #                             HIDDEN_RE_PY = (
-    #                                 r"[\x00-\x1F\x7F\u200B\u200C\u200D\uFEFF]"
-    #                             )
-    #                             df = df.rename(
-    #                                 {c: re.sub(HIDDEN_RE_PY, "", c) for c in df.columns}
-    #                             )
-
-    #                             # 1. Identify features (time evolution)
-    #                             all_feature_years = df.select(
-    #                                 cs.matches(r".*\d{4}$")
-    #                             ).columns
-
-    #                             if len(all_feature_years) == 0:
-    #                                 logger.warning(
-    #                                     "No feature matching the pattern [feature][year]"
-    #                                 )
-    #                                 continue
-
-    #                             feature_years = {}
-    #                             for c in all_feature_years:
-    #                                 feature = c[:-4]
-    #                                 year = int(c[-4:])
-    #                                 feature_years.setdefault(feature, []).append(year)
-
-    #                             feature_years = {
-    #                                 k: sorted(v) for k, v in feature_years.items()
-    #                             }
-    #                             logger.debug(f"Features: {feature_years}")
-
-    #                             # 2. Convert to long format
-    #                             df_long = (
-    #                                 df.unpivot(
-    #                                     on=df.select(cs.matches(r".*\d{4}$")).columns,
-    #                                     index=key,
-    #                                     variable_name="variable",
-    #                                     value_name="raw",
-    #                                 )
-    #                                 .with_columns(
-    #                                     raw=pl.col("raw").cast(
-    #                                         pl.Float64, strict=False
-    #                                     ),
-    #                                     annee=pl.col("variable")
-    #                                     .str.tail(4)
-    #                                     .cast(pl.Int64),
-    #                                 )
-    #                                 .with_columns(
-    #                                     variable=(
-    #                                         pl.lit(file).str.replace(r"\.parquet$", "")
-    #                                         + "/"
-    #                                         + pl.col("variable")
-    #                                     ),
-    #                                     feature_name=(
-    #                                         pl.lit(file).str.replace(r"\.parquet$", "")
-    #                                         + "/"
-    #                                         + pl.col("variable").str.head(-4)
-    #                                     ),
-    #                                 )
-    #                                 .sort([key, "feature_name", "annee"])
-    #                             )
-    #                             print(repr(file))
-
-    #                             # 3. Linear interpolation for missing years
-    #                             year_grids = pl.concat(
-    #                                 [
-    #                                     pl.DataFrame(
-    #                                         {
-    #                                             "feature_name": re.sub(
-    #                                                 r"\.parquet$", "", file
-    #                                             )
-    #                                             + "/"
-    #                                             + feature,
-    #                                             "annee": list(
-    #                                                 range(min(years), max(years) + 1)
-    #                                             ),
-    #                                         }
-    #                                     )
-    #                                     for feature, years in feature_years.items()
-    #                                 ]
-    #                             )
-
-    #                             df_full = (
-    #                                 df_long.lazy()
-    #                                 # Get unique (codecommune, feature_name) combos
-    #                                 .select(key, "feature_name")
-    #                                 .unique()
-    #                                 # Join with the per-feature year grid
-    #                                 .join(
-    #                                     year_grids.lazy(), on="feature_name", how="left"
-    #                                 )
-    #                                 # Join back original data
-    #                                 .join(
-    #                                     df_long.lazy(),
-    #                                     on=[key, "feature_name", "annee"],
-    #                                     how="left",
-    #                                 )
-    #                                 .sort([key, "feature_name", "annee"])
-    #                                 .with_columns(
-    #                                     pl.col("raw")
-    #                                     .interpolate()
-    #                                     .over(key, "feature_name")
-    #                                 )
-    #                                 .with_columns(
-    #                                     variable=pl.concat_str(
-    #                                         pl.col("feature_name"),
-    #                                         pl.col("annee").cast(pl.String),
-    #                                         separator="",
-    #                                     )
-    #                                 )
-    #                                 .collect()
-    #                             )
-
-    #                             # 4. Augmentations
-    #                             df_full = df_full.with_columns(
-    #                                 lag=pl.col("raw")
-    #                                 .shift(1)
-    #                                 .round(4)
-    #                                 .over(key, "feature_name"),
-    #                                 rank=(pl.col("raw").rank() / pl.count("raw"))
-    #                                 .round(4)
-    #                                 .over(key, "feature_name"),
-    #                                 delta=pl.col("raw")
-    #                                 .diff(1)
-    #                                 .round(4)
-    #                                 .over(key, "feature_name"),
-    #                                 pct_change=pl.col("raw")
-    #                                 .pct_change(1)
-    #                                 .round(4)
-    #                                 .over(key, "feature_name"),
-    #                             ).fill_nan(None)
-
-    #                             # 5. Sanity checks
-    #                             float_cols = [
-    #                                 c
-    #                                 for c, dtype in zip(df_full.columns, df_full.dtypes)
-    #                                 if dtype in (pl.Float32, pl.Float64)
-    #                             ]
-    #                             df_full = df_full.with_columns(
-    #                                 [
-    #                                     pl.when(pl.col(c).is_infinite())
-    #                                     .then(None)
-    #                                     .otherwise(pl.col(c))
-    #                                     .alias(c)
-    #                                     for c in float_cols
-    #                                 ]
-    #                             )
-    #                             df_full = df_full.cast(
-    #                                 {
-    #                                     key: value
-    #                                     for key, value in self.socio_economic_schema.items()
-    #                                     if key in df_full.columns
-    #                                 }
-    #                             )
-    #                             df_full = df_full.match_to_schema(
-    #                                 self.socio_economic_schema,
-    #                                 missing_columns="insert",
-    #                                 extra_columns="ignore",
-    #                             )
-    #                             # includes NUL + all ASCII control chars + BOM/zero-width
-    #                             HIDDEN_RE = r"[\x00-\x1F\x7F\u200B\u200C\u200D\uFEFF]"
-
-    #                             def hidden_counts(df: pl.DataFrame, label: str) -> None:
-    #                                 str_cols = [
-    #                                     c
-    #                                     for c, t in zip(df.columns, df.dtypes)
-    #                                     if t == pl.String
-    #                                 ]
-    #                                 if not str_cols:
-    #                                     print(f"{label}: no string cols")
-    #                                     return
-    #                                 out = df.select(
-    #                                     [
-    #                                         pl.col(c)
-    #                                         .fill_null("")
-    #                                         .str.contains(HIDDEN_RE)
-    #                                         .sum()
-    #                                         .alias(c)
-    #                                         for c in str_cols
-    #                                     ]
-    #                                 )
-    #                                 print(f"\n[{label}]")
-    #                                 print(out)
-    #                                 return out
-
-    #                             # call after each stage
-    #                             h1 = hidden_counts(df, "raw parquet")
-    #                             if h1.sum_horizontal().item() > 0:
-    #                                 breakpoint()
-    #                             h2 = hidden_counts(df_long, "after unpivot")
-    #                             if h2.sum_horizontal().item() > 0:
-    #                                 breakpoint()
-    #                             h3 = hidden_counts(df_full, "final before csv")
-    #                             if h3.sum_horizontal().item() > 0:
-    #                                 breakpoint()
-    #                             h4 = hidden_counts(year_grids, "yg")
-    #                             if h4.sum_horizontal().item() > 0:
-    #                                 breakpoint()
-
-    #                             # 6. Append to results
-    #                             if key == "codecommune":
-    #                                 communes_frames.append(df_full)
-    #                             elif key == "dep":
-    #                                 dep_frames.append(df_full)
-
-    #                             # if key == "codecommune":
-    #                             #     combined_communes = (
-    #                             #         df_full
-    #                             #         if combined_communes is None
-    #                             #         else combined_communes.vstack(df_full)
-    #                             #     )
-    #                             # elif key == "dep":
-    #                             #     combined_dep = (
-    #                             #         df_full
-    #                             #         if combined_dep is None
-    #                             #         else combined_dep.vstack(df_full)
-    #                             #     )
-
-    #     # socio_economic_data_communes = combined_communes.rechunk().fill_nan(None)
-    #     # hn = hidden_counts(socio_economic_data_communes, "after all")
-    #     socio_economic_data_communes = pl.concat(
-    #         communes_frames, how="vertical"
-    #     ).fill_nan(None)
-    #     socio_economic_data_dep = pl.concat(dep_frames, how="vertical").fill_nan(None)
-    #     # socio_economic_data_dep = combined_dep.rechunk().fill_nan(None)
-    #     breakpoint()
-    #     for socio_economic_data in [
-    #         socio_economic_data_communes,
-    #         socio_economic_data_dep,
-    #     ]:
-    #         assert (
-    #             socio_economic_data.drop(
-    #                 "codecommune", "dep", "feature_name", "variable"
-    #             )
-    #             .select(pl.all().is_nan().sum())
-    #             .sum_horizontal()
-    #             .item()
-    #             == 0
-    #         )
-    #         assert (
-    #             socio_economic_data.drop(
-    #                 "codecommune", "dep", "feature_name", "variable"
-    #             )
-    #             .select(pl.all().is_infinite().sum())
-    #             .sum_horizontal()
-    #             .item()
-    #             == 0
-    #         )
-
-    #     catalog_communes = socio_economic_data.group_by("feature_name").agg(
-    #         pl.col("annee").unique().sort()
-    #     )
-    #     catalog_dep = socio_economic_data_dep.group_by("feature_name").agg(
-    #         pl.col("annee").unique().sort()
-    #     )
-
-    #     return (
-    #         socio_economic_data_communes,
-    #         socio_economic_data_dep,
-    #         catalog_communes,
-    #         catalog_dep,
-    #     )
 
     @staticmethod
     def get_features_for_years(
@@ -1234,7 +977,7 @@ class ElectionDataProcessor:
                 .fill_null(pl.col(c).mean().over("dep", 'annee'))
                 .fill_null(pl.col(c).mean().over('annee'))  # Fallback to all
                 .alias(c)
-                for c in features + ["lat", "long"]
+                for c in features + ["lat", "long", 'distanceparis']
             ]
         )
 

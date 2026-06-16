@@ -69,8 +69,14 @@ class LinearModel:
 
 
 class BenchmarkModels:
-    @staticmethod
-    def train_trivial_1(y_prev, y_train):
+
+    def __init__(self):
+        self.model = None
+
+    def get_model(self):
+        return self.model
+
+    def train_trivial_1(self, y_prev, y_train):
         """Train trivial baseline models"""
         logger.info(
             "Training trivial models 1 : same vote rate than previous election..."
@@ -80,19 +86,17 @@ class BenchmarkModels:
         model.train(X_train=None, y_train=y_train)
         return model.infer(X_test=None)
 
-    @staticmethod
-    def train_trivial_2(y_train, X_test):
+    def train_trivial_2(self, y_train, X_test):
         logger.info(
             "Training trivial models 2 : average vote rate than previous election..."
         )
-        model = TrivialModel2()
-        model.train(X_train=None, y_train=y_train)
-        return model.infer(X_test=X_test)
+        self.model = TrivialModel2()
+        self.model.train(X_train=None, y_train=y_train)
+        return self.model.infer(X_test=X_test)
 
-    @staticmethod
-    def train_linear_model(X_train, y_train, X_test, linear_model=LinearRegression):
+    def train_linear_model(self, X_train, y_train, X_test, linear_model=LinearRegression):
         """Train linear regressions model"""
         logger.info("Training linear regression model...")
-        model = LinearModel(linear_model=linear_model)
-        model.train(X_train=X_train, y_train=y_train)
-        return model.infer(X_test=X_test)
+        self.model = LinearModel(linear_model=linear_model)
+        self.model.train(X_train=X_train, y_train=y_train)
+        return self.model.infer(X_test=X_test)

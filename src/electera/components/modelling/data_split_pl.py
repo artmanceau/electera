@@ -27,11 +27,11 @@ def split_method(data, way='random', election_type=None, test_year=None, train_y
         )
     elif way == 'random':
         # Only "recent" elections
-        data = data.filter(pl.col('annee')>1950)
+        data = data.filter(pl.col('annee')>=1960)
         data_train_val, data_test = train_test_split(
-            data, test_size=0.33, random_state=42, shuffle=True)
+            data, test_size=0.2, random_state=42, shuffle=True)
         data_train, data_validation = train_test_split(
-            data_train_val, test_size=0.33, random_state=42, shuffle=True)
+            data_train_val, test_size=0.25, random_state=42, shuffle=True)
     else:
         logger.error('Split method not implemented, no splits implemented')
         data_train, data_test, data_validation = data, data, data

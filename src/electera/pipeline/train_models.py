@@ -31,9 +31,6 @@ from electera.components.utils.config import TrainModelsConfig
 from electera.components.utils.read_config import ConfigReader
 from assets.delta_pred_features import make_features
 
-FEATURES = list(set(make_features('rank')).union(set(make_features('pct_change'))))
-
-
 class ElectionModelTrainer:
     """Class to handle model training and evaluation pipeline"""
 
@@ -84,12 +81,17 @@ class ElectionModelTrainer:
                 election_type="presidentiel",
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_perc,
-                selected_groups=['rank', 'pct_change', 'other', 'meta', 'geo', 'previous'],
-                selected_features=FEATURES
+                selected_groups=['rank', 'pct_change', 'raw', 'delta', 'lag' 'other', 'meta', 'geo', 'previous_vote']
         )
 
         for name, value in zip(container_names, values):
             setattr(self, name, value)
+
+        # Fix
+        features_to_remove = list(set(self.X_train.columns[self.X_train.isnull().mean()>0])-set(['distanceparis', 'previouspvotepar', 'previouspreviouspvotepar']))
+        self.X_train = self.X_train.drop(columns=features_to_remove)
+        self.X_test = self.X_test.drop(columns=features_to_remove)
+        self.X_val = self.X_val.drop(columns=features_to_remove)
 
         self.feature_names = self.X_train.columns.tolist()
 
@@ -167,16 +169,15 @@ class ElectionModelTrainer:
             model,
             name=model_name_safe,
             registered_model_name=model_name_safe,
-            input_example=input_example,
         )
 
         for metric_name, metric_value in model_results.items():
             if metric_name == "predictions":
                 continue
             if isinstance(metric_value, (int, float)):
-                mlflow.log_metric(metric_name, float(metric_value))
+                mlflow.log_metric(f'{metric_name}_{model_name}', float(metric_value))
             else:
-                mlflow.log_param(f"param_{metric_name}", str(metric_value)[:500])
+                mlflow.log_param(f"param_{metric_name}_{model_name}", str(metric_value)[:500])
 
         self._log_model_artifacts(model_name_safe, model, model_results)
         logger.info(f"Successfully logged model: {model_name}")
@@ -223,10 +224,14 @@ class ElectionModelTrainer:
 
             if "predictions" in model_results:
                 preds = model_results["predictions"]
-                if hasattr(preds, "to_numpy"):
-                    preds = preds.to_numpy()
-                pred_path = os.path.join(artifacts_dir, "predictions.npy")
-                np.save(pred_path, preds)
+                pred_path = os.path.join(artifacts_dir, "predictions.csv")
+                if isinstance(preds, pd.Series):
+                    preds.to_csv(pred_path)
+                elif isinstance(preds, pd.DataFrame):
+                    preds[0].to_csv(pred_path)
+                else:
+                    breakpoint()
+                    pd.Series(preds).to_csv(pred_path)
                 mlflow.log_artifact(pred_path, artifact_path=f"{model_name_safe}/artifacts")
         finally:
             shutil.rmtree(artifacts_dir, ignore_errors=True)
@@ -246,21 +251,26 @@ def main():
 
     # Trivial model 1 : same as previous election
     if "trivial_1" in trainer.config.models:
-        y_1 = BenchmarkModels.train_trivial_1(trainer.y_prev, trainer.y_test)
-        trainer.results["trivial_previous"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_1, "trivial_previous", extended=True
+        bm = BenchmarkModels()
+        y_1 = bm.train_trivial_1(trainer.y_prev, trainer.y_test)
+        trainer.results["trivial_1"] = ModelEvaluator.evaluate(
+            trainer.y_test, y_1, "trivial_1", extended=True
         )
+        trainer.models["trivial_1"] = bm.get_model()
 
     # Trivial model 2 : mean
     if "trivial_2" in trainer.config.models:
-        y_2 = BenchmarkModels.train_trivial_2(trainer.y_train, trainer.X_test)
-        trainer.results["trivial_mean"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_2, "trivial_mean", extended=True
+        bm = BenchmarkModels()
+        y_2 = bm.train_trivial_2(trainer.y_train, trainer.X_test)
+        trainer.results["trivial_2"] = ModelEvaluator.evaluate(
+            trainer.y_test, y_2, "trivial_2", extended=True
         )
+        trainer.models["trivial_2"] = bm.get_model()
 
     # Linear model 1 : Linear model
     if "linear_reg" in trainer.config.models:
-        y_3 = BenchmarkModels.train_linear_model(
+        bm = BenchmarkModels()
+        y_3 = bm.train_linear_model(
             trainer.X_train,
             trainer.y_train,
             trainer.X_test,
@@ -269,15 +279,18 @@ def main():
         trainer.results["linear_regression"] = ModelEvaluator.evaluate(
             trainer.y_test, y_3, "linear_regression", extended=True
         )
+        trainer.models["linear_reg"] = bm.get_model()
 
     # Linear model 2 : Elastic net
     if "elastic_net" in trainer.config.models:
-        y_3 = BenchmarkModels.train_linear_model(
+        bm = BenchmarkModels()
+        y_3 = bm.train_linear_model(
             trainer.X_train, trainer.y_train, trainer.X_test, linear_model=ElasticNetCV
         )
-        trainer.results["elastic_net_regression"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_3, "elastic_net_regression", extended=True
+        trainer.results["elastic_net"] = ModelEvaluator.evaluate(
+            trainer.y_test, y_3, "elastic_net", extended=True
         )
+        trainer.models["elastic_net"] =  bm.get_model()
 
     if "boosting" in trainer.config.models:
         # boosting
