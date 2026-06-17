@@ -209,7 +209,7 @@ class MetaBooster:
             return preds
 
     def feature_selection(
-        self, X, y, threshold=0.95, method="permuation", nb_feature=30
+        self, X, y, threshold=None, method="permuation", nb_feature=30
     ):
         logger.info(
             f"Performing feature selection. Method: {method}. Number of features: {nb_feature}"
@@ -223,9 +223,20 @@ class MetaBooster:
                 features=X.columns,
                 _get_importance_method=lambda x: x.feature_importances_,
             )
-            self.features = features_imp_df[
-                features_imp_df.cumsum()["Importance"] < threshold
-            ]["Feature"].to_list()
+            if threshold:
+                self.features = features_imp_df[
+                    features_imp_df.cumsum()["Importance"] < threshold
+                ]["Feature"].to_list()
+
+            else:
+                self.features = features_imp_df.sort_values(
+                    by="Importance", ascending=False
+                ).head(
+                    nb_feature
+                )[
+                    "Feature"
+                ].tolist()
+                
 
         elif method == "permuation":
             perm = permutation_importance(

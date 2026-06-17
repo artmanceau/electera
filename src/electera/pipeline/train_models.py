@@ -8,13 +8,14 @@ import argparse
 import re
 from datetime import datetime
 import tempfile
+import numpy as np
 import shutil
 import os
 import mlflow
 import mlflow.sklearn
 import pandas as pd
 from loguru import logger
-from sklearn.linear_model import ElasticNetCV, LinearRegression
+from sklearn.linear_model import Lasso, LinearRegression
 from sklearn.metrics import mean_squared_error
 
 from electera.components.data_processing.data_loader import DataLoader
@@ -50,6 +51,7 @@ class ElectionModelTrainer:
         # Model storage
         self.models = {}
         self.results = {}
+        self.predictions = {}
         self.model_data = {}
         self.input_examples = {}
 
@@ -176,6 +178,7 @@ class ElectionModelTrainer:
         """Log individual model with type-specific artifacts."""
         model_name_safe = re.sub(r"[:\s]", "_", model_name)
         model_results = self.results.get(model_name, {})
+        model_preds = self.predictions.get(model_name, {})
         input_example = self.input_examples.get(model_name)
 
         # Ensure input_example is 2D
@@ -198,6 +201,13 @@ class ElectionModelTrainer:
                 mlflow.log_param(
                     f"param_{metric_name}_{model_name}", str(metric_value)[:500]
                 )
+
+        artifacts_dir = tempfile.mkdtemp()
+        pred_path = os.path.join(artifacts_dir, "predictions.csv")
+        model_preds.to_csv(pred_path)
+        mlflow.log_artifact(
+                pred_path, artifact_path=f"{model_name_safe}/artifacts"
+            )
 
         self._log_model_artifacts(model_name_safe, model, model_results)
         logger.info(f"Successfully logged model: {model_name}")
@@ -278,18 +288,6 @@ class ElectionModelTrainer:
                     coef_path, artifact_path=f"{model_name_safe}/artifacts"
                 )
 
-            if "predictions" in model_results:
-                preds = model_results["predictions"]
-                pred_path = os.path.join(artifacts_dir, "predictions.csv")
-                if isinstance(preds, pd.Series):
-                    preds.to_csv(pred_path)
-                elif isinstance(preds, pd.DataFrame):
-                    preds[0].to_csv(pred_path)
-                else:
-                    pd.Series(preds).to_csv(pred_path)
-                mlflow.log_artifact(
-                    pred_path, artifact_path=f"{model_name_safe}/artifacts"
-                )
         finally:
             shutil.rmtree(artifacts_dir, ignore_errors=True)
 
@@ -314,6 +312,7 @@ def main():
             trainer.y_test, y_1, "trivial_1", extended=True
         )
         trainer.models["trivial_1"] = bm.get_model()
+        trainer.predictions['trivial_1'] = pd.concat([trainer.y_test, y_1], axis=1)
 
     # Trivial model 2 : mean
     if "trivial_2" in trainer.config.models:
@@ -323,6 +322,7 @@ def main():
             trainer.y_test, y_2, "trivial_2", extended=True
         )
         trainer.models["trivial_2"] = bm.get_model()
+        trainer.predictions['trivial_2'] = pd.concat([trainer.y_test, y_2], axis=1)
 
     # Linear model 1 : Linear model
     if "linear_reg" in trainer.config.models:
@@ -331,18 +331,19 @@ def main():
             trainer.X_train,
             trainer.y_train,
             trainer.X_test,
-            linear_model=LinearRegression,
+            linear_model=LinearRegression(),
         )
         trainer.results["linear_regression"] = ModelEvaluator.evaluate(
             trainer.y_test, y_3, "linear_regression", extended=True
         )
         trainer.models["linear_reg"] = bm.get_model()
+        trainer.predictions['linear_reg'] = pd.concat([trainer.y_test, y_3], axis=1)
 
     # Linear model 2 : Elastic net
     if "elastic_net" in trainer.config.models:
         bm = BenchmarkModels()
         y_3 = bm.train_linear_model(
-            trainer.X_train, trainer.y_train, trainer.X_test, linear_model=ElasticNetCV
+            trainer.X_train, trainer.y_train, trainer.X_test, linear_model=Lasso(0.1)
         )
         trainer.results["elastic_net"] = ModelEvaluator.evaluate(
             trainer.y_test, y_3, "elastic_net", extended=True
@@ -393,12 +394,14 @@ def main():
                     trainer.input_examples[model_name] = signature
 
                     # 4. Evaluate
+                    preds = boosting_model.infer(trainer.X_test)
                     trainer.results[model_name] = ModelEvaluator.evaluate(
                         trainer.y_test,
-                        boosting_model.infer(trainer.X_test),
+                        preds,
                         model_name,
                         extended=True,
                     )
+                    trainer.predictions[model_name] = pd.concat([trainer.y_test, preds], axis=1)
 
     if "meta_boosting" in trainer.config.models:
         for feature_selection_method in trainer.config.feature_selection_methods:
@@ -406,7 +409,7 @@ def main():
                 meta_booster = MetaBooster(
                     method=method,
                     objective_metric=mean_squared_error,
-                    weighting="sqrt",
+                    weighting="log",
                     features=None,
                     n_splits_outer=3,
                     n_splits_inner=3,
@@ -420,13 +423,14 @@ def main():
                 )
                 y_pred = meta_booster.infer(trainer.X_test)
                 trainer.results[
-                    f"meta_booster_{method}_featselect:{feature_selection_method}_{k}"
+                    f"meta_booster_{method}_featselect:{feature_selection_method}"
                 ] = ModelEvaluator.evaluate(
                     trainer.y_test,
                     y_pred,
                     f"meta_booster_{method}_featselect:{feature_selection_method}",
                     extended=True,
                 )
+                trainer.predictions[f"meta_booster_{method}_featselect:{feature_selection_method}"] = pd.concat([trainer.y_test, y_pred], axis=1)
 
     if "meta_boosting_multiple" in trainer.config.models:
         # meta-boosting using average predictions over multiple elections used for training
@@ -458,6 +462,7 @@ def main():
                     f"meta_booster_multiple_{method}_featselect:{feature_selection_method}",
                     extended=True,
                 )
+                trainer.predictions[f"meta_booster_multiple_{method}_featselect:{feature_selection_method}"] = pd.concat([trainer.y_test, y_pred], axis=1)
 
     # Compare models
     comparison_df = trainer.compare_models()
