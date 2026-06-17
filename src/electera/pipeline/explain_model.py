@@ -368,7 +368,8 @@ class Explainer:
             fs=None,
             formate="parquet",
             columns=None,
-            filters=[("type", "==", self.t)],
+            filters=None,
+            engine="polars",
         )
 
         # 1. Get sample data from model

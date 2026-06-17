@@ -1,4 +1,7 @@
 FEATURE_DICT = {
+    # =========================================================================
+    # H1.1 Population par commune et agglomération (1780-2022)
+    # =========================================================================
     "popcommunes/pop": {
         "annees_disponibles": list(range(1790, 2023)),
         "description": "Population de la commune (territoire actuel, codes communes 2022).",
@@ -50,6 +53,9 @@ FEATURE_DICT = {
         ),
         "source": "Calculé à partir des populations d'agglomérations",
     },
+    # =========================================================================
+    # H1.2 Population par département (1780-2022)
+    # =========================================================================
     "popdepartements/pop": {
         "annees_disponibles": list(range(1780, 2023)),
         "description": "Population des départements au cours du temps.",
@@ -108,6 +114,9 @@ FEATURE_DICT = {
         ),
         "source": "popdepartements.csv",
     },
+    # =========================================================================
+    # H1.4 Population disposant du droit de vote par commune (1848-2022)
+    # =========================================================================
     "popcommuneselecteurs/electeurs": {
         "annees_disponibles": list(range(1848, 2023)),
         "description": "Population électorale (ayant le droit de vote) au niveau communal.",
@@ -122,6 +131,9 @@ FEATURE_DICT = {
         ),
         "source": "popcommuneselecteurs.csv",
     },
+    # =========================================================================
+    # H1.5 Population classée en villages, bourgs, banlieues, métropoles (1790-2022)
+    # =========================================================================
     "popcommunesvbbm/vbbm": {
         "annees_disponibles": list(range(1790, 2023)),
         "description": "Typologie des communes : villages, bourgs, banlieues, métropoles.",
@@ -158,6 +170,9 @@ FEATURE_DICT = {
         ),
         "source": "popcommunesvbbm.csv",
     },
+    # =========================================================================
+    # H2.1 Âge et sexe par commune (1960-2022)
+    # =========================================================================
     "agesexcommunes/pop": {
         "annees_disponibles": list(range(1960, 2023)),
         "description": "Population totale par commune",
@@ -401,6 +416,9 @@ FEATURE_DICT = {
         "notes": "Position relative des communes selon le vieillissement.",
         "source": "agesexcommunes.dta",
     },
+    # =========================================================================
+    # H2.2 Âge et sexe par département (1851-2022)
+    # =========================================================================
     "agesexdepartements/pop": {
         "annees_disponibles": list(range(1851, 2023)),
         "description": "Population totale par département",
@@ -599,6 +617,9 @@ FEATURE_DICT = {
         "notes": "Disponible uniquement pour 1960–2022 selon la documentation.",
         "source": "agesexdepartements.csv",
     },
+    # =========================================================================
+    # H3.1 Alphabétisation et diplômes par département (1686-2022)
+    # =========================================================================
     "diplomesdepartements/conjsignf": {
         "annees_disponibles": list(range(1686, 1906)),
         "description": "Nombre de femmes signant leur acte de mariage",
@@ -860,6 +881,9 @@ FEATURE_DICT = {
         "notes": "Calculée comme sup / (nodip + bac + sup).",
         "source": "diplomesdepartements.csv",
     },
+    # =========================================================================
+    # H3.3 Alphabétisation par commune (1686-1946)
+    # =========================================================================
     "alphabetisationcommunes/conjsign": {
         "annees_disponibles": list(range(1686, 1906)),
         "description": "Nombre de conjoints signant leur acte de mariage",
@@ -932,6 +956,9 @@ FEATURE_DICT = {
         "notes": "Percentile pondéré par population 20+ ; calculs harmonisés avec données départementales et estimations intra-départementales.",
         "source": "alphabetisationcommunes.csv",
     },
+    # =========================================================================
+    # H4.1 Catégories socio-professionnelles (CSP) par commune (1960-2022)
+    # =========================================================================
     "cspcommunes/agri": {
         "annees_disponibles": list(range(1960, 2023)),
         "description": "Nombre d’agriculteurs (25–54 ans)",
@@ -1228,5 +1255,1259 @@ FEATURE_DICT = {
         "aggregation_level": "commune",
         "notes": "Distribution intercommunale.",
         "source": "cspcommunes.csv",
+    },
+    # =========================================================================
+    # H2.3 Ménages complexes par commune et département (1975)
+    # =========================================================================
+    "menagescommunes/nmen": {
+        "annees_disponibles": [1975],
+        "description": "Nombre total de ménages de la commune",
+        "type": "count",
+        "unit": "ménages",
+        "aggregation_level": "commune",
+        "notes": "Données issues du recensement de 1975.",
+        "source": "menagescommunes.csv",
+    },
+    "menagescommunes/nmencomp": {
+        "annees_disponibles": [1975],
+        "description": "Nombre de ménages complexes de la commune",
+        "type": "count",
+        "unit": "ménages",
+        "aggregation_level": "commune",
+        "notes": (
+            "Ménages complexes : ménages de 4+ personnes ne se limitant pas à une famille nucléaire. "
+            "Dans la majorité des cas, cohabitations intergénérationnelles non-nucléaires."
+        ),
+        "source": "menagescommunes.csv",
+    },
+    "menagescommunes/pmencomp": {
+        "annees_disponibles": [1975],
+        "description": "Proportion de ménages complexes dans la commune",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Part des ménages complexes parmi l'ensemble des ménages.",
+        "source": "menagescommunes.csv",
+    },
+    "menagescommunes/permencomp": {
+        "annees_disponibles": [1975],
+        "description": "Percentile de la proportion de ménages complexes",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Percentile dans la répartition de la population en fonction de la proportion de ménages complexes.",
+        "source": "menagescommunes.csv",
+    },
+    "menagesdepartements/nmen": {
+        "annees_disponibles": [1975],
+        "description": "Nombre total de ménages du département",
+        "type": "count",
+        "unit": "ménages",
+        "aggregation_level": "département",
+        "notes": "Agrégation départementale du fichier communal. Recensement de 1975.",
+        "source": "menagesdepartements.csv",
+    },
+    "menagesdepartements/nmencomp": {
+        "annees_disponibles": [1975],
+        "description": "Nombre de ménages complexes du département",
+        "type": "count",
+        "unit": "ménages",
+        "aggregation_level": "département",
+        "notes": "Agrégation départementale du fichier communal.",
+        "source": "menagesdepartements.csv",
+    },
+    "menagesdepartements/pmencomp": {
+        "annees_disponibles": [1975],
+        "description": "Proportion de ménages complexes du département",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Part des ménages complexes parmi l'ensemble des ménages du département.",
+        "source": "menagesdepartements.csv",
+    },
+    # =========================================================================
+    # H3.2 Diplômes par commune (1960-2022)
+    # =========================================================================
+    "diplomescommunes/nodiph": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Hommes 25+ sans diplôme ou diplôme faible (≤ CAP/BEP)",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Recensements modernes (1962-2022). Années intercensitaires interpolées.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/bach": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Hommes 25+ dont le diplôme le plus élevé est le baccalauréat",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Baccalauréat général ou technologique.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/suph": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Hommes diplômés du supérieur (25+)",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Recensements modernes.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/nodipf": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Femmes 25+ sans diplôme ou diplôme faible (≤ CAP/BEP)",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Recensements modernes.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/bacf": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Femmes 25+ dont le diplôme le plus élevé est le baccalauréat",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Baccalauréat général ou technologique.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/supf": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Femmes diplômées du supérieur (25+)",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Recensements modernes.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/nodip": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Population 25+ sans diplôme ou diplôme faible",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Agrégation hommes/femmes.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/bac": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Population 25+ dont le diplôme le plus élevé est le baccalauréat",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Baccalauréat général ou technologique.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/sup": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Population diplômée du supérieur (25+)",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Agrégation hommes/femmes.",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/pbac": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Proportion de bacheliers (et diplômés du supérieur) dans la commune",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "pbac = (bac+sup) / (nodip+bac+sup).",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/psup": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Proportion de diplômés du supérieur dans la commune",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "psup = sup / (nodip+bac+sup).",
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/perbac": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile de la proportion de bacheliers entre communes",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": (
+            "Distribution pondérée par la population 25+. "
+            "Avant 1960, percentiles estimés par répartition intra-départementale."
+        ),
+        "source": "diplomescommunes.csv",
+    },
+    "diplomescommunes/persup": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile de la proportion de diplômés du supérieur entre communes",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la population 25+.",
+        "source": "diplomescommunes.csv",
+    },
+    # =========================================================================
+    # H3.4 Ecoles publiques et privées par commune (2021 et 1894)
+    # =========================================================================
+    "publicprivecommunes2021/perprive2021": {
+        "annees_disponibles": [2021],
+        "description": "Percentile de la part du privé dans les écoles primaires (canton)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution 2021 de la part du privé dans les écoles primaires au niveau du canton.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes2021/perpriveseco2021": {
+        "annees_disponibles": [2021],
+        "description": "Percentile de la part du privé dans les établissements secondaires (canton)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution 2021 de la part du privé dans les établissements secondaires au niveau du canton.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes2021/perprive2021comm": {
+        "annees_disponibles": [2021],
+        "description": "Percentile de la part du privé dans les écoles primaires (commune ou canton)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Au niveau de la commune, ou du canton si la commune n'a pas d'école.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes2021/perpriveseco2021comm": {
+        "annees_disponibles": [2021],
+        "description": "Percentile de la part du privé dans les établissements secondaires (commune ou canton)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Au niveau de la commune, ou du canton si la commune n'a pas de collège/lycée.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes2021/prive2021_total": {
+        "annees_disponibles": [2021],
+        "description": "Proportion d'élèves scolarisés dans le privé (tous niveaux)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Primaire et secondaire confondus, au niveau de la commune ou du canton.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes2021/prive2021_prim": {
+        "annees_disponibles": [2021],
+        "description": "Proportion d'élèves scolarisés dans le privé (primaire)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Au niveau de la commune ou du canton.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes2021/prive2021_seco": {
+        "annees_disponibles": [2021],
+        "description": "Proportion d'élèves scolarisés dans le privé (secondaire)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Au niveau de la commune ou du canton.",
+        "source": "publicprivecommunes2021.csv",
+    },
+    "publicprivecommunes1894/perprive1894": {
+        "annees_disponibles": [1894],
+        "description": "Percentile de la part du privé dans les écoles primaires en 1894 (canton)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Y compris congréganiste public. Données cantonales Archives nationales.",
+        "source": "publicprivecommunes1894.csv",
+    },
+    "publicprivecommunes1894/perprive1894f": {
+        "annees_disponibles": [1894],
+        "description": "Percentile de la part du privé dans les écoles primaires en 1894 (canton, filles)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Y compris congréganiste public. Filles uniquement.",
+        "source": "publicprivecommunes1894.csv",
+    },
+    "publicprivecommunes1894/privecanton1894_prim": {
+        "annees_disponibles": [1894],
+        "description": "Proportion d'élèves scolarisés dans le privé (primaire, canton, 1894)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Y compris congréganiste public.",
+        "source": "publicprivecommunes1894.csv",
+    },
+    # =========================================================================
+    # H3.5 Religiosité par département et commune
+    # =========================================================================
+    "religiositedepartements/prefract1791": {
+        "annees_disponibles": [1791],
+        "description": "Proportion de prêtres réfractaires en 1791",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Prêtres refusant le serment à la constitution civile du clergé. Source : Tackett (1986).",
+        "source": "religiositedepartements.csv",
+    },
+    "religiositedepartements/pserment1791": {
+        "annees_disponibles": [1791],
+        "description": "Proportion de prêtres sermentaires en 1791",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Prêtres prêtant le serment à la constitution civile du clergé. Source : Tackett (1986).",
+        "source": "religiositedepartements.csv",
+    },
+    "religiositedepartements/pclerge1856": {
+        "annees_disponibles": [1856],
+        "description": "Effectifs du clergé en proportion de la population totale (1856)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Prêtres, religieux, religieuses. Source : recensement de 1856.",
+        "source": "religiositedepartements.csv",
+    },
+    "religiositedepartements/pmessalisants1950": {
+        "annees_disponibles": [1950],
+        "description": "Proportion de messalisants en 1950",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Personnes allant à la messe du dimanche. Source : Isambert et Terrenoire (1980).",
+        "source": "religiositedepartements.csv",
+    },
+    "religiositecommunes/perrefract": {
+        "annees_disponibles": [1791],
+        "description": "Percentile de la proportion de prêtres réfractaires (district, 1791)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Percentile de la commune dans la distribution 1791 au niveau du district.",
+        "source": "religiositecommunes.csv",
+    },
+    "religiositecommunes/perpriv": {
+        "annees_disponibles": [1894],
+        "description": "Percentile de la part du privé dans les écoles primaires (canton, 1894)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Y compris congréganiste public.",
+        "source": "religiositecommunes.csv",
+    },
+    "religiositecommunes/perprivf": {
+        "annees_disponibles": [1894],
+        "description": "Percentile de la part du privé dans les écoles primaires (canton, 1894, filles)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Y compris congréganiste public. Filles uniquement.",
+        "source": "religiositecommunes.csv",
+    },
+    "religiositecommunes/perprive": {
+        "annees_disponibles": [2021],
+        "description": "Percentile de la part du privé dans les écoles primaires (canton, 2021)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution 2021 de la part du privé dans les écoles primaires.",
+        "source": "religiositecommunes.csv",
+    },
+    "religiositecommunes/perprives": {
+        "annees_disponibles": [2021],
+        "description": "Percentile de la part du privé dans les établissements secondaires (canton, 2021)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution 2021 de la part du privé dans les établissements secondaires.",
+        "source": "religiositecommunes.csv",
+    },
+    # =========================================================================
+    # H4.2 Emplois résidentiels vs exportateurs par commune (1975-2016)
+    # =========================================================================
+    "emploicommunes/emp": {
+        "annees_disponibles": [1975, 1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi total au lieu de travail",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Données des recensements sur la structure des emplois.",
+        "source": "emploicommunes.csv",
+    },
+    "emploicommunes/empexp": {
+        "annees_disponibles": [1975, 1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi exportateur au lieu de travail",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": (
+            "Activités potentiellement exportatrices : agriculture, industrie, "
+            "commerce de gros, conseil aux entreprises."
+        ),
+        "source": "emploicommunes.csv",
+    },
+    "emploicommunes/empres": {
+        "annees_disponibles": [1975, 1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi résidentiel au lieu de travail",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Toutes les activités hors exportatrices (= emp - empexp).",
+        "source": "emploicommunes.csv",
+    },
+    # =========================================================================
+    # H4.3 Emplois fonctionnels par commune (1982-2016)
+    # =========================================================================
+    "empfoncommunes/emp": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi total au lieu de travail",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Données des recensements sur la structure fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/fab": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans la fabrication de biens matériels et d'énergie",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/con": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans le conseil, analyse, prestations intellectuelles",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/adm": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans l'administration publique, police, justice",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/edu": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans l'éducation et la formation",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/san": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans la santé et l'action sociale",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/btp": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans le bâtiment et les travaux publics",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/dis": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans la distribution et le commerce de détail",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/tra": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans les transports et la logistique",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/bag": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans la banque, assurances, gestion",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/agr": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans l'agriculture et la pêche",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/cii": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans le commerce inter-entreprises",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/cri": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans la conception-recherche industrielle",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/loi": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans les loisirs, culture, sport",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/rep": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans la réparation et l'entretien",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    "empfoncommunes/res": {
+        "annees_disponibles": [1982, 1990, 1999, 2006, 2011, 2016],
+        "description": "Emploi dans les restaurants, cafés, services de proximité",
+        "type": "count",
+        "unit": "emplois",
+        "aggregation_level": "commune",
+        "notes": "Nomenclature fonctionnelle des emplois.",
+        "source": "empfoncommunes.csv",
+    },
+    # =========================================================================
+    # H5.1 Nationalités et origines par commune (1960-2022)
+    # =========================================================================
+    "naticommunes/francais": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Nombre de personnes de nationalité française",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Données issues des recensements. Années intercensitaires interpolées.",
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/etranger": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Nombre de personnes de nationalité étrangère",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Données issues des recensements.",
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/petranger": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Proportion de personnes de nationalité étrangère",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Part des étrangers dans la population totale.",
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/peretr": {
+        "annees_disponibles": list(range(1840, 2023)),
+        "description": "Percentile de la proportion d'étrangers",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": (
+            "Avant 1960, percentiles estimés par répartition intra-départementale. "
+            "Avant 1851, fixés à la valeur de 1851."
+        ),
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/immigre": {
+        "annees_disponibles": [2007, 2012, 2017, 2022],
+        "description": "Nombre d'immigrés (personnes nées étrangères à l'étranger)",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Disponible pour 2007, 2012, 2017 et 2022. Estimations 2022 par prolongement de tendance.",
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/perimmigre": {
+        "annees_disponibles": [2007, 2012, 2017, 2022],
+        "description": "Percentile de la proportion d'immigrés dans la population",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution de la proportion d'immigrés dans la population totale.",
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/pfrarapat": {
+        "annees_disponibles": [1968],
+        "description": "Proportion de rapatriés d'Algérie dans la population (1968)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Pieds-noirs. Disponible uniquement dans le recensement de 1968.",
+        "source": "naticommunes.csv",
+    },
+    "naticommunes/perrapat": {
+        "annees_disponibles": [1968],
+        "description": "Percentile de la proportion de rapatriés (1968)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution de la proportion de rapatriés d'Algérie dans la population.",
+        "source": "naticommunes.csv",
+    },
+    # =========================================================================
+    # H5.2 Nationalités et origines par département (1851-2022)
+    # =========================================================================
+    "natidepartements/francais": {
+        "annees_disponibles": list(range(1851, 2023)),
+        "description": "Nombre de personnes de nationalité française par département",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "département",
+        "notes": "Données issues des recensements 1851-2022.",
+        "source": "natidepartements.csv",
+    },
+    "natidepartements/etranger": {
+        "annees_disponibles": list(range(1851, 2023)),
+        "description": "Nombre de personnes de nationalité étrangère par département",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "département",
+        "notes": "Données issues des recensements 1851-2022.",
+        "source": "natidepartements.csv",
+    },
+    "natidepartements/petranger": {
+        "annees_disponibles": list(range(1851, 2023)),
+        "description": "Proportion de personnes de nationalité étrangère par département",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Part des étrangers dans la population totale du département.",
+        "source": "natidepartements.csv",
+    },
+    # =========================================================================
+    # H5.3 Etrangers par commune (1851-2022)
+    # =========================================================================
+    "etrangerscommunes/francais": {
+        "annees_disponibles": list(range(1851, 2023)),
+        "description": "Nombre de personnes de nationalité française",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Séries construites à partir des données départementales et communales.",
+        "source": "etrangerscommunes.csv",
+    },
+    "etrangerscommunes/etranger": {
+        "annees_disponibles": list(range(1851, 2023)),
+        "description": "Nombre de personnes de nationalité étrangère",
+        "type": "count",
+        "unit": "personnes",
+        "aggregation_level": "commune",
+        "notes": "Séries construites à partir des données départementales et communales.",
+        "source": "etrangerscommunes.csv",
+    },
+    "etrangerscommunes/petranger": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Proportion de personnes de nationalité étrangère",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Pour 1790-1859, fixée à la valeur de 1851.",
+        "source": "etrangerscommunes.csv",
+    },
+    "etrangerscommunes/peretranger": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile de la proportion d'étrangers",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Pour 1790-1859, fixé à la valeur de 1851.",
+        "source": "etrangerscommunes.csv",
+    },
+    # =========================================================================
+    # H6.1 Productions par département (1860-2022)
+    # =========================================================================
+    "pibdepartements/pibhab": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "PIB départemental par habitant (en % de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "département",
+        "notes": (
+            "Données brutes pour 1860, 1896, 1930, 1962-2022. "
+            "Années manquantes estimées par interpolation linéaire des ratios."
+        ),
+        "source": "pibdepartements.csv",
+    },
+    "pibdepartements/pib": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "PIB départemental (en % du PIB national)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Part du département dans le PIB total national.",
+        "source": "pibdepartements.csv",
+    },
+    # =========================================================================
+    # H6.2 Revenus par département (1860-2022)
+    # =========================================================================
+    "revdepartements/revratio": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "Revenu moyen par habitant du département (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "département",
+        "notes": (
+            "1980-2022 : données fiscales communales agrégées. "
+            "1922-1980 : séries Bonnet-D'Albis-Sotura. "
+            "1860-1922 : séries de PIB par habitant."
+        ),
+        "source": "revdepartements.csv",
+    },
+    "revdepartements/revtot": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "Revenu total du département (fraction du total national)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Foyers fiscaux imposables et non imposables.",
+        "source": "revdepartements.csv",
+    },
+    "revdepartements/revmoy": {
+        "annees_disponibles": list(range(1980, 2023)),
+        "description": "Revenu moyen par habitant du département (euros 2022)",
+        "type": "monetary",
+        "unit": "euros 2022",
+        "aggregation_level": "département",
+        "notes": "Disponible uniquement pour 1980-2022.",
+        "source": "revdepartements.csv",
+    },
+    # =========================================================================
+    # H6.3 Revenus par commune (1860-2022)
+    # =========================================================================
+    "revcommunes/revratio": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Revenu moyen par habitant de la commune (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": (
+            "1980-2022 : données fiscales communales. "
+            "1860-1980 : estimé à partir des séries départementales. "
+            "1790-1859 : fixé à la valeur de 1860."
+        ),
+        "source": "revcommunes.csv",
+    },
+    "revcommunes/revtot": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "Revenu total de la commune (fraction du revenu national)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Foyers fiscaux imposables et non imposables.",
+        "source": "revcommunes.csv",
+    },
+    "revcommunes/perrev": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile du revenu moyen par habitant entre communes",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la taille des communes.",
+        "source": "revcommunes.csv",
+    },
+    "revcommunes/revratioagglo": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Revenu moyen par habitant de l'agglomération (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "agglomération",
+        "notes": "Revenu moyen de l'agglomération de rattachement de la commune.",
+        "source": "revcommunes.csv",
+    },
+    "revcommunes/perrevagglo": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile du revenu moyen par habitant entre agglomérations",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "agglomération",
+        "notes": "Distribution pondérée par la taille des agglomérations.",
+        "source": "revcommunes.csv",
+    },
+    "revcommunes/revmoy": {
+        "annees_disponibles": list(range(1980, 2023)),
+        "description": "Revenu moyen par habitant de la commune (euros 2022)",
+        "type": "monetary",
+        "unit": "euros 2022",
+        "aggregation_level": "commune",
+        "notes": "Disponible uniquement pour 1980-2022.",
+        "source": "revcommunes.csv",
+    },
+    # =========================================================================
+    # H6.4 PIB par commune (1860-2022)
+    # =========================================================================
+    "pibcommunes/pibratio": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "PIB communal par habitant (en % de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Estimé à partir des séries départementales et des répartitions intra-départementales du revenu.",
+        "source": "pibcommunes.csv",
+    },
+    "pibcommunes/pibtot": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "PIB communal (en % du PIB national)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Part de la commune dans le PIB total national.",
+        "source": "pibcommunes.csv",
+    },
+    "pibcommunes/perpibratio": {
+        "annees_disponibles": list(range(1860, 2023)),
+        "description": "Percentile du PIB communal par habitant",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la taille des communes.",
+        "source": "pibcommunes.csv",
+    },
+    # =========================================================================
+    # H7.1 Capital immobilier par département (1790-2022)
+    # =========================================================================
+    "capitalimmobilierdepartements/capitalratio": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Capital immobilier par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "département",
+        "notes": (
+            "Valeur des logements. Sources : bases DVF 2014-2021, indices immobiliers, "
+            "valeurs locatives cadastrales historiques."
+        ),
+        "source": "capitalimmobilierdepartements.csv",
+    },
+    "capitalimmobilierdepartements/capitalimmo": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Capital immobilier total (fraction du total national)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "département",
+        "notes": "Valeur totale des logements en fraction du total national.",
+        "source": "capitalimmobilierdepartements.csv",
+    },
+    # =========================================================================
+    # H7.2 Capital immobilier par commune (1790-2022)
+    # =========================================================================
+    "capitalimmobiliercommunes/capitalratio": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Capital immobilier par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": (
+            "Sources : bases DVF 2014-2022, volumes SFC 1881-1920. "
+            "Étendu aux autres années par répartition intra-départementale."
+        ),
+        "source": "capitalimmobiliercommunes.csv",
+    },
+    "capitalimmobiliercommunes/capitalimmo": {
+        "annees_disponibles": list(range(1820, 2023)),
+        "description": "Capital immobilier total de la commune (fraction du total national)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Valeur totale des logements en fraction du total national.",
+        "source": "capitalimmobiliercommunes.csv",
+    },
+    "capitalimmobiliercommunes/percap": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile du capital immobilier par habitant entre communes",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la taille des communes.",
+        "source": "capitalimmobiliercommunes.csv",
+    },
+    "capitalimmobiliercommunes/capitalratioagglo": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Capital immobilier par habitant de l'agglomération (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "agglomération",
+        "notes": "Capital immobilier moyen de l'agglomération de rattachement.",
+        "source": "capitalimmobiliercommunes.csv",
+    },
+    "capitalimmobiliercommunes/percapagglo": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile du capital immobilier par habitant entre agglomérations",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "agglomération",
+        "notes": "Distribution pondérée par la taille des agglomérations.",
+        "source": "capitalimmobiliercommunes.csv",
+    },
+    # =========================================================================
+    # H7.4 Bases fiscales et recettes par département (1790-2022)
+    # =========================================================================
+    "basesfiscalesdepartements/basehabitationratio": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Base habitation par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "département",
+        "notes": (
+            "Bases de la contribution personnelle-mobilière/taxe d'habitation. "
+            "Valeur locative des locaux d'habitation."
+        ),
+        "source": "basesfiscalesdepartements.csv",
+    },
+    "basesfiscalesdepartements/basefonciereratio": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Base foncière par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "département",
+        "notes": (
+            "Bases de la contribution foncière/taxe foncière. "
+            "Valeur locative des propriétés bâties et non bâties."
+        ),
+        "source": "basesfiscalesdepartements.csv",
+    },
+    "basesfiscalesdepartements/baseimpotslocauxratio": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Base impôts locaux par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "département",
+        "notes": "Moyenne pondérée des bases TH et TF.",
+        "source": "basesfiscalesdepartements.csv",
+    },
+    # =========================================================================
+    # H7.5 Bases fiscales et recettes par commune (1881-2022)
+    # =========================================================================
+    "basesfiscalescommunes/baseimpotslocauxratio": {
+        "annees_disponibles": [1881, 1911, 1920] + list(range(1982, 2023)),
+        "description": "Base des impôts locaux directs par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": (
+            "1881-1920 : valeur du centime communal. "
+            "1982-2022 : somme des bases TF et TH."
+        ),
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/recetteimpotslocauxratio": {
+        "annees_disponibles": [1881, 1911, 1920] + list(range(1982, 2023)),
+        "description": "Recette des impôts locaux directs par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": (
+            "1881-1920 : centimes additionnels aux contributions directes. "
+            "1982-2022 : recettes TF + TH."
+        ),
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/tauximpotslocauxratio": {
+        "annees_disponibles": [1881, 1911, 1920] + list(range(1982, 2023)),
+        "description": "Taux communal effectif des impôts locaux (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "1881-1920 : nombre de centimes communaux. 1982-2022 : recettes/bases.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/recetteratio": {
+        "annees_disponibles": [1881, 1911, 1920] + list(range(2000, 2023)),
+        "description": "Recette communale totale par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Toutes recettes budgétaires confondues (fiscales et non fiscales).",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/basehabitationratio": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Base habitation par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Bases nettes de la taxe d'habitation (valeurs locatives cadastrales moins déductions).",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/basefonciereratio": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Base foncière par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Bases nettes de la taxe foncière (50% des valeurs locatives cadastrales).",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/recettehabitationratio": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Recette habitation communale par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Recettes de la taxe d'habitation au niveau communal.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/recettefonciereratio": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Recette foncière communale par habitant (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Recettes de la taxe foncière au niveau communal.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/tauxhabitationratio": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Taux communal de la taxe d'habitation (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Recette habitation communale divisée par base habitation communale.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/tauxfoncierratio": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Taux communal de la taxe foncière (ratio de la moyenne nationale)",
+        "type": "ratio",
+        "unit": "ratio",
+        "aggregation_level": "commune",
+        "notes": "Recette foncière communale divisée par base foncière communale.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/basehabitationtot": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Base habitation totale (euros courants)",
+        "type": "monetary",
+        "unit": "euros courants",
+        "aggregation_level": "commune",
+        "notes": "Bases nettes de la taxe d'habitation en euros courants.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    "basesfiscalescommunes/basefoncieretot": {
+        "annees_disponibles": list(range(1982, 2023)),
+        "description": "Base foncière totale (euros courants)",
+        "type": "monetary",
+        "unit": "euros courants",
+        "aggregation_level": "commune",
+        "notes": "Bases nettes de la taxe foncière en euros courants.",
+        "source": "basesfiscalescommunes.csv",
+    },
+    # =========================================================================
+    # H7.6 Propriétaires par commune (1960-2022)
+    # =========================================================================
+    "proprietairescommunes/ppropri": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Proportion de ménages propriétaires de leur logement",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Données issues des recensements 1960-2022.",
+        "source": "proprietairescommunes.csv",
+    },
+    "proprietairescommunes/nlogement": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Nombre total de logements (résidences principales)",
+        "type": "count",
+        "unit": "logements",
+        "aggregation_level": "commune",
+        "notes": "Propriétaires, locataires ou logés gratuitement.",
+        "source": "proprietairescommunes.csv",
+    },
+    "proprietairescommunes/npropri": {
+        "annees_disponibles": list(range(1960, 2023)),
+        "description": "Nombre de ménages propriétaires",
+        "type": "count",
+        "unit": "ménages",
+        "aggregation_level": "commune",
+        "notes": "Données issues des recensements.",
+        "source": "proprietairescommunes.csv",
+    },
+    "proprietairescommunes/perpropri": {
+        "annees_disponibles": list(range(1790, 2023)),
+        "description": "Percentile de la proportion de propriétaires entre communes",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": (
+            "1960-2022 : calculé directement. "
+            "1880-1959 : estimé par répartition intra-départementale. "
+            "1790-1879 : fixé à la valeur de 1880."
+        ),
+        "source": "proprietairescommunes.csv",
+    },
+    # =========================================================================
+    # H7.7 Répartition de la propriété terrienne (1962-1968)
+    # =========================================================================
+    "terrescommunes/psurface50p": {
+        "annees_disponibles": [1962],
+        "description": "Proportion de surfaces agricoles de plus de 50 hectares (commune, 1962)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": (
+            "Part des surfaces exploitées dans des exploitations de plus de 50 hectares. "
+            "Recensement agricole de 1962."
+        ),
+        "source": "terrescommunes.csv",
+    },
+    "terrescommunes/persur50p": {
+        "annees_disponibles": [1962],
+        "description": "Percentile de la proportion de surfaces de plus de 50 hectares (commune, 1962)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Calculé uniquement pour les communes avec au moins 5% d'agriculteurs en 1962.",
+        "source": "terrescommunes.csv",
+    },
+    "terrescommunes/psurface50pcanton": {
+        "annees_disponibles": [1962],
+        "description": "Proportion de surfaces de plus de 50 hectares (canton, 1962)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Données agrégées au niveau du canton.",
+        "source": "terrescommunes.csv",
+    },
+    "terrescommunes/persur50pc": {
+        "annees_disponibles": [1962],
+        "description": "Percentile de la proportion de surfaces de plus de 50 hectares (canton, 1962)",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Calculé au niveau cantonal pour l'ensemble des communes.",
+        "source": "terrescommunes.csv",
+    },
+    "terrescommunes/nexploit": {
+        "annees_disponibles": [1962],
+        "description": "Nombre d'exploitations agricoles (1962)",
+        "type": "count",
+        "unit": "exploitations",
+        "aggregation_level": "commune",
+        "notes": "Recensement agricole de 1962.",
+        "source": "terrescommunes.csv",
+    },
+    "terrescommunes/pexploit50p": {
+        "annees_disponibles": [1962],
+        "description": "Proportion d'exploitations agricoles de plus de 50 hectares (1962)",
+        "type": "proportion",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Recensement agricole de 1962.",
+        "source": "terrescommunes.csv",
+    },
+    # =========================================================================
+    # H8.2 Crimes et délits par commune (2016-2021)
+    # =========================================================================
+    "crimesdelitscommunes/pcrimesdelits": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Nombre total de crimes et délits par habitant",
+        "type": "ratio",
+        "unit": "par habitant",
+        "aggregation_level": "commune",
+        "notes": (
+            "Moyennes bi-annuelles : 2016-2017, 2018-2019, 2020-2021. "
+            "Source : SSMSI, ministère de l'intérieur."
+        ),
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/percrimesdelits": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Percentile du nombre de crimes et délits par habitant",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la taille des communes.",
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/pviolences": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Nombre de violences contre les personnes par habitant",
+        "type": "ratio",
+        "unit": "par habitant",
+        "aggregation_level": "commune",
+        "notes": "Source : SSMSI.",
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/perviolences": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Percentile du nombre de violences par habitant",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la taille des communes.",
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/pcambriolages": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Nombre de cambriolages de logements par habitant",
+        "type": "ratio",
+        "unit": "par habitant",
+        "aggregation_level": "commune",
+        "notes": "Source : SSMSI.",
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/percambriolages": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Percentile du nombre de cambriolages par habitant",
+        "type": "percentile",
+        "unit": "[0,1]",
+        "aggregation_level": "commune",
+        "notes": "Distribution pondérée par la taille des communes.",
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/pvolsvoitures": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Nombre de vols de voitures par habitant",
+        "type": "ratio",
+        "unit": "par habitant",
+        "aggregation_level": "commune",
+        "notes": "Source : SSMSI.",
+        "source": "crimesdelitscommunes.csv",
+    },
+    "crimesdelitscommunes/pautresvols": {
+        "annees_disponibles": [2016, 2018, 2020],
+        "description": "Nombre d'autres vols par habitant",
+        "type": "ratio",
+        "unit": "par habitant",
+        "aggregation_level": "commune",
+        "notes": "Source : SSMSI.",
+        "source": "crimesdelitscommunes.csv",
     },
 }

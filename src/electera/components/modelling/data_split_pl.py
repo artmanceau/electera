@@ -4,8 +4,15 @@ from loguru import logger
 from sklearn.model_selection import train_test_split
 
 
-def split_method(data, way='random', election_type=None, test_year=None, train_year=None, validation_year=None):
-    if way == 'time-serie-cv':
+def split_method(
+    data,
+    way="random",
+    election_type=None,
+    test_year=None,
+    train_year=None,
+    validation_year=None,
+):
+    if way == "time-serie-cv":
         data_train = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") < int(test_year)
         )
@@ -15,7 +22,7 @@ def split_method(data, way='random', election_type=None, test_year=None, train_y
         data_validation = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") < int(test_year)
         )
-    elif way == 'last-only':
+    elif way == "last-only":
         data_train = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") == int(train_year)
         )
@@ -25,15 +32,17 @@ def split_method(data, way='random', election_type=None, test_year=None, train_y
         data_validation = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") < int(validation_year)
         )
-    elif way == 'random':
-        # Only "recent" elections
-        data = data.filter(pl.col('annee')>=1960)
+    elif way == "random":
+        # Time limit on elections
+        data = data.filter(pl.col("annee") >= 1960).filter(pl.col("annee") <= 2022)
         data_train_val, data_test = train_test_split(
-            data, test_size=0.2, random_state=42, shuffle=True)
+            data, test_size=0.2, random_state=42, shuffle=True
+        )
         data_train, data_validation = train_test_split(
-            data_train_val, test_size=0.25, random_state=42, shuffle=True)
+            data_train_val, test_size=0.25, random_state=42, shuffle=True
+        )
     else:
-        logger.error('Split method not implemented, no splits implemented')
+        logger.error("Split method not implemented, no splits implemented")
         data_train, data_test, data_validation = data, data, data
     return data_train, data_test, data_validation
 
@@ -45,43 +54,48 @@ def get_Xy_pl(
     election_type,
     predict_delta=False,
     predict_perc=False,
-    selected_groups=["raw", "rank", "delta", "geo", "previous_vote", "other", 'meta'],
+    selected_groups=[
+        "raw",
+        "rank",
+        "delta",
+        "geo",
+        "previous_vote",
+        "other",
+        "meta",
+        "pct_change",
+    ],
     selected_features=None,
+    split_method_way="random",
 ):
     # Tau is monotonic
-    vote_variable_perc = vote_variable if 'tau' not in vote_variable else vote_variable.replace('tau', '')
+    vote_variable_perc = (
+        vote_variable
+        if "tau" not in vote_variable
+        else vote_variable.replace("tau", "")
+    )
 
     data = data.with_columns(
         [
-            pl.col(col).fill_null(pl.col(col).mean().over("dep", 'annee'))
+            pl.col(col).fill_null(pl.col(col).mean().over("dep", "annee"))
             for col in [
                 f"previous{vote_variable}",
                 f"previousprevious{vote_variable}",
-                f"previouspercentile{vote_variable_perc}"
+                f"previouspercentile{vote_variable_perc}",
             ]
         ],
     ).with_columns(
-        (
-            pl.col(vote_variable) - pl.col(f"previous{vote_variable}")
-        ).alias(
+        (pl.col(vote_variable) - pl.col(f"previous{vote_variable}")).alias(
             f"delta{vote_variable}"
         ),
         (
-            pl.col(f"percentile{vote_variable_perc}")-pl.col(f"previouspercentile{vote_variable_perc}")
-        ).alias(
-            f"deltapercentile{vote_variable}"
-        ),
-        (
-            pl.lit(0.0)
-        ).alias(
-            f"previousdeltapercentile{vote_variable}"
-        ),
+            pl.col(f"percentile{vote_variable_perc}")
+            - pl.col(f"previouspercentile{vote_variable_perc}")
+        ).alias(f"deltapercentile{vote_variable}"),
+        (pl.lit(0.0)).alias(f"previousdeltapercentile{vote_variable}"),
         (
             pl.col(f"previous{vote_variable}")
             - pl.col(f"previousprevious{vote_variable}")
-        ).alias(
-            f"previousdelta{vote_variable}"
-        ),
+        ).alias(f"previousdelta{vote_variable}"),
     )
 
     if predict_perc:
@@ -122,10 +136,10 @@ def get_Xy_pl(
     assert data.select(pl.sum_horizontal(cs.float().is_infinite())).sum().item() == 0
 
     available_years = sorted(
-         data.filter(pl.col("election_type") == election_type)
-         .unique("annee")
-         .get_column("annee")
-         .to_list()
+        data.filter(pl.col("election_type") == election_type)
+        .unique("annee")
+        .get_column("annee")
+        .to_list()
     )
     test_year = year
     x = available_years.index(test_year)
@@ -136,7 +150,14 @@ def get_Xy_pl(
     #         "Not possible because we don't have enough past elections. Choosing random elections years instead"
     #     )
 
-    data_train, data_test, data_validation = split_method(data, way='random', election_type=election_type, test_year=test_year, train_year=train_year, validation_year=validation_year)
+    data_train, data_test, data_validation = split_method(
+        data,
+        way=split_method_way,
+        election_type=election_type,
+        test_year=test_year,
+        train_year=train_year,
+        validation_year=validation_year,
+    )
 
     assert len(data_train) > 0
 
@@ -160,7 +181,7 @@ def get_Xy_pl(
                 set(data_train.columns)
             ),
             "other": ["inscrits", "dep_num"],
-            "meta": ['annee', 'type']
+            "meta": ["annee", "type"],
         }
         features = [
             col for group in selected_groups for col in feature_groups.get(group, [])
@@ -171,9 +192,7 @@ def get_Xy_pl(
         data_validation.get_column(y),
         data_test.get_column(y),
     )
-    y_previous = (
-        data_test.get_column(y_prev)
-    )
+    y_previous = data_test.get_column(y_prev)
 
     X_train, X_test, X_val = (
         data_train.select(features),

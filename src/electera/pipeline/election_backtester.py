@@ -30,7 +30,7 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_squared_error
 from assets.delta_pred_features import make_features
 import electera.components.mlflow.mlflow_utils as mlf_utils
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
@@ -54,7 +54,7 @@ from electera.components.utils.read_config import ConfigReader
 
 # TODO:
 # - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
-FEATURES = list(set(make_features('rank')).union(set(make_features('pct_change'))))
+FEATURES = list(set(make_features("rank")).union(set(make_features("pct_change"))))
 
 
 S3_SAVE = True
@@ -71,19 +71,19 @@ MODEL_ARGS = {
     "trivial_2": {},
     "linear": {"linear_model": LinearRegression},
     "boosting": {
-        'parameters': {
-            'min_child_weight': 50,
-            'max_depth': 15,
-            'objective': 'reg:squarederror',
-            'colsample_bytree': 0.8,
-            'colsample_bylevel': 0.8,
-            'colsample_bynode': 0.8,
-            'learning_rate': 0.001,
-            'min_split_loss': 0.5,
-            'gamma': 5,
-            'alpha': 5,
-            'lambda': 5,
-            'early_stopping_rounds': 100
+        "parameters": {
+            "min_child_weight": 50,
+            "max_depth": 15,
+            "objective": "reg:squarederror",
+            "colsample_bytree": 0.8,
+            "colsample_bylevel": 0.8,
+            "colsample_bynode": 0.8,
+            "learning_rate": 0.001,
+            "min_split_loss": 0.5,
+            "gamma": 5,
+            "alpha": 5,
+            "lambda": 5,
+            "early_stopping_rounds": 100,
         }
     },
     "meta_boosting": {
@@ -170,14 +170,13 @@ class BackTester:
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
                 selected_groups=["pct_change"],
-                selected_features=FEATURES
+                selected_features=FEATURES,
             )
 
             for name, value in zip(container_names, values):
                 getattr(self, name)[trend] = value
-            
-            self.feature_names[trend] = self.X_train[trend].columns.tolist()
 
+            self.feature_names[trend] = self.X_train[trend].columns.tolist()
 
     def organize_vote(self, k_year, k_type, k_political_trends, model_name):
         # Simulate a production setting
@@ -444,12 +443,13 @@ class BackTester:
                 self.baseline_results[model_name] = ModelEvaluator.evaluate(
                     self.y_test[trend], self.y_prev[trend], model_name, extended=True
                 )
-                logger.info(
-                    "Baseline predictions (constant)"
-                )
+                logger.info("Baseline predictions (constant)")
                 # Adjust to the problem
                 self.constant_results[model_name] = ModelEvaluator.evaluate(
-                    self.y_test[trend], self.y_test[trend] * 0.0 + 0.0, model_name, extended=False
+                    self.y_test[trend],
+                    self.y_test[trend] * 0.0 + 0.0,
+                    model_name,
+                    extended=False,
                 )
 
                 # Log metric
@@ -470,16 +470,28 @@ class BackTester:
                         mlflow.log_artifact(csv_path, artifact_path="predictions")
 
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.results[model_name], model_name=model_name, suffix='ML'
+                        trend=trend,
+                        values=self.results[model_name],
+                        model_name=model_name,
+                        suffix="ML",
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.results_in_sample[model_name], model_name=model_name, suffix='in_sample'
+                        trend=trend,
+                        values=self.results_in_sample[model_name],
+                        model_name=model_name,
+                        suffix="in_sample",
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.baseline_results[model_name], model_name=model_name, suffix='baseline_previous'
+                        trend=trend,
+                        values=self.baseline_results[model_name],
+                        model_name=model_name,
+                        suffix="baseline_previous",
                     )
                     mlf_utils._log_numeric_metrics(
-                        trend=trend, values=self.constant_results[model_name], model_name=model_name, suffix='baseline_random'
+                        trend=trend,
+                        values=self.constant_results[model_name],
+                        model_name=model_name,
+                        suffix="baseline_random",
                     )
 
                     # Log feature list
@@ -539,14 +551,18 @@ class BackTester:
                                     artifact_path=f"feature_importance/plots/{trend}",
                                 )
 
-                                importance_df = pd.DataFrame(model_importance).reset_index()
-                                importance_path = Path(tmpdir) / f"{trend}_{model_key}_importance.csv"
+                                importance_df = pd.DataFrame(
+                                    model_importance
+                                ).reset_index()
+                                importance_path = (
+                                    Path(tmpdir) / f"{trend}_{model_key}_importance.csv"
+                                )
                                 importance_df.to_csv(importance_path, index=False)
 
                                 mlflow.log_artifact(
                                     str(importance_path),
                                     artifact_path=f"feature_importance/data/{trend}",
-                                )           
+                                )
 
                 self.election_predictor.add_model(
                     trend, instance_model, features=self.feature_names[trend]
@@ -561,7 +577,9 @@ class BackTester:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pickle_path = f"{tmpdir}/model.pkl"
                     with open(pickle_path, "wb") as f:
-                        pickle.dump(self.election_predictor, f, protocol=pickle.HIGHEST_PROTOCOL)
+                        pickle.dump(
+                            self.election_predictor, f, protocol=pickle.HIGHEST_PROTOCOL
+                        )
                     mlflow.log_artifact(pickle_path, artifact_path="model")
 
             if self.config.organize_vote:

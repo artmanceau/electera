@@ -24,9 +24,9 @@ BASE_PARAMS = {
         # (i.e. how much we update our prediction with each successive tree)
         "min_split_loss": 0.5,  # the minimum loss reduction required to make a further split
         "early_stopping_rounds": 150,
-        'lambda': 5,
-        'alpha': 5,
-        'gamma': 5
+        "lambda": 5,
+        "alpha": 5,
+        "gamma": 5,
         # "objective": BoostingCustomLoss.spatial_loss(lambd=0.5, L=mean_squared_error)
         # # Spatial loss
     },
@@ -210,7 +210,7 @@ class BoostingModel:
                 search_object = RandomizedSearchCV(
                     estimator=XGBRegressor(
                         learning_rate=best_learning_rate,
-                        random_state=self.config["random_state"],
+                        random_state=42,
                     ),
                     param_distributions=param_space,
                     n_iter=1,  # Number of random configurations to try
@@ -307,10 +307,10 @@ class BoostingModel:
                 model = model_0
                 perm_importance = permutation_importance(
                     model,
-                    self.X_val,
-                    self.y_val,
+                    X_val,
+                    y_val,
                     n_repeats=3,
-                    random_state=self.config["random_state"],
+                    random_state=42,
                 )
                 self.importance_df["Permutation"] = perm_importance.importances_mean
                 self.importance_df = self.importance_df.sort_values(
@@ -323,10 +323,10 @@ class BoostingModel:
             elif feature_selection_method == "RFE":
                 # Top features using Recursive Feature Elimination
                 rfe = RFE(
-                    estimator=XGBRegressor(random_state=self.config["random_state"]),
+                    estimator=XGBRegressor(random_state=42),
                     n_features_to_select=nb_features,
                 )
-                rfe.fit(self.X_val, self.y_val)
+                rfe.fit(X_val, y_val)
                 self.importance_df["RFE"] = rfe.support_
                 self.features_selected = np.array(self.feature_names)[
                     rfe.support_

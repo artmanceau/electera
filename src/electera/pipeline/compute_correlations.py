@@ -107,9 +107,10 @@ def run_all_multiprocessing(
 
 
 def main(var, electoral_data, commune_data):
-    filtering_cols = 'inscrits' if var == 'pvotepar' else 'exprimes'
+    filtering_cols = "inscrits" if var == "pvotepar" else "exprimes"
     X = (
-        electoral_data.drop_nulls(var).filter(pl.col(filtering_cols) > 0)
+        electoral_data.drop_nulls(var)
+        .filter(pl.col(filtering_cols) > 0)
         .with_columns(
             p_alpha=pl.when(pl.col(var) == 1.0)
             .then((pl.col(filtering_cols) - 0.5) / pl.col(filtering_cols))

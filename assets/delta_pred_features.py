@@ -1,5 +1,9 @@
 BASE_FEATURES = [
-    "lat", "long", "inscrits", "distanceparis", 'dep_num',
+    "lat",
+    "long",
+    "inscrits",
+    "distanceparis",
+    "dep_num",
     "F_raw_popcommunesvbbm/vbbm",
     "F_raw_popcommunesvbbm/vbbmpauvresriches",
     "F_{metric}_pibdepartements/pib",
@@ -43,8 +47,6 @@ BASE_FEATURES = [
     "F_{metric}_basesfiscalescommunes/tauximpotslocauxratio",
 ]
 
+
 def make_features(metric="pct_change"):
-    return [
-        f.format(metric=metric) if "{metric}" in f else f
-        for f in BASE_FEATURES
-    ]
+    return [f.format(metric=metric) if "{metric}" in f else f for f in BASE_FEATURES]

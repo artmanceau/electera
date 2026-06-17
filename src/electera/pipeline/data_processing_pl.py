@@ -199,8 +199,8 @@ class ElectionDataProcessor:
 
         # Join geo_data
         geo_data = self.add_geographical_data()
-        PARIS_LAT = 48.8566
-        PARIS_LON = 2.3522
+        PARIS_LAT = 2.3522
+        PARIS_LON = 48.8566
         communes = (
             communes.join(geo_data, on="codecommune", how="left")
             # Step 1: fill from parent commune
@@ -229,9 +229,10 @@ class ElectionDataProcessor:
                 )
             )
             .with_columns(
-                pl.lit({"latitude": PARIS_LAT, "longitude": PARIS_LON}).alias(
-                    "paris_coords"
-                )
+                pl.struct(
+                    pl.lit(PARIS_LAT).alias("latitude"),
+                    pl.lit(PARIS_LON).alias("longitude"),
+                ).alias("paris_coords")
             )
             .with_columns(
                 pld.col("coords")
@@ -650,10 +651,8 @@ class ElectionDataProcessor:
             .item()
             == 0
         )
-
-        catalog = df.group_by("feature").agg(pl.col("annee").unique().sort())
-        df = df.fill_nan(None)
-        return df, catalog
+        #catalog = df.group_by("feature").agg(pl.col("annee").unique().sort())
+        return df
 
     def _augment(self, df, key):
         return df.with_columns(
@@ -662,7 +661,7 @@ class ElectionDataProcessor:
                 pl.col("raw").rank(descending=False) / pl.col("raw").count()
             ).round(4).over("feature", "annee"),
             delta=(pl.col("raw").diff(1).round(4)).over(key, "feature", order_by="annee"),
-            pct_change=(pl.col("raw").pct_change(1).round(4)).over(key, "feature", order_by="annee")
+            pct_change=(pl.col("raw").pct_change(1).round(4).clip(-10, 10)).over(key, "feature", order_by="annee")
         ).fill_nan(None)
 
     def _project(self, df, key):
@@ -685,14 +684,20 @@ class ElectionDataProcessor:
             ).sort(
                 'feature', key, 'annee'
             ).with_columns(
-                (pl.col("raw").pct_change()).alias('growth_rates'),
+                pl.when(
+                    pl.col('from_left') == 1
+                ).then(
+                    pl.col("raw").pct_change(1).rolling_mean(window_size=8).fill_null(0.0)
+                ).otherwise(
+                    None
+                ).alias('growth_rates'),
                 (pl.col('annee')-pl.col('last_year')).alias('k')
             ).with_columns(
                 pl.col('raw').fill_null(strategy='forward'),
                 pl.col('growth_rates').fill_null(strategy='forward')
             ).with_columns(
                 raw=pl.when(
-                    pl.col('from_left') == 1
+                    (pl.col('from_left') == 1)
                 ).then(
                     pl.col('raw')
                 ).otherwise(
@@ -746,11 +751,14 @@ class ElectionDataProcessor:
                         if df is None:
                             continue
 
+                        max_year = df.select('annee').max().collect().item(0)
+
                         # Build year grids and fill gaps (linear interpolation)
                         df = self._build_year_grids(df, key)
 
                         # Projections
-                        df = self._project(df, key)
+                        if max_year >= 2016:
+                            df = self._project(df, key)
 
                         # Augmentations
                         df = self._augment(df, key)
@@ -766,6 +774,8 @@ class ElectionDataProcessor:
                             "pct_change": pl.Float64,
                         }
                         schema = df.collect_schema()
+
+                        # Match to schema
                         df = df.cast(
                             {
                                 k: v
@@ -773,11 +783,10 @@ class ElectionDataProcessor:
                                 if k in schema.names()
                             },
                             strict=True,
-                        ).match_to_schema(
-                            target_schema,
-                            missing_columns="insert",
-                            extra_columns="ignore",
+                        ).select(
+                            list(target_schema.keys())
                         )
+
                         float_cols = [
                             c
                             for c, dtype in zip(df.collect_schema().names(), df.collect_schema().dtypes())
@@ -794,6 +803,11 @@ class ElectionDataProcessor:
                         )
                         df = df.collect()
 
+                        # pct_change, lag and delta can have missing values on bound years.
+                        # pct_change can also be null if the previous value is 0.0
+                        # assert df.select(key, 'feature', 'annee', 'raw', 'rank').null_count().sum_horizontal().item(0) == 0
+
+                        # Check column names
                         # df.unique('feature').write_csv(f'debug/{file}.csv')
 
                         assert (
@@ -819,16 +833,14 @@ class ElectionDataProcessor:
                         else:
                             dep_frames.append(df)
 
-        socio_economic_communes, catalog_communes = self._concat_and_check(
+        socio_economic_communes = self._concat_and_check(
             communes_frames, "codecommune"
         )
-        socio_economic_dep, catalog_dep = self._concat_and_check(dep_frames, "dep")
+        socio_economic_dep = self._concat_and_check(dep_frames, "dep")
 
         return (
             socio_economic_communes,
             socio_economic_dep,
-            catalog_communes,
-            catalog_dep,
         )
 
     @staticmethod
@@ -965,7 +977,6 @@ class ElectionDataProcessor:
             f"❌ Dropped {len(cols_dropped)} columns (>= {int(threshold * 100)}% nulls):"
         )
         print(cols_dropped)
-
         dataset = dataset.drop(cols_dropped)
 
         # Remaining missing values are imputed with the departemental mean (in the same year),
@@ -1080,9 +1091,7 @@ def main():
     logger.info("Step 3: Socio-economic data")
     (
         socio_economic_data_communes,
-        socio_economic_data_dep,
-        catalog_communes,
-        catalog_dep,
+        socio_economic_data_dep
     ) = processor.load_socio_economic_data()
 
     logger.info("Building aggregated training dataset")
@@ -1112,7 +1121,6 @@ def main():
     processor.save_processed_data(agg_dataset.to_pandas())
 
     return None
-
 
 if __name__ == "__main__":
     main()

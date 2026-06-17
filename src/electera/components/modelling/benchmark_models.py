@@ -69,7 +69,6 @@ class LinearModel:
 
 
 class BenchmarkModels:
-
     def __init__(self):
         self.model = None
 
@@ -94,7 +93,9 @@ class BenchmarkModels:
         self.model.train(X_train=None, y_train=y_train)
         return self.model.infer(X_test=X_test)
 
-    def train_linear_model(self, X_train, y_train, X_test, linear_model=LinearRegression):
+    def train_linear_model(
+        self, X_train, y_train, X_test, linear_model=LinearRegression
+    ):
         """Train linear regressions model"""
         logger.info("Training linear regression model...")
         self.model = LinearModel(linear_model=linear_model)

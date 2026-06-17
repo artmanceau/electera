@@ -1,11 +1,11 @@
 {   "vote_variable": "par",
-    "dataset_path": "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_processed_presidentiel_legislative_municipales_from1800_to2022_20260615_104812.parquet",
+    "dataset_path": "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260617_152300.parquet",
     "predict_delta": false,
     "predict_perc": false,
     "use_MLFlow": true,
     "param_search_methods": ["none"],
-    "feature_selection_methods": ["none"],
+    "feature_selection_methods": ["gain"],
     "boosting_methods": ["xgboost"],
-    "top_n_features": 30,
-    "models": ["trivial_1", "trivial_2", "linear_reg", "boosting"]
+    "top_n_features": 250,
+    "models": ["trivial_1", "trivial_2", "linear_reg", "boosting", "meta_boosting"]
 }

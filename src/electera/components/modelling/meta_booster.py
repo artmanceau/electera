@@ -119,13 +119,20 @@ class MetaBooster:
 
         return X_train[features]
 
-    def train(self, X, y, use_feature_selection=False, val_set=None):
+    def train(
+        self,
+        X,
+        y,
+        use_feature_selection=False,
+        feature_selection_method="permutation",
+        val_set=None,
+    ):
         logger.info("Training meta-booster model")
         weights = self._compute_weights(X, y)
 
         if use_feature_selection:
             X_val, y_val = (X, y) if val_set is None else val_set
-            self.feature_selection(X_val, y_val)
+            self.feature_selection(X_val, y_val, method=feature_selection_method)
 
         X = self._check_feature_consistency(X, self.features)
         print(list(X.columns)[0])
@@ -210,7 +217,7 @@ class MetaBooster:
         sample_model = BOOSTING_ALG[self.method]()
         sample_model.fit(X=X, y=y)
 
-        if method == "total_gain":
+        if method == "gain":
             features_imp_df = FeatureImportance.compute_importance(
                 models=[sample_model],
                 features=X.columns,
@@ -241,6 +248,7 @@ class MetaBooster:
             "proportional": inscrits,
             "proportional_squared": inscrits**2,
             "sqrt": np.sqrt(inscrits),
+            "log": np.log(inscrits + 1),
             "inverse": 1.0 / (inscrits + 1e-6),
             "inverse_y": 1.0 / (y.flatten() + 1e-6),
         }

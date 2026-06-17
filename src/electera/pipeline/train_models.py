@@ -10,7 +10,6 @@ from datetime import datetime
 import tempfile
 import shutil
 import os
-import numpy as np
 import mlflow
 import mlflow.sklearn
 import pandas as pd
@@ -29,7 +28,7 @@ from electera.components.modelling.meta_booster import (
 )
 from electera.components.utils.config import TrainModelsConfig
 from electera.components.utils.read_config import ConfigReader
-from assets.delta_pred_features import make_features
+
 
 class ElectionModelTrainer:
     """Class to handle model training and evaluation pipeline"""
@@ -75,20 +74,40 @@ class ElectionModelTrainer:
         self.feature_names = {}
 
         values = get_Xy_pl(
-                data,
-                vote_variable=f"pvote{self.var}",
-                year=2022,
-                election_type="presidentiel",
-                predict_delta=self.config.predict_delta,
-                predict_perc=self.config.predict_perc,
-                selected_groups=['rank', 'pct_change', 'raw', 'delta', 'lag' 'other', 'meta', 'geo', 'previous_vote']
+            data,
+            vote_variable=f"pvote{self.var}",
+            year=2022,
+            election_type="presidentiel",
+            predict_delta=self.config.predict_delta,
+            predict_perc=self.config.predict_perc,
+            selected_groups=[
+                "rank",
+                "pct_change",
+                "raw",
+                "delta",
+                "lag",
+                "other",
+                "meta",
+                "geo",
+                "previous_vote",
+            ],
         )
 
         for name, value in zip(container_names, values):
             setattr(self, name, value)
 
         # Fix
-        features_to_remove = list(set(self.X_train.columns[self.X_train.isnull().mean()>0])-set(['distanceparis', 'previouspvotepar', 'previouspreviouspvotepar']))
+        features_to_remove = list(
+            set(self.X_train.columns[self.X_train.isnull().mean() > 0])
+            - set(
+                [
+                    "inscrits",
+                    "distanceparis",
+                    "previouspvotepar",
+                    "previouspreviouspvotepar",
+                ]
+            )
+        )
         self.X_train = self.X_train.drop(columns=features_to_remove)
         self.X_test = self.X_test.drop(columns=features_to_remove)
         self.X_val = self.X_val.drop(columns=features_to_remove)
@@ -134,25 +153,24 @@ class ElectionModelTrainer:
         mlflow.set_experiment(experiment_name)
         logger.info(f"Starting MLflow experiment: {experiment_name}")
 
-        with mlflow.start_run():
-            # Log config
-            if hasattr(self, "config") and self.config is not None:
-                for key, value in self.config.model_dump().items():
-                    param_value = str(value)[:500]
-                    mlflow.log_param(f"config_{key}", param_value)
+        for model_name, model in self.models.items():
+            with mlflow.start_run(run_name=f"{model_name}_{timestamp}"):
+                # Log config
+                if hasattr(self, "config") and self.config is not None:
+                    for key, value in self.config.model_dump().items():
+                        mlflow.log_param(f"config_{key}", str(value)[:500])
 
-            # Log each model with type-specific artifacts
-            for model_name, model in self.models.items():
+                # Log exactly this model
                 self._log_model_to_mlflow(model_name, model)
 
-            # Log global metadata
-            mlflow.log_param("timestamp", timestamp)
-            mlflow.log_param("num_models", len(self.models))
-            mlflow.set_tag("experiment_type", "model_training")
-            mlflow.set_tag("framework", "scikit-learn")
+                # Per-model metadata
+                mlflow.log_param("timestamp", timestamp)
+                mlflow.log_param("model_name", model_name)
+                mlflow.set_tag("experiment_type", "model_training")
+                mlflow.set_tag("framework", "scikit-learn")
 
-            run_id = mlflow.active_run().info.run_id
-            logger.info(f"Results logged to MLflow run: {run_id}")
+                run_id = mlflow.active_run().info.run_id
+                logger.info(f"Model '{model_name}' logged to MLflow run: {run_id}")
 
     def _log_model_to_mlflow(self, model_name: str, model) -> None:
         """Log individual model with type-specific artifacts."""
@@ -175,52 +193,90 @@ class ElectionModelTrainer:
             if metric_name == "predictions":
                 continue
             if isinstance(metric_value, (int, float)):
-                mlflow.log_metric(f'{metric_name}_{model_name}', float(metric_value))
+                mlflow.log_metric(f"{metric_name}_{model_name}", float(metric_value))
             else:
-                mlflow.log_param(f"param_{metric_name}_{model_name}", str(metric_value)[:500])
+                mlflow.log_param(
+                    f"param_{metric_name}_{model_name}", str(metric_value)[:500]
+                )
 
         self._log_model_artifacts(model_name_safe, model, model_results)
         logger.info(f"Successfully logged model: {model_name}")
 
-    def _log_model_artifacts(self, model_name_safe: str, model, model_results: dict) -> None:
+    def _log_model_artifacts(
+        self, model_name_safe: str, model, model_results: dict
+    ) -> None:
         """Log type-specific artifacts (feature importance, coefficients, etc.)."""
         artifacts_dir = tempfile.mkdtemp()
         try:
             if hasattr(model, "feature_importances_"):
-                importance_df = pd.DataFrame({
-                    "feature": model.feature_names_in_,
-                    "importance": model.feature_importances_,
-                }).sort_values("importance", ascending=False)
+                importance_df = pd.DataFrame(
+                    {
+                        "feature": model.feature_names_in_,
+                        "importance": model.feature_importances_,
+                    }
+                ).sort_values("importance", ascending=False)
                 importance_path = os.path.join(artifacts_dir, "feature_importance.csv")
                 importance_df.to_csv(importance_path, index=False)
-                mlflow.log_artifact(importance_path, artifact_path=f"{model_name_safe}/artifacts")
+                mlflow.log_artifact(
+                    importance_path, artifact_path=f"{model_name_safe}/artifacts"
+                )
 
             if hasattr(model, "get_booster"):
                 try:
                     booster = model.get_booster()
-                    for importance_type in ["weight", "gain", "cover", "total_gain", "total_cover"]:
-                        importance_dict = booster.get_score(importance_type=importance_type)
+                    for importance_type in [
+                        "weight",
+                        "gain",
+                        "cover",
+                        "total_gain",
+                        "total_cover",
+                    ]:
+                        importance_dict = booster.get_score(
+                            importance_type=importance_type
+                        )
                         if importance_dict:
                             total_importance = sum(importance_dict.values())
                             importance_data = [
-                                {"feature": feat, "importance": score, "importance_pct": (score / total_importance * 100) if total_importance > 0 else 0,}
+                                {
+                                    "feature": feat,
+                                    "importance": score,
+                                    "importance_pct": (
+                                        (score / total_importance * 100)
+                                        if total_importance > 0
+                                        else 0
+                                    ),
+                                }
                                 for feat, score in importance_dict.items()
                             ]
-                            importance_df = pd.DataFrame(importance_data).sort_values("importance", ascending=False)
-                            importance_path = os.path.join(artifacts_dir, f"feature_importance_{importance_type}.csv")
+                            importance_df = pd.DataFrame(importance_data).sort_values(
+                                "importance", ascending=False
+                            )
+                            importance_path = os.path.join(
+                                artifacts_dir,
+                                f"feature_importance_{importance_type}.csv",
+                            )
                             importance_df.to_csv(importance_path, index=False)
-                            mlflow.log_artifact(importance_path, artifact_path=f"{model_name_safe}/artifacts")
+                            mlflow.log_artifact(
+                                importance_path,
+                                artifact_path=f"{model_name_safe}/artifacts",
+                            )
                 except Exception as e:
-                    logger.warning(f"Could not extract booster importances for {model_name_safe}: {e}")
+                    logger.warning(
+                        f"Could not extract booster importances for {model_name_safe}: {e}"
+                    )
 
             if hasattr(model, "coef_"):
-                coef_df = pd.DataFrame({
-                    "feature": self.feature_names,
-                    "coefficient": model.coef_,
-                }).sort_values("coefficient", key=abs, ascending=False)
+                coef_df = pd.DataFrame(
+                    {
+                        "feature": self.feature_names,
+                        "coefficient": model.coef_,
+                    }
+                ).sort_values("coefficient", key=abs, ascending=False)
                 coef_path = os.path.join(artifacts_dir, "coefficients.csv")
                 coef_df.to_csv(coef_path, index=False)
-                mlflow.log_artifact(coef_path, artifact_path=f"{model_name_safe}/artifacts")
+                mlflow.log_artifact(
+                    coef_path, artifact_path=f"{model_name_safe}/artifacts"
+                )
 
             if "predictions" in model_results:
                 preds = model_results["predictions"]
@@ -230,9 +286,10 @@ class ElectionModelTrainer:
                 elif isinstance(preds, pd.DataFrame):
                     preds[0].to_csv(pred_path)
                 else:
-                    breakpoint()
                     pd.Series(preds).to_csv(pred_path)
-                mlflow.log_artifact(pred_path, artifact_path=f"{model_name_safe}/artifacts")
+                mlflow.log_artifact(
+                    pred_path, artifact_path=f"{model_name_safe}/artifacts"
+                )
         finally:
             shutil.rmtree(artifacts_dir, ignore_errors=True)
 
@@ -244,7 +301,7 @@ def main():
     trainer = ElectionModelTrainer()
 
     # Load dataset (after running the data preprocessing pipeline)
-    data = DataLoader.load_dataset(trainer.config.dataset_path, engine='polars')
+    data = DataLoader.load_dataset(trainer.config.dataset_path, engine="polars")
 
     # Process data
     trainer.data_processing(data)
@@ -290,7 +347,7 @@ def main():
         trainer.results["elastic_net"] = ModelEvaluator.evaluate(
             trainer.y_test, y_3, "elastic_net", extended=True
         )
-        trainer.models["elastic_net"] =  bm.get_model()
+        trainer.models["elastic_net"] = bm.get_model()
 
     if "boosting" in trainer.config.models:
         # boosting
@@ -337,37 +394,39 @@ def main():
 
                     # 4. Evaluate
                     trainer.results[model_name] = ModelEvaluator.evaluate(
-                        trainer.y_test, boosting_model.infer(trainer.X_test), model_name, extended=True
+                        trainer.y_test,
+                        boosting_model.infer(trainer.X_test),
+                        model_name,
+                        extended=True,
                     )
 
     if "meta_boosting" in trainer.config.models:
-        # meta-boosting
-        for k in range(2, 6+1):
-            for feature_selection_method in trainer.config.feature_selection_methods:
-                for method in trainer.config.boosting_methods:
-                    meta_booster = MetaBooster(
-                        method=method,
-                        objective_metric=mean_squared_error,
-                        weighting="sqrt",
-                        features=None,
-                        n_splits_outer=k,
-                        n_splits_inner=k,
-                        n_trials=k,
-                    )
-                    meta_booster.train(
-                        trainer.X_train,
-                        trainer.y_train,
-                        use_feature_selection=(feature_selection_method == "gain"),
-                    )
-                    y_pred = meta_booster.infer(trainer.X_test)
-                    trainer.results[
-                        f"meta_booster_{method}_featselect:{feature_selection_method}_{k}"
-                    ] = ModelEvaluator.evaluate(
-                        trainer.y_test,
-                        y_pred,
-                        f"meta_booster_{method}_featselect:{feature_selection_method}",
-                        extended=True
-                    )
+        for feature_selection_method in trainer.config.feature_selection_methods:
+            for method in trainer.config.boosting_methods:
+                meta_booster = MetaBooster(
+                    method=method,
+                    objective_metric=mean_squared_error,
+                    weighting="sqrt",
+                    features=None,
+                    n_splits_outer=3,
+                    n_splits_inner=3,
+                    n_trials=3,
+                )
+                meta_booster.train(
+                    trainer.X_train,
+                    trainer.y_train,
+                    use_feature_selection=(feature_selection_method != "none"),
+                    feature_selection_method=feature_selection_method,
+                )
+                y_pred = meta_booster.infer(trainer.X_test)
+                trainer.results[
+                    f"meta_booster_{method}_featselect:{feature_selection_method}_{k}"
+                ] = ModelEvaluator.evaluate(
+                    trainer.y_test,
+                    y_pred,
+                    f"meta_booster_{method}_featselect:{feature_selection_method}",
+                    extended=True,
+                )
 
     if "meta_boosting_multiple" in trainer.config.models:
         # meta-boosting using average predictions over multiple elections used for training
@@ -397,7 +456,7 @@ def main():
                     trainer.y_test,
                     y_pred,
                     f"meta_booster_multiple_{method}_featselect:{feature_selection_method}",
-                    extended=True
+                    extended=True,
                 )
 
     # Compare models
