@@ -77,12 +77,29 @@ class BoostingModel:
     def get_model(self):
         return self.model
 
+    def _compute_weights(self, X, y, weighting):
+        inscrits = X["inscrits"].to_numpy().flatten()
+        y = np.array(y)
+        weighting_ = {
+            "equiproportional": np.ones_like(y),
+            "proportional": inscrits,
+            "proportional_squared": inscrits**2,
+            "sqrt": np.sqrt(inscrits),
+            "log": np.log(inscrits + 1),
+            "inverse": 1.0 / (inscrits + 1e-6),
+            "inverse_y": 1.0 / (y.flatten() + 1e-6),
+        }
+        weights = weighting_[weighting]
+        weights /= np.mean(weights)
+        return weights
+
     def train(
         self,
         X_train: pd.DataFrame,
         y_train: pd.DataFrame,
         X_val: pd.DataFrame | None = None,
         y_val: pd.DataFrame | None = None,
+        weighting: str = "equiproportional",
         **kwargs,
     ):
         """Train XGBoost model"""
@@ -91,6 +108,8 @@ class BoostingModel:
             self.boosting_method = XGBRegressor
             self.method = "xgboost"
             logger.info(f"Boosting method selected: {self.method}")
+
+        weights = self._compute_weights(X_train, y_train, weighting=weighting)
 
         if self.features_selected is None:
             self.features_selected = X_train.columns.to_list()
@@ -116,10 +135,11 @@ class BoostingModel:
             self.model.fit(
                 X_train_boosting,
                 y_train,
+                sample_weight=weights,
                 eval_set=[(X_train_boosting, y_train), (X_val_boosting, y_val)],
             )
         else:
-            self.model.fit(X_train_boosting, y_train)
+            self.model.fit(X_train_boosting, y_train, sample_weight=weights)
 
         self.signature = X_train_boosting.iloc[:5]
 

@@ -86,8 +86,8 @@ class TrainModelsConfig(BaseModel):
     """Configuration class for the model training pipeline."""
 
     # Target
-    vote_variable: str = Field(
-        default="par", description="Model for this variable (target)"
+    vote_variable: List[str] = Field(
+        default=["par"], description="Model for this variable (target)"
     )
 
     # Data

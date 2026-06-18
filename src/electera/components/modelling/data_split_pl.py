@@ -49,19 +49,21 @@ def split_method(
 
 def get_Xy_pl(
     data,
-    vote_variable,
-    year,
-    election_type,
+    vote_variable="pvotepar",
+    year=None,
+    election_type=None,
     predict_delta=False,
     predict_perc=False,
     selected_groups=[
         "raw",
         "rank",
         "delta",
+        "lag",
         "geo",
         "previous_vote",
-        "other",
-        "meta",
+        "type",
+        "year",
+        "inscrits",
         "pct_change",
     ],
     selected_features=None,
@@ -176,12 +178,13 @@ def get_Xy_pl(
             ),
             "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
             "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
-            "geo": ["lat", "long", "distanceparis"],
+            "geo": ["lat", "long", "distanceparis", "dep_num"],
             "previous_vote": set([y_prev, f"previous{y_prev}"]).intersection(
                 set(data_train.columns)
             ),
-            "other": ["inscrits", "dep_num"],
-            "meta": ["annee", "type"],
+            "inscrits": ["inscrits"],
+            "year": ["annee"],
+            "type": ["type"],
         }
         features = [
             col for group in selected_groups for col in feature_groups.get(group, [])

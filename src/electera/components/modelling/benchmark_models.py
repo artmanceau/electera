@@ -55,7 +55,7 @@ class LinearModel:
 
     def train(self, X_train, y_train):
         X_train_linear = self._linear_pre_process(X_train)
-        self.model = self.linear_model
+        self.model = self.linear_model()
         self.model.fit(X_train_linear, y_train)
         self.features = list(X_train_linear.columns)
 

@@ -19,10 +19,11 @@ Election Backtester
 """
 
 import os
+import pickle
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-import pickle
+
 import mlflow
 import mlflow.sklearn
 import numpy as np
@@ -31,8 +32,9 @@ import polars as pl
 from loguru import logger
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
-from assets.delta_pred_features import make_features
+
 import electera.components.mlflow.mlflow_utils as mlf_utils
+from assets.delta_pred_features import make_features
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import (
     LinearModel,

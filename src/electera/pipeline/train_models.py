@@ -5,17 +5,17 @@ This module handles model training, evaluation, and comparison for the election 
 """
 
 import argparse
-import re
-from datetime import datetime
-import tempfile
-import numpy as np
-import shutil
 import os
+import re
+import shutil
+import tempfile
+from datetime import datetime
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
 from loguru import logger
-from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.linear_model import LassoCV, LinearRegression
 from sklearn.metrics import mean_squared_error
 
 from electera.components.data_processing.data_loader import DataLoader
@@ -46,7 +46,6 @@ class ElectionModelTrainer:
         self.config = ConfigReader._read_config(
             "../config/train_models.json", TrainModelsConfig
         )
-        self.var = self.config.vote_variable
 
         # Model storage
         self.models = {}
@@ -55,7 +54,7 @@ class ElectionModelTrainer:
         self.model_data = {}
         self.input_examples = {}
 
-    def data_processing(self, data):
+    def data_processing(self, data, var):
         """Prepare training and testing data"""
         logger.info("Preparing data splits...")
 
@@ -77,22 +76,14 @@ class ElectionModelTrainer:
 
         values = get_Xy_pl(
             data,
-            vote_variable=f"pvote{self.var}",
+            vote_variable=f"pvote{var}",
             year=2022,
             election_type="presidentiel",
             predict_delta=self.config.predict_delta,
             predict_perc=self.config.predict_perc,
-            selected_groups=[
-                "rank",
-                "pct_change",
-                "raw",
-                "delta",
-                "lag",
-                "other",
-                "meta",
-                "geo",
-                "previous_vote",
-            ],
+            selected_groups=["rank", "inscrits", "type", "geo"],
+            selected_features=None,
+            split_method_way="random",
         )
 
         for name, value in zip(container_names, values):
@@ -205,9 +196,7 @@ class ElectionModelTrainer:
         artifacts_dir = tempfile.mkdtemp()
         pred_path = os.path.join(artifacts_dir, "predictions.csv")
         model_preds.to_csv(pred_path)
-        mlflow.log_artifact(
-                pred_path, artifact_path=f"{model_name_safe}/artifacts"
-            )
+        mlflow.log_artifact(pred_path, artifact_path=f"{model_name_safe}/artifacts")
 
         self._log_model_artifacts(model_name_safe, model, model_results)
         logger.info(f"Successfully logged model: {model_name}")
@@ -292,7 +281,7 @@ class ElectionModelTrainer:
             shutil.rmtree(artifacts_dir, ignore_errors=True)
 
 
-def main():
+def run():
     """Main function to run the model training pipeline"""
 
     # Initialize trainer
@@ -301,192 +290,215 @@ def main():
     # Load dataset (after running the data preprocessing pipeline)
     data = DataLoader.load_dataset(trainer.config.dataset_path, engine="polars")
 
-    # Process data
-    trainer.data_processing(data)
+    for var in trainer.config.vote_variable:
+        logger.info(f"Running for variable: {var}")
 
-    # Trivial model 1 : same as previous election
-    if "trivial_1" in trainer.config.models:
-        bm = BenchmarkModels()
-        y_1 = bm.train_trivial_1(trainer.y_prev, trainer.y_test)
-        trainer.results["trivial_1"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_1, "trivial_1", extended=True
-        )
-        trainer.models["trivial_1"] = bm.get_model()
-        trainer.predictions['trivial_1'] = pd.concat([trainer.y_test, y_1], axis=1)
+        # Process data
+        trainer.data_processing(data, var)
 
-    # Trivial model 2 : mean
-    if "trivial_2" in trainer.config.models:
-        bm = BenchmarkModels()
-        y_2 = bm.train_trivial_2(trainer.y_train, trainer.X_test)
-        trainer.results["trivial_2"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_2, "trivial_2", extended=True
-        )
-        trainer.models["trivial_2"] = bm.get_model()
-        trainer.predictions['trivial_2'] = pd.concat([trainer.y_test, y_2], axis=1)
+        # Trivial model 1 : same as previous election
+        if "trivial_1" in trainer.config.models:
+            bm = BenchmarkModels()
+            y_1 = bm.train_trivial_1(trainer.y_prev, trainer.y_test)
+            trainer.results[f"trivial_1_{var}"] = ModelEvaluator.evaluate(
+                trainer.y_test, y_1, f"trivial_1_{var}", extended=True
+            )
+            trainer.models[f"trivial_1_{var}"] = bm.get_model()
+            trainer.predictions[f"trivial_1_{var}"] = pd.concat(
+                [trainer.y_test, y_1], axis=1
+            )
 
-    # Linear model 1 : Linear model
-    if "linear_reg" in trainer.config.models:
-        bm = BenchmarkModels()
-        y_3 = bm.train_linear_model(
-            trainer.X_train,
-            trainer.y_train,
-            trainer.X_test,
-            linear_model=LinearRegression(),
-        )
-        trainer.results["linear_regression"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_3, "linear_regression", extended=True
-        )
-        trainer.models["linear_reg"] = bm.get_model()
-        trainer.predictions['linear_reg'] = pd.concat([trainer.y_test, y_3], axis=1)
+        # Trivial model 2 : mean
+        if "trivial_2" in trainer.config.models:
+            bm = BenchmarkModels()
+            y_2 = bm.train_trivial_2(trainer.y_train, trainer.X_test)
+            trainer.results[f"trivial_2_{var}"] = ModelEvaluator.evaluate(
+                trainer.y_test, y_2, f"trivial_2_{var}", extended=True
+            )
+            trainer.models[f"trivial_2_{var}"] = bm.get_model()
+            trainer.predictions[f"trivial_2_{var}"] = pd.concat(
+                [trainer.y_test, y_2], axis=1
+            )
 
-    # Linear model 2 : Elastic net
-    if "elastic_net" in trainer.config.models:
-        bm = BenchmarkModels()
-        y_3 = bm.train_linear_model(
-            trainer.X_train, trainer.y_train, trainer.X_test, linear_model=Lasso(0.1)
-        )
-        trainer.results["elastic_net"] = ModelEvaluator.evaluate(
-            trainer.y_test, y_3, "elastic_net", extended=True
-        )
-        trainer.models["elastic_net"] = bm.get_model()
+        # Linear model 1 : Linear model
+        if "linear_reg" in trainer.config.models:
+            bm = BenchmarkModels()
+            y_3 = bm.train_linear_model(
+                trainer.X_train,
+                trainer.y_train,
+                trainer.X_test,
+                linear_model=LinearRegression,
+            )
+            trainer.results[f"linear_regression_{var}"] = ModelEvaluator.evaluate(
+                trainer.y_test, y_3, "linear_regression", extended=True
+            )
+            trainer.models[f"linear_regression_{var}"] = bm.get_model()
+            trainer.predictions[f"linear_regression_{var}"] = pd.concat(
+                [trainer.y_test, pd.Series(y_3)], axis=1
+            )
 
-    if "boosting" in trainer.config.models:
-        # boosting
-        for param_search_method in (
-            trainer.config.param_search_methods
-        ):  # List of hyperparameter tuning methods
-            for feature_selection_method in (
-                trainer.config.feature_selection_methods
-            ):  # List of feature selection methods
-                for boosting_method in trainer.config.boosting_methods:
-                    logger.info(
-                        f"Running pipeline with feature selection: {feature_selection_method}, parameters search: {param_search_method}"
+        # Linear model 2 : Elastic net
+        if "elastic_net" in trainer.config.models:
+            bm = BenchmarkModels()
+            y_4 = bm.train_linear_model(
+                trainer.X_train, trainer.y_train, trainer.X_test, linear_model=LassoCV
+            )
+            trainer.results[f"elastic_net_{var}"] = ModelEvaluator.evaluate(
+                trainer.y_test, y_4, f"elastic_net_{var}", extended=True
+            )
+            trainer.models[f"elastic_net_{var}"] = bm.get_model()
+            trainer.predictions[f"elastic_net_{var}"] = pd.concat(
+                [trainer.y_test, pd.Series(y_4)], axis=1
+            )
+
+        if "boosting" in trainer.config.models:
+            # boosting
+            for param_search_method in (
+                trainer.config.param_search_methods
+            ):  # List of hyperparameter tuning methods
+                for feature_selection_method in (
+                    trainer.config.feature_selection_methods
+                ):  # List of feature selection methods
+                    for boosting_method in trainer.config.boosting_methods:
+                        logger.info(
+                            f"Running pipeline with feature selection: {feature_selection_method}, parameters search: {param_search_method}"
+                        )
+
+                        # 0. Boosting algorithm
+                        boosting_model = BoostingModel()
+                        boosting_model.set_boosting_method(boosting_method)
+
+                        # 1. Feature selection
+                        boosting_model.feature_selection(
+                            feature_selection_method,
+                            trainer.config.top_n_features,
+                            X_val=trainer.X_val,
+                            y_val=trainer.y_val,
+                        )
+
+                        # 2. Grid search to tune hyperparameters
+                        boosting_model.parameter_search(
+                            param_search_method,
+                            X_val=trainer.X_val,
+                            y_val=trainer.y_val,
+                        )
+
+                        # 3. Train
+                        model, signature = boosting_model.train(
+                            X_train=trainer.X_train,
+                            y_train=trainer.y_train,
+                            X_val=trainer.X_val,
+                            y_val=trainer.y_val,
+                            weighting="log",
+                        )
+                        model_name = boosting_model.get_model_name() + f"_{var}"
+                        logger.info(f"Boosting model trained {model_name}...")
+
+                        trainer.models[model_name] = model
+                        trainer.input_examples[model_name] = signature
+
+                        # 4. Evaluate
+                        preds = boosting_model.infer(trainer.X_test)
+                        trainer.results[model_name] = ModelEvaluator.evaluate(
+                            trainer.y_test,
+                            preds,
+                            model_name,
+                            extended=True,
+                        )
+                        trainer.predictions[model_name] = pd.concat(
+                            [trainer.y_test, pd.Series(preds)], axis=1
+                        )
+
+        if "meta_boosting" in trainer.config.models:
+            for feature_selection_method in trainer.config.feature_selection_methods:
+                for method in trainer.config.boosting_methods:
+                    meta_booster = MetaBooster(
+                        method=method,
+                        objective_metric=mean_squared_error,
+                        weighting="log",
+                        features=None,
+                        n_splits_outer=3,
+                        n_splits_inner=3,
+                        n_trials=3,
                     )
-
-                    # 0. Boosting algorithm
-                    boosting_model = BoostingModel()
-                    boosting_model.set_boosting_method(boosting_method)
-
-                    # 1. Feature selection
-                    boosting_model.feature_selection(
-                        feature_selection_method,
-                        trainer.config.top_n_features,
-                        X_val=trainer.X_val,
-                        y_val=trainer.y_val,
+                    meta_booster.train(
+                        trainer.X_train,
+                        trainer.y_train,
+                        use_feature_selection=(feature_selection_method != "none"),
+                        feature_selection_method=feature_selection_method,
                     )
-
-                    # 2. Grid search to tune hyperparameters
-                    boosting_model.parameter_search(
-                        param_search_method, X_val=trainer.X_val, y_val=trainer.y_val
-                    )
-
-                    # 3. Train
-                    model, signature = boosting_model.train(
-                        X_train=trainer.X_train,
-                        y_train=trainer.y_train,
-                        X_val=trainer.X_val,
-                        y_val=trainer.y_val,
-                    )
-                    model_name = boosting_model.get_model_name()
-                    logger.info(f"Boosting model trained {model_name}...")
-
-                    trainer.models[model_name] = model
-                    trainer.input_examples[model_name] = signature
-
-                    # 4. Evaluate
-                    preds = boosting_model.infer(trainer.X_test)
-                    trainer.results[model_name] = ModelEvaluator.evaluate(
+                    y_pred = meta_booster.infer(trainer.X_test)
+                    trainer.results[
+                        f"meta_booster_{method}_featselect:{feature_selection_method}_{var}"
+                    ] = ModelEvaluator.evaluate(
                         trainer.y_test,
-                        preds,
-                        model_name,
+                        y_pred,
+                        f"meta_booster_{method}_featselect:{feature_selection_method}_{var}",
                         extended=True,
                     )
-                    trainer.predictions[model_name] = pd.concat([trainer.y_test, preds], axis=1)
+                    trainer.predictions[
+                        f"meta_booster_{method}_featselect:{feature_selection_method}_{var}"
+                    ] = pd.concat([trainer.y_test, pd.Series(y_pred)], axis=1)
 
-    if "meta_boosting" in trainer.config.models:
-        for feature_selection_method in trainer.config.feature_selection_methods:
-            for method in trainer.config.boosting_methods:
-                meta_booster = MetaBooster(
-                    method=method,
-                    objective_metric=mean_squared_error,
-                    weighting="log",
-                    features=None,
-                    n_splits_outer=3,
-                    n_splits_inner=3,
-                    n_trials=3,
-                )
-                meta_booster.train(
-                    trainer.X_train,
-                    trainer.y_train,
-                    use_feature_selection=(feature_selection_method != "none"),
-                    feature_selection_method=feature_selection_method,
-                )
-                y_pred = meta_booster.infer(trainer.X_test)
-                trainer.results[
-                    f"meta_booster_{method}_featselect:{feature_selection_method}"
-                ] = ModelEvaluator.evaluate(
-                    trainer.y_test,
-                    y_pred,
-                    f"meta_booster_{method}_featselect:{feature_selection_method}",
-                    extended=True,
-                )
-                trainer.predictions[f"meta_booster_{method}_featselect:{feature_selection_method}"] = pd.concat([trainer.y_test, y_pred], axis=1)
+        if "meta_boosting_multiple" in trainer.config.models:
+            # meta-boosting using average predictions over multiple elections used for training
+            for feature_selection_method in trainer.config.feature_selection_methods:
+                for method in trainer.config.boosting_methods:
+                    meta_booster_multiple = MetaBoosterMultipleElections(
+                        method=method,
+                        objective_metric=mean_squared_error,
+                        weighting="proportional",
+                        features=None,
+                        n_splits_outer=2,
+                        n_splits_inner=2,
+                        n_trials=2,
+                        ponderation=[0.7, 0.3],
+                    )
+                    meta_booster_multiple.train_multiple(
+                        election_datasets=[
+                            (trainer.X_train, trainer.y_train),
+                            (trainer.X_val, trainer.y_val),
+                        ],
+                        use_feature_selection=(feature_selection_method == "gain"),
+                    )
+                    y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
+                    trainer.results[
+                        f"meta_booster_multiple_{method}_featselect:{feature_selection_method}_{var}"
+                    ] = ModelEvaluator.evaluate(
+                        trainer.y_test,
+                        y_pred,
+                        f"meta_booster_multiple_{method}_featselect:{feature_selection_method}_{var}",
+                        extended=True,
+                    )
+                    trainer.predictions[
+                        f"meta_booster_multiple_{method}_featselect:{feature_selection_method}_{var}"
+                    ] = pd.concat([trainer.y_test, y_pred], axis=1)
 
-    if "meta_boosting_multiple" in trainer.config.models:
-        # meta-boosting using average predictions over multiple elections used for training
-        for feature_selection_method in trainer.config.feature_selection_methods:
-            for method in trainer.config.boosting_methods:
-                meta_booster_multiple = MetaBoosterMultipleElections(
-                    method=method,
-                    objective_metric=mean_squared_error,
-                    weighting="proportional",
-                    features=None,
-                    n_splits_outer=2,
-                    n_splits_inner=2,
-                    n_trials=2,
-                    ponderation=[0.7, 0.3],
-                )
-                meta_booster_multiple.train_multiple(
-                    election_datasets=[
-                        (trainer.X_train, trainer.y_train),
-                        (trainer.X_val, trainer.y_val),
-                    ],
-                    use_feature_selection=(feature_selection_method == "gain"),
-                )
-                y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
-                trainer.results[
-                    f"meta_booster_multiple_{method}_featselect:{feature_selection_method}"
-                ] = ModelEvaluator.evaluate(
-                    trainer.y_test,
-                    y_pred,
-                    f"meta_booster_multiple_{method}_featselect:{feature_selection_method}",
-                    extended=True,
-                )
-                trainer.predictions[f"meta_booster_multiple_{method}_featselect:{feature_selection_method}"] = pd.concat([trainer.y_test, y_pred], axis=1)
+        # Compare models
+        comparison_df = trainer.compare_models()
+        logger.success("\nModel Comparison:")
+        logger.info(comparison_df.to_string(index=False))
 
-    # Compare models
-    comparison_df = trainer.compare_models()
-    logger.success("\nModel Comparison:")
-    logger.info(comparison_df.to_string(index=False))
+        # MLFLOW
+        if trainer.config.use_MLFlow:
+            logger.info("Saving into MLFlow...")
+            parser = argparse.ArgumentParser(
+                description="Train election prediction models"
+            )
+            parser.add_argument(
+                "--experiment-name",
+                type=str,
+                default=None,
+                help="MLflow experiment name (default: election_modeling)",
+            )
 
-    # MLFLOW
-    if trainer.config.use_MLFlow:
-        logger.info("Saving into MLFlow...")
-        parser = argparse.ArgumentParser(description="Train election prediction models")
-        parser.add_argument(
-            "--experiment-name",
-            type=str,
-            default=None,
-            help="MLflow experiment name (default: election_modeling)",
-        )
+            args = parser.parse_args()
+            trainer.save_results(experiment_name=args.experiment_name + f"_{var}")
 
-        args = parser.parse_args()
-        trainer.save_results(experiment_name=args.experiment_name)
-
-    logger.success("Model training pipeline completed!")
+        logger.success("Model training pipeline completed!")
 
     return trainer
 
 
 if __name__ == "__main__":
-    trainer = main()
+    trainer = run()

@@ -45,11 +45,11 @@ class ElectionDataProcessor:
     """
 
     vote = ["inscrits", "votants", "exprimes", "abstentions", "blancsnuls"]
-    pvote = ["pvotepar", "pvoteabs", "pvoteblancsnuls", 'pvoteexpr']
+    pvote = ["pvotepar", "pvoteabs", "pvoteblancsnuls", "pvoteexpr"]
 
     # T2
     voteT2 = ["inscritsT2", "votantsT1", "exprimesT2", "abstentionsT2", "blancsnulsT2"]
-    pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2", 'pvoteexprT2']
+    pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2", "pvoteexprT2"]
 
     tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD"]
     tendances_column_vote = [f"vote{tendance}" for tendance in tendances]
@@ -70,7 +70,7 @@ class ElectionDataProcessor:
         return [f"percentile{col}" for col in cols]
 
     def tau(self, cols):
-        return [col.replace('pvote', 'pvotetau') for col in cols]
+        return [col.replace("pvote", "pvotetau") for col in cols]
 
     # For T1 (politiques)
     # For ref : include OUI/NON (other dataset because the checks will be different)
@@ -456,7 +456,7 @@ class ElectionDataProcessor:
                 pvotepar=pl.col("votants") / pl.col("inscrits"),
                 abstentions=pl.col("inscrits") - pl.col("votants"),
                 blancsnuls=pl.col("votants") - pl.col("exprimes_"),
-                pvoteexpr=pl.col('exprimes_') / pl.col("inscrits"),
+                pvoteexpr=pl.col("exprimes_") / pl.col("inscrits"),
                 pvoteG=pl.col("voteG") / pl.col("exprimes_"),
                 pvoteCG=pl.col("voteCG") / pl.col("exprimes_"),
                 pvoteC=pl.col("voteC") / pl.col("exprimes_"),
@@ -508,13 +508,13 @@ class ElectionDataProcessor:
         ] + [
             pl.when(pl.col("inscrits") == 0)
             .then(None)
-            .when(pl.col('pvotepar') == 1.0)
-            .then((pl.col("inscrits") - 0.5) / pl.col('inscrits'))
-            .when(pl.col('pvotepar') == 0.0)
+            .when(pl.col("pvotepar") == 1.0)
+            .then((pl.col("inscrits") - 0.5) / pl.col("inscrits"))
+            .when(pl.col("pvotepar") == 0.0)
             .then(0.5 / pl.col("inscrits"))
-            .otherwise(pl.col('pvotepar'))
+            .otherwise(pl.col("pvotepar"))
             .pipe(lambda e: (e / (1 - e)).log())
-            .alias('pvotetaupar')
+            .alias("pvotetaupar")
         ]
 
         # Adding ranks
@@ -552,17 +552,24 @@ class ElectionDataProcessor:
             + self.tau(self.tendances_column_pvote + ["pvotepar"])
         ]
 
-        electoral_data = electoral_data.with_columns(
-            rank_expr
-        ).with_columns(
-            tau_expr
-        ).with_columns(
-            lag1_exprs + lag2_exprs
+        electoral_data = (
+            electoral_data.with_columns(rank_expr)
+            .with_columns(tau_expr)
+            .with_columns(lag1_exprs + lag2_exprs)
         )
 
         # Finally remove - PARIS and LYON/MARSEILLE (arrondissement)
         # See: Annex for why
-        electoral_data.filter(~(pl.col('codecommune').is_in(['75056']+[f'1320{i}' for i in range(1, 9 + 1)] + [f"132{i}" for i in range(10, 16 + 1)]+[f"69328{i}" for i in range(1, 9 + 1)])))
+        electoral_data.filter(
+            ~(
+                pl.col("codecommune").is_in(
+                    ["75056"]
+                    + [f"1320{i}" for i in range(1, 9 + 1)]
+                    + [f"132{i}" for i in range(10, 16 + 1)]
+                    + [f"69328{i}" for i in range(1, 9 + 1)]
+                )
+            )
+        )
 
         return electoral_data, (catalog, election_code_mapping)
 
@@ -651,58 +658,55 @@ class ElectionDataProcessor:
             .item()
             == 0
         )
-        #catalog = df.group_by("feature").agg(pl.col("annee").unique().sort())
+        # catalog = df.group_by("feature").agg(pl.col("annee").unique().sort())
         return df
 
     def _augment(self, df, key):
         return df.with_columns(
-            lag=(pl.col("raw").shift(1).round(4)).over(key, "feature", order_by="annee"),
-            rank=(
-                pl.col("raw").rank(descending=False) / pl.col("raw").count()
-            ).round(4).over("feature", "annee"),
-            delta=(pl.col("raw").diff(1).round(4)).over(key, "feature", order_by="annee"),
-            pct_change=(pl.col("raw").pct_change(1).round(4).clip(-1, 1)).over(key, "feature", order_by="annee")
+            lag=(pl.col("raw").shift(1).round(4)).over(
+                key, "feature", order_by="annee"
+            ),
+            rank=(pl.col("raw").rank(descending=False) / pl.col("raw").count())
+            .round(4)
+            .over("feature", "annee"),
+            delta=(pl.col("raw").diff(1).round(4)).over(
+                key, "feature", order_by="annee"
+            ),
+            pct_change=(pl.col("raw").pct_change(1).round(4).clip(-1, 1)).over(
+                key, "feature", order_by="annee"
+            ),
         ).fill_nan(None)
 
     def _project(self, df, key):
         return (
-            df.group_by(
-                [key, "feature"]
-            ).agg(
+            df.group_by([key, "feature"])
+            .agg(
                 pl.int_range(pl.col("annee").min(), 2028).alias("annee"),
-                pl.col("annee").max().alias('last_year'),
-                pl.col('annee').min().alias('first_year')
+                pl.col("annee").max().alias("last_year"),
+                pl.col("annee").min().alias("first_year"),
             )
-            .explode(
-                "annee"
-            ).join(
-                df.with_columns(
-                    from_left=pl.lit(1)
-                ),
+            .explode("annee")
+            .join(
+                df.with_columns(from_left=pl.lit(1)),
                 on=["feature", key, "annee"],
                 how="left",
-            ).sort(
-                'feature', key, 'annee'
-            ).with_columns(
-                pl.when(
-                    pl.col('from_left') == 1
-                ).then(
-                    pl.col("raw").shift(1).rolling_mean(window_size=8).fill_null(0.0)
-                ).otherwise(
-                    None
-                ).alias('growth_rates'),
-                (pl.col('annee')-pl.col('last_year')).alias('k')
-            ).with_columns(
-                pl.col('raw').fill_null(strategy='forward').alias("raw_filled"),
-                pl.col('growth_rates').fill_null(strategy='forward')
-            ).with_columns(
-                raw=pl.when(
-                    (pl.col('from_left') == 1) | (pl.col('last_year') <= 2016)
-                ).then(
-                    pl.col('raw')
-                ).otherwise(
-                    pl.col('raw_filled') + pl.col('growth_rates')*pl.col('k')
-                )
+            )
+            .sort("feature", key, "annee")
+            .with_columns(
+                pl.when(pl.col("from_left") == 1)
+                .then(pl.col("raw").diff(1).rolling_mean(window_size=8).fill_null(0.0))
+                .otherwise(None)
+                .alias("growth_rates"),
+                (pl.col("annee") - pl.col("last_year")).alias("k"),
+            )
+            .with_columns(
+                pl.col("raw").fill_null(strategy="forward").alias("raw_filled"),
+                pl.col("growth_rates").fill_null(strategy="forward"),
+            )
+            .with_columns(
+                raw=pl.when((pl.col("from_left") == 1) | (pl.col("last_year") <= 2022))
+                .then(pl.col("raw"))
+                .otherwise(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k"))
             )
         )
 
@@ -751,13 +755,19 @@ class ElectionDataProcessor:
                         if df is None:
                             continue
 
-                        max_year = df.select('annee').max().collect().get_column('annee').item()
+                        max_year = (
+                            df.select("annee")
+                            .max()
+                            .collect()
+                            .get_column("annee")
+                            .item()
+                        )
 
                         # Build year grids and fill gaps (linear interpolation)
                         df = self._build_year_grids(df, key)
 
                         # Projections
-                        if max_year >= 2016:
+                        if max_year >= 2022:
                             df = self._project(df, key)
 
                         # Augmentations
@@ -783,13 +793,14 @@ class ElectionDataProcessor:
                                 if k in schema.names()
                             },
                             strict=True,
-                        ).select(
-                            list(target_schema.keys())
-                        )
+                        ).select(list(target_schema.keys()))
 
                         float_cols = [
                             c
-                            for c, dtype in zip(df.collect_schema().names(), df.collect_schema().dtypes())
+                            for c, dtype in zip(
+                                df.collect_schema().names(),
+                                df.collect_schema().dtypes(),
+                            )
                             if dtype in (pl.Float32, pl.Float64)
                         ]
                         df = df.with_columns(
@@ -833,9 +844,7 @@ class ElectionDataProcessor:
                         else:
                             dep_frames.append(df)
 
-        socio_economic_communes = self._concat_and_check(
-            communes_frames, "codecommune"
-        )
+        socio_economic_communes = self._concat_and_check(communes_frames, "codecommune")
         socio_economic_dep = self._concat_and_check(dep_frames, "dep")
 
         return (
@@ -923,7 +932,9 @@ class ElectionDataProcessor:
             + self.previousprevious(all_votes)
             + self.tau(self.tendances_column_pvote + ["pvotepar"])
             + self.previous(self.tau(self.tendances_column_pvote + ["pvotepar"]))
-            + self.previousprevious(self.tau(self.tendances_column_pvote + ["pvotepar"]))
+            + self.previousprevious(
+                self.tau(self.tendances_column_pvote + ["pvotepar"])
+            )
         )
 
         election_results = electoral_data.filter(
@@ -985,10 +996,10 @@ class ElectionDataProcessor:
         dataset = dataset.with_columns(
             [
                 pl.col(c)
-                .fill_null(pl.col(c).mean().over("dep", 'annee'))
-                .fill_null(pl.col(c).mean().over('annee'))  # Fallback to all
+                .fill_null(pl.col(c).mean().over("dep", "annee"))
+                .fill_null(pl.col(c).mean().over("annee"))  # Fallback to all
                 .alias(c)
-                for c in features + ["lat", "long", 'distanceparis']
+                for c in features + ["lat", "long", "distanceparis"]
             ]
         )
 
@@ -1089,10 +1100,9 @@ def main():
     commune_data = processor.load_communes_data()
 
     logger.info("Step 3: Socio-economic data")
-    (
-        socio_economic_data_communes,
-        socio_economic_data_dep
-    ) = processor.load_socio_economic_data()
+    (socio_economic_data_communes, socio_economic_data_dep) = (
+        processor.load_socio_economic_data()
+    )
 
     logger.info("Building aggregated training dataset")
     agg_dataset = None
@@ -1121,6 +1131,7 @@ def main():
     processor.save_processed_data(agg_dataset.to_pandas())
 
     return None
+
 
 if __name__ == "__main__":
     main()
