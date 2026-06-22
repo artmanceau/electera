@@ -199,8 +199,8 @@ class ElectionDataProcessor:
 
         # Join geo_data
         geo_data = self.add_geographical_data()
-        PARIS_LAT = 48.8566 
-        PARIS_LON = 2.3522
+        PARIS_LAT = 2.3522
+        PARIS_LON = 48.8566
         communes = (
             communes.join(geo_data, on="codecommune", how="left")
             # Step 1: fill from parent commune
@@ -663,6 +663,7 @@ class ElectionDataProcessor:
 
     def _augment(self, df, key):
         return df.with_columns(
+            raw=pl.col('raw').round(4),
             lag=(pl.col("raw").shift(1).round(4)).over(
                 key, "feature", order_by="annee"
             ),
@@ -755,20 +756,20 @@ class ElectionDataProcessor:
                         if df is None:
                             continue
 
-                        # max_year = (
-                        #     df.select("annee")
-                        #     .max()
-                        #     .collect()
-                        #     .get_column("annee")
-                        #     .item()
-                        # )
+                        max_year = (
+                             df.select("annee")
+                             .max()
+                             .collect()
+                             .get_column("annee")
+                             .item()
+                        )
 
                         # Build year grids and fill gaps (linear interpolation)
                         df = self._build_year_grids(df, key)
 
                         # Projections
-                        # if max_year >= 2022:
-                        #     df = self._project(df, key)
+                        if max_year >= 2022:
+                            df = self._project(df, key)
 
                         # Augmentations
                         df = self._augment(df, key)
@@ -819,7 +820,7 @@ class ElectionDataProcessor:
                         # assert df.select(key, 'feature', 'annee', 'raw', 'rank').null_count().sum_horizontal().item(0) == 0
 
                         # Check column names
-                        # df.unique('feature').write_csv(f'debug/{file}.csv')
+                        df.unique('feature').write_csv(f'debug/{file}.csv')
 
                         assert (
                             df.select(cs.float().is_nan().sum()).sum_horizontal().item()
