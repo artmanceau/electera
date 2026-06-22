@@ -390,6 +390,8 @@ class BackTester:
                         self.y_train[trend],
                         self.X_val[trend],
                         self.y_val[trend],
+                        weighting='log',
+                        feature_selection_method='permutation'
                     ),
                     "linear": lambda: instance_model.train(
                         self.X_train[trend], self.y_train[trend]

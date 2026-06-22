@@ -100,6 +100,8 @@ class BoostingModel:
         X_val: pd.DataFrame | None = None,
         y_val: pd.DataFrame | None = None,
         weighting: str = "equiproportional",
+        feature_selection_method: str = "none",
+        nb_features: int = 50
         **kwargs,
     ):
         """Train XGBoost model"""
@@ -111,11 +113,11 @@ class BoostingModel:
 
         weights = self._compute_weights(X_train, y_train, weighting=weighting)
 
-        if self.features_selected is None:
-            self.features_selected = X_train.columns.to_list()
-            logger.debug(
-                f"With {len(self.features_selected)}/{X_train.shape[1]} features."
-            )
+        self.feature_selection(feature_selection_method, nb_features=nb_features, X_val=X_train, y_val=y_train)
+
+        logger.debug(
+            f"With {len(self.features_selected)}/{X_train.shape[1]} features."
+        )
 
         if self.parameters is None:
             self.params = BASE_PARAMS[self.method]
@@ -264,7 +266,7 @@ class BoostingModel:
             self.params = best_params
             return self.params
 
-    def feature_selection(self, feature_selection_method, nb_features, X_val, y_val):
+    def feature_selection(self, feature_selection_method='none', nb_features=50, X_val=None, y_val=None):
         """
         Perform feature selection based on the specified method.
         """

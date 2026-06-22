@@ -705,7 +705,7 @@ class ElectionDataProcessor:
                 pl.col("growth_rates").fill_null(strategy="forward"),
             )
             .with_columns(
-                raw=pl.when((pl.col("from_left") == 1) | (pl.col("last_year") <= 2022))
+                raw=pl.when((pl.col("from_left") == 1))
                 .then(pl.col("raw"))
                 .otherwise(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k"))
             )
@@ -769,6 +769,7 @@ class ElectionDataProcessor:
 
                         # Projections
                         if max_year >= 2022:
+                            logger.debug(f'Running projections for {file.replace('.parquet', '')} (last year: {max_year})')
                             df = self._project(df, key)
 
                         # Augmentations
@@ -820,7 +821,7 @@ class ElectionDataProcessor:
                         # assert df.select(key, 'feature', 'annee', 'raw', 'rank').null_count().sum_horizontal().item(0) == 0
 
                         # Check column names
-                        df.unique('feature').write_csv(f'debug/{file}.csv')
+                        # df.unique('feature').write_csv(f'debug/{file}.csv')
 
                         assert (
                             df.select(cs.float().is_nan().sum()).sum_horizontal().item()

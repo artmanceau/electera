@@ -131,8 +131,7 @@ class MetaBooster:
         weights = self._compute_weights(X, y)
 
         if use_feature_selection:
-            X_val, y_val = (X, y) if val_set is None else val_set
-            self.feature_selection(X_val, y_val, method=feature_selection_method)
+            self.feature_selection(X, y, method=feature_selection_method)
 
         X = self._check_feature_consistency(X, self.features)
         print(list(X.columns)[0])

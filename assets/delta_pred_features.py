@@ -1,23 +1,41 @@
 BASE_FEATURES = [
+    # inscrits
+    "inscrits",
+
+    # geo
     "lat",
     "long",
-    "inscrits",
     "distanceparis",
     "dep_num",
+
+    # vbbm
     "F_raw_popcommunesvbbm/vbbm",
     "F_raw_popcommunesvbbm/vbbmpauvresriches",
+
     "F_{metric}_pibdepartements/pib",
     "F_{metric}_capitalimmobiliercommunes/capitalratio",
     "F_{metric}_etrangerscommunes/petranger",
     "F_{metric}_revcommunes/revratio",
     "F_{metric}_popdepartements/popcom5u",
     "F_{metric}_popdepartements/popcoma",
+
+    # agesexcommunes
     "F_{metric}_agesexcommunes/age",
-    "F_{metric}_agesexcommunes/propf",
+    "F_{metric}_agesexcommunes/agef",
+    "F_{metric}_agesexcommunes/ageh",
+    
     "F_{metric}_agesexcommunes/prop014",
     "F_{metric}_agesexcommunes/prop1539",
     "F_{metric}_agesexcommunes/prop4059",
     "F_{metric}_agesexcommunes/prop60p",
+
+    "F_{metric}_agesexcommunes/propf",
+    "F_{metric}_agesexcommunes/propf014",
+    "F_{metric}_agesexcommunes/propf1539",
+    "F_{metric}_agesexcommunes/propf4059",
+    "F_{metric}_agesexcommunes/propf60p",
+
+    # cspcommunes
     "F_{metric}_cspcommunes/pagri",
     "F_{metric}_cspcommunes/paica",
     "F_{metric}_cspcommunes/paind",

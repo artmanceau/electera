@@ -16,7 +16,9 @@ def split_method(
         data_train = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") < int(test_year)
         ).filter(
-            pl.col('annee') > int(test_year)-50
+            pl.col('annee') != validation_year
+        ).filter(
+            pl.col('annee') != 1848 # 1st pres
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") == int(validation_year)
