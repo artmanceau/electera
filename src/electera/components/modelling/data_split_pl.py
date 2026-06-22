@@ -15,12 +15,14 @@ def split_method(
     if way == "time-serie-cv":
         data_train = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") < int(test_year)
+        ).filter(
+            pl.col('annee') > int(test_year)-50
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") == int(test_year)
+            pl.col("annee") == int(validation_year)
         )
         data_validation = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") < int(test_year)
+            pl.col("annee") == int(train_year)
         )
     elif way == "last-only":
         data_train = data.filter(pl.col("election_type") == election_type).filter(

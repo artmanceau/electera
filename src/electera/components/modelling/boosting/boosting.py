@@ -14,7 +14,7 @@ from xgboost import XGBRegressor
 BASE_PARAMS = {
     "xgboost": {
         "subsample": 0.75,  # the ratio of the training instances used
-        "n_estimators": 100,
+        "n_estimators": 1000,
         "min_child_weight": 250,  # the minimum sum of instance weight needed in a leaf
         "max_depth": 15,
         "colsample_bytree": 0.8,  # the ratio of features used by tree

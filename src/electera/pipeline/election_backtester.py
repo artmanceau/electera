@@ -74,18 +74,19 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
-            "min_child_weight": 50,
+            "min_child_weight": 150,
+            "n_estimators": 2500,
             "max_depth": 15,
-            "objective": "reg:squarederror",
-            "colsample_bytree": 0.8,
-            "colsample_bylevel": 0.8,
-            "colsample_bynode": 0.8,
-            "learning_rate": 0.001,
+            "objective": "reg:absoluteerror",
+            "colsample_bytree": 0.75,
+            "colsample_bylevel": 0.75,
+            "colsample_bynode": 0.75,
+            "learning_rate": 0.01,
             "min_split_loss": 0.5,
             "gamma": 5,
             "alpha": 5,
             "lambda": 5,
-            "early_stopping_rounds": 100,
+            "early_stopping_rounds": 25,
         }
     },
     "meta_boosting": {
@@ -93,9 +94,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "sqrt",
         "features": FEATURES,
-        "n_splits_inner": 3,
-        "n_splits_outer": 5,
-        "n_trials": 3,
+        "n_splits_inner": 2,
+        "n_splits_outer": 1,
+        "n_trials": 1,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
@@ -171,8 +172,9 @@ class BackTester:
                 election_type=self.k_type_full,
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
-                selected_groups=["pct_change"],
-                selected_features=FEATURES,
+                selected_groups=["rank", "geo", "inscrits", "pct_change"],
+                selected_features=None,
+                split_method_way="time-serie-cv"
             )
 
             for name, value in zip(container_names, values):
@@ -443,13 +445,13 @@ class BackTester:
                     "Baseline predictions (same as previous election of the same type)"
                 )
                 self.baseline_results[model_name] = ModelEvaluator.evaluate(
-                    self.y_test[trend], self.y_prev[trend], model_name, extended=True
+                        self.y_test[trend], self.y_prev[trend].fillna(self.y_prev[trend].mean()), model_name, extended=True
                 )
                 logger.info("Baseline predictions (constant)")
                 # Adjust to the problem
                 self.constant_results[model_name] = ModelEvaluator.evaluate(
                     self.y_test[trend],
-                    self.y_test[trend] * 0.0 + 0.0,
+                    self.y_test[trend] * 0.0 + self.y_test[trend].mean(),
                     model_name,
                     extended=False,
                 )

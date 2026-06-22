@@ -199,8 +199,8 @@ class ElectionDataProcessor:
 
         # Join geo_data
         geo_data = self.add_geographical_data()
-        PARIS_LAT = 2.3522
-        PARIS_LON = 48.8566
+        PARIS_LAT = 48.8566 
+        PARIS_LON = 2.3522
         communes = (
             communes.join(geo_data, on="codecommune", how="left")
             # Step 1: fill from parent commune
@@ -755,20 +755,20 @@ class ElectionDataProcessor:
                         if df is None:
                             continue
 
-                        max_year = (
-                            df.select("annee")
-                            .max()
-                            .collect()
-                            .get_column("annee")
-                            .item()
-                        )
+                        # max_year = (
+                        #     df.select("annee")
+                        #     .max()
+                        #     .collect()
+                        #     .get_column("annee")
+                        #     .item()
+                        # )
 
                         # Build year grids and fill gaps (linear interpolation)
                         df = self._build_year_grids(df, key)
 
                         # Projections
-                        if max_year >= 2022:
-                            df = self._project(df, key)
+                        # if max_year >= 2022:
+                        #     df = self._project(df, key)
 
                         # Augmentations
                         df = self._augment(df, key)

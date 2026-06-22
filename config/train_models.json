@@ -7,5 +7,5 @@
     "feature_selection_methods": ["permutation"],
     "boosting_methods": ["xgboost"],
     "top_n_features": 100,
-    "models": ["trivial_1", "trivial_2", "linear_reg", "boosting", "meta_boosting"]
+    "models": ["trivial_1", "trivial_2", "linear_reg", "boosting"]
 }
