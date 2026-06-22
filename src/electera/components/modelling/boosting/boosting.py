@@ -101,7 +101,7 @@ class BoostingModel:
         y_val: pd.DataFrame | None = None,
         weighting: str = "equiproportional",
         feature_selection_method: str = "none",
-        nb_features: int = 50
+        nb_features: int = 'relative',
         **kwargs,
     ):
         """Train XGBoost model"""
@@ -118,6 +118,7 @@ class BoostingModel:
         logger.debug(
             f"With {len(self.features_selected)}/{X_train.shape[1]} features."
         )
+        logger.debug(f'Feature selected: {self.features_selected}')
 
         if self.parameters is None:
             self.params = BASE_PARAMS[self.method]
@@ -266,7 +267,7 @@ class BoostingModel:
             self.params = best_params
             return self.params
 
-    def feature_selection(self, feature_selection_method='none', nb_features=50, X_val=None, y_val=None):
+    def feature_selection(self, feature_selection_method='none', nb_features='relative', X_val=None, y_val=None):
         """
         Perform feature selection based on the specified method.
         """
@@ -338,9 +339,19 @@ class BoostingModel:
                 self.importance_df = self.importance_df.sort_values(
                     by="Permutation", ascending=False
                 )
-                self.features_selected = self.importance_df.head(nb_features)[
-                    "Feature"
-                ].tolist()
+
+                if nb_features == 'relative':
+                    logger.debug('Keeping features larger than twice the median importance')
+                    # Keep features larger than twice the median importance
+                    median_importance = self.importance_df["Permutation"].median()
+                    threshold = 2 * median_importance
+                    self.features_selected = self.importance_df[
+                        self.importance_df["Permutation"] > threshold
+                    ]["Feature"].tolist()
+                else:
+                    self.features_selected = self.importance_df.head(nb_features)[
+                        "Feature"
+                    ].tolist()
 
             elif feature_selection_method == "RFE":
                 # Top features using Recursive Feature Elimination

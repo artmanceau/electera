@@ -74,15 +74,14 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
-            "min_child_weight": 150,
+            "min_child_weight": 50,
             "n_estimators": 2500,
-            "max_depth": 15,
+            "max_depth": 12,
             "objective": "reg:absoluteerror",
             "colsample_bytree": 0.75,
             "colsample_bylevel": 0.75,
             "colsample_bynode": 0.75,
-            "learning_rate": 0.01,
-            "min_split_loss": 0.5,
+            "learning_rate": 0.001,
             "gamma": 5,
             "alpha": 5,
             "lambda": 5,
@@ -453,7 +452,7 @@ class BackTester:
                 # Adjust to the problem
                 self.constant_results[model_name] = ModelEvaluator.evaluate(
                     self.y_test[trend],
-                    self.y_test[trend] * 0.0 + self.y_test[trend].mean(),
+                    self.y_test[trend] * 0.0 + self.y_train[trend].mean(),
                     model_name,
                     extended=False,
                 )

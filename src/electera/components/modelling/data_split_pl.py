@@ -21,10 +21,10 @@ def split_method(
             pl.col('annee') != 1848 # 1st pres
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") == int(validation_year)
+            pl.col("annee") == int(test_year)
         )
         data_validation = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") == int(train_year)
+            pl.col("annee") == int(validation_year)
         )
     elif way == "last-only":
         data_train = data.filter(pl.col("election_type") == election_type).filter(
