@@ -692,64 +692,61 @@ class ElectionDataProcessor:
             ),
         ).fill_nan(None)
 
-    def _project_test(self, df, key):
-        # Step 1: Build only the future rows (annee > last known year)
+    def _project(self, df, key):
         projected = (
             df.group_by([key, "feature"])
             .agg(
                 pl.int_range(pl.col("annee").max() + 1, 2028).alias("annee"),
                 pl.col("annee").max().alias("last_year"),
                 pl.col("raw").last().alias("raw_filled"),
-                pl.col("raw").diff(1).rolling_mean(window_size=8).last().alias("growth_rates"),
+                pl.col("raw").diff(1).rolling_mean(window_size=5).last().alias("growth_rates"),
             )
             .explode("annee")
             .with_columns(
                 (pl.col("annee") - pl.col("last_year")).alias("k"),
             )
             .with_columns(
-                raw=pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k")
+                raw=(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k")).clip(lower_bound=0)
             ).filter(
                 (pl.col('k') > 0) & (pl.col('last_year') == 2022)
             ).drop(
                 "last_year", "k", "raw_filled", "growth_rates"
             )
         )
+        return projected
 
-        # Step 2: Concatenate original df with projected rows
-        return pl.concat([df, projected], how="diagonal_relaxed").sort("feature", key, "annee")
-
-    def _project(self, df, key):
-        return (
-            df.group_by([key, "feature"])
-            .agg(
-                pl.int_range(pl.col("annee").min(), 2028).alias("annee"),
-                pl.col("annee").max().alias("last_year"),
-                pl.col("annee").min().alias("first_year"),
-            )
-            .explode("annee")
-            .join(
-                df.with_columns(from_left=pl.lit(1)),
-                on=["feature", key, "annee"],
-                how="left",
-            )
-            .sort("feature", key, "annee")
-            .with_columns(
-                pl.when(pl.col("from_left") == 1)
-                .then(pl.col("raw").diff(1).rolling_mean(window_size=8).fill_null(0.0))
-                .otherwise(None)
-                .alias("growth_rates"),
-                (pl.col("annee") - pl.col("last_year")).alias("k"),
-            )
-            .with_columns(
-                pl.col("raw").fill_null(strategy="forward").alias("raw_filled"),
-                pl.col("growth_rates").fill_null(strategy="forward"),
-            )
-            .with_columns(
-                raw=pl.when((pl.col("from_left") == 1))
-                .then(pl.col("raw"))
-                .otherwise(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k"))
-            )
-        )
+    # def _project(self, df, key):
+    #     return (
+    #         df.group_by([key, "feature"])
+    #         .agg(
+    #             pl.int_range(pl.col("annee").min(), 2028).alias("annee"),
+    #             pl.col("annee").max().alias("last_year"),
+    #             pl.col("annee").min().alias("first_year"),
+    #         )
+    #         .explode("annee")
+    #         .join(
+    #             df.with_columns(from_left=pl.lit(1)),
+    #             on=["feature", key, "annee"],
+    #             how="left",
+    #         )
+    #         .sort("feature", key, "annee")
+    #         .with_columns(
+    #             pl.when(pl.col("from_left") == 1)
+    #             .then(pl.col("raw").diff(1).rolling_mean(window_size=8).fill_null(0.0))
+    #             .otherwise(None)
+    #             .alias("growth_rates"),
+    #             (pl.col("annee") - pl.col("last_year")).alias("k"),
+    #         )
+    #         .with_columns(
+    #             pl.col("raw").fill_null(strategy="forward").alias("raw_filled"),
+    #             pl.col("growth_rates").fill_null(strategy="forward"),
+    #         )
+    #         .with_columns(
+    #             raw=pl.when((pl.col("from_left") == 1))
+    #             .then(pl.col("raw"))
+    #             .otherwise(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k"))
+    #         )
+    #     )
 
     def load_socio_economic_data(self):
         folder_path = os.path.join(self.config.data_path, "raw/")
@@ -797,23 +794,21 @@ class ElectionDataProcessor:
                             continue
 
                         max_year = (
-                             df.select("annee")
-                             .max()
-                             .collect()
-                             .get_column("annee")
-                             .item()
+                            df.select("annee")
+                            .max()
+                            .collect()
+                            .get_column("annee")
+                            .item()
                         )
 
                         # Build year grids and fill gaps (linear interpolation)
                         df = self._build_year_grids(df, key)
 
                         # Projections
-                        # Logic for mixed end_year file
                         if max_year >= 2022:
-                            breakpoint()
                             logger.debug(f'Running projections for {file.replace('.parquet', '')} (last year: {max_year})')
-                            df = self._project(df, key)
-                            
+                            projected = self._project(df, key)
+                            df = pl.concat([df, projected], how="diagonal_relaxed").sort("feature", key, "annee")
 
                         # Augmentations
                         df = self._augment(df, key)

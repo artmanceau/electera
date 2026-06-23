@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from electera.components.data_processing.data_loader import DataLoader
 from electera.components.modelling.data_split_pl import get_Xy_pl
 from electera.components.modelling.meta_booster import MetaBooster
+from electera.components.modelling.boosting.boosting import BoostingModel
 
 
 class ExplainCore:
@@ -18,14 +19,13 @@ class ExplainCore:
     def _load_model(data_path, var, year, type_, vars_, model_version, fs):
         model_path = f"{data_path}output/models/model_{year}_{type_}_{str(vars_)}_{model_version}.pkl"
         model = DataLoader.load_pickle(file_path=model_path, fs=fs)
-        if not isinstance(model.models[var], MetaBooster):
-            logger.error(
-                "This pipeline is not configured for this type of model. Only metaboosting models. Raising an error"
-            )
-            raise ValueError(
-                "This pipeline is not configured for this type of model. Only metaboosting models."
-            )
-        n_models = len(model.models[var].best_models)
+        n_models = len(model.models[var].best_models) if isinstance(model.models[var], MetaBooster) else 1
+
+        # Adapt boosting to metaboosting structure
+        if isinstance(model.models[var], BoostingModel):
+            setattr(model.models[var], 'features', model.models[var].features_selected)
+            setattr(model.models[var], 'best_models', [model.models[var].model])
+
         return model, n_models
 
     def _data_processing(self, data):
