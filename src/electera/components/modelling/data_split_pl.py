@@ -201,6 +201,18 @@ def get_Xy_pl(
     )
     y_previous = data_test.get_column(y_prev)
 
+    remove_nulls = True
+    if remove_nulls:
+        null_cols_train = set([s.name for s in data_train if s.has_nulls()])
+        null_cols_test = set([s.name for s in data_test if s.has_nulls()])
+        null_cols_validation = set([s.name for s in data_validation if s.has_nulls()])
+        null_cols = (null_cols_train.union(null_cols_test)).union(null_cols_validation)
+
+        if 'previous_vote' in selected_groups:
+            null_cols = null_cols.union(feature_groups['previous_vote'])
+
+        features = list(set(features) - null_cols)
+
     X_train, X_test, X_val = (
         data_train.select(features),
         data_test.select(features),
@@ -215,8 +227,8 @@ def get_Xy_pl(
     )
 
     # Assert no null
-    # for df in [X_train, X_test, X_val]:
-    #     assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
+    for df in [X_train, X_test, X_val]:
+        assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
 
     return (
         X_train.to_pandas(),

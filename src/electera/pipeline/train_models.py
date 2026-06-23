@@ -89,22 +89,6 @@ class ElectionModelTrainer:
         for name, value in zip(container_names, values):
             setattr(self, name, value)
 
-        # Fix
-        features_to_remove = list(
-            set(self.X_train.columns[self.X_train.isnull().mean() > 0])
-            - set(
-                [
-                    "inscrits",
-                    "distanceparis",
-                    "previouspvotepar",
-                    "previouspreviouspvotepar",
-                ]
-            )
-        )
-        self.X_train = self.X_train.drop(columns=features_to_remove)
-        self.X_test = self.X_test.drop(columns=features_to_remove)
-        self.X_val = self.X_val.drop(columns=features_to_remove)
-
         self.feature_names = self.X_train.columns.tolist()
 
         logger.info(

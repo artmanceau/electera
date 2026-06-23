@@ -5,24 +5,23 @@ import pandas as pd
 from catboost import CatBoostRegressor
 from gpboost import GPBoostRegressor
 from loguru import logger
+import optuna
 from sklearn.feature_selection import RFE
 from sklearn.inspection import permutation_importance
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from skopt import BayesSearchCV
+from sklearn.model_selection import KFold, cross_val_score
 from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split
 
 BASE_PARAMS = {
     "xgboost": {
-        "subsample": 0.75,  # the ratio of the training instances used
         "n_estimators": 1000,
         "min_child_weight": 250,  # the minimum sum of instance weight needed in a leaf
-        "max_depth": 15,
-        "colsample_bytree": 0.8,  # the ratio of features used by tree
-        "colsample_bylevel": 0.8,  # the ratio of features used by level
-        "colsample_bynode": 0.8,  # the ratio of features used by node
+        "max_depth": 8,
+        # "colsample_bytree": 0.8,  # the ratio of features used by tree
+        # "colsample_bylevel": 0.8,  # the ratio of features used by level
+        # "colsample_bynode": 0.8,  # the ratio of features used by node
         "learning_rate": 0.1,  # the learning rate of our GBM
         # (i.e. how much we update our prediction with each successive tree)
-        "min_split_loss": 0.5,  # the minimum loss reduction required to make a further split
         "early_stopping_rounds": 150,
         "lambda": 5,
         "alpha": 5,
@@ -102,17 +101,21 @@ class BoostingModel:
         weighting: str = "equiproportional",
         feature_selection_method: str = "none",
         nb_features: int = 'relative',
+        param_search_method="none",
         **kwargs,
     ):
         """Train XGBoost model"""
 
+        # Boosting method
         if self.boosting_method is None:
             self.boosting_method = XGBRegressor
             self.method = "xgboost"
             logger.info(f"Boosting method selected: {self.method}")
 
+        # Weights
         weights = self._compute_weights(X_train, y_train, weighting=weighting)
 
+        # Features
         self.feature_selection(feature_selection_method, nb_features=nb_features, X_val=X_train, y_val=y_train)
 
         logger.debug(
@@ -120,11 +123,18 @@ class BoostingModel:
         )
         logger.debug(f'Feature selected: {self.features_selected}')
 
+        # Parameters
         if self.parameters is None:
             self.params = BASE_PARAMS[self.method]
-            logger.debug(f"With parameters: {self.params}")
         else:
             self.params = self.parameters
+
+        # Parameter search
+        best_params = self.parameter_search(param_search_method=param_search_method, X_val=X_train, y_val=y_train)
+
+        self.params.update(best_params)
+
+        logger.debug(f"With parameters: {self.params}")
 
         # Apply feature selection
         X_train_boosting = X_train[self.features_selected].copy(deep=True)
@@ -179,38 +189,40 @@ class BoostingModel:
         if param_search_method == "none":
             pass
 
-        else:
-            # Stage 1: Optimize learning rate using GridSearchCV
-            logger.debug("Stage 1: Optimizing learning rate...")
-            learning_rate_space = {
-                "learning_rate": np.linspace(0.0001, 1.0, 10).tolist()
-            }
-
-            random_search = GridSearchCV(
-                estimator=self.boosting_method(),
-                param_grid=learning_rate_space,
-                cv=3,  # Cross-validation folds
-                scoring="neg_mean_squared_error",
-                n_jobs=-1,
-            )
-
-            # Fit the model to find the best learning rate
-            random_search.fit(X_val, y_val)
-            best_learning_rate = random_search.best_params_["learning_rate"]
-            logger.success(f"Best learning rate found: {best_learning_rate}")
-
-            # Stage 2: Optimize other parameters using the chosen method
+        elif param_search_method == "optuna":
+            # Optimize other parameters using the chosen method
             logger.debug(
-                f"Stage 2: Optimizing other parameters using {param_search_method} search..."
+                f"Optimizing parameters using {param_search_method} search..."
             )
-            param_space = {
-                "max_depth": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                "min_child_weight": [1, 4, 5, 6, 7],
-                "subsample": [0.5, 0.6, 0.7],
-                "colsample_bytree": [0.85, 0.9, 0.95],
-                "n_estimators": [100, 400, 800, 1500],
-            }
+            _, X, _, y = train_test_split(
+                X_val, y_val, test_size=0.33, random_state=42
+            )
 
+            def objective(trial):
+                params = {
+                    "learning_rate": trial.suggest_float("learning_rate", 1e-4, 1e0, log=True),
+                    "max_depth": trial.suggest_int("max_depth", 5, 15),
+                    "min_child_weight": trial.suggest_int("min_child_weight", 15, 300),
+                    "alpha": trial.suggest_float("alpha", 1e-2, 1e2, log=True),
+                    "gamma": trial.suggest_float("gamma", 1e-2, 1e2, log=True),
+                    "lambda": trial.suggest_float("lambda", 1e-2, 1e2, log=True),
+                    "eval_metric": "mae"
+                }
+
+                model = self.boosting_method(**params)
+                cv = KFold(n_splits=3, shuffle=True, random_state=42)
+
+                scores = cross_val_score(
+                    model,
+                    X,
+                    y,
+                    cv=cv,
+                    scoring="neg_mean_absolute_error",
+                    n_jobs=-1,
+                )
+                return -scores.mean()
+
+            '''
             if param_search_method == "bayesian":
                 search_object = BayesSearchCV(
                     estimator=self.boosting_method(
@@ -252,20 +264,23 @@ class BoostingModel:
                     scoring="neg_mean_squared_error",
                     n_jobs=-1,
                 )
+            '''
+            study = optuna.create_study(direction="minimize")
+            study.optimize(objective, n_trials=10)
+            best_params = study.best_params
 
-            else:
-                raise ValueError(f"Unknown search method: {param_search_method}")
+        else:
+            raise ValueError(f"Unknown search method: {param_search_method}")
 
             # Fit the model to find the best parameters
-            search_object.fit(X_val, y_val)
-            best_params = search_object.best_params_
-            best_params["learning_rate"] = (
-                best_learning_rate  # Include the best learning rate from Stage 1
-            )
+            # search_object.fit(X_val, y_val)
+            # best_params = search_object.best_params_
+            # best_params["learning_rate"] = (
+            #    best_learning_rate  # Include the best learning rate from Stage 1
+            # )
 
-            logger.success(f"Best parameters found: {best_params}")
-            self.params = best_params
-            return self.params
+        logger.success(f"Best parameters found: {best_params}")
+        return best_params
 
     def feature_selection(self, feature_selection_method='none', nb_features='relative', X_val=None, y_val=None):
         """
@@ -297,9 +312,16 @@ class BoostingModel:
                 self.importance_df = self.importance_df.sort_values(
                     by="Gain", ascending=False
                 )
-                self.features_selected = self.importance_df.head(nb_features)[
-                    "Feature"
-                ].tolist()
+                if nb_features == 'relative':
+                    gain = self.importance_df["Gain"]
+                    total_gain = gain.sum()
+                    cum_ratio = gain.cumsum() / total_gain
+                    n_features_80 = min(len(self.importance_df), int((cum_ratio < 0.90).sum() + 1))
+                    self.features_selected = self.importance_df.head(n_features_80)["Feature"].tolist()
+                else:
+                    self.features_selected = self.importance_df.head(nb_features)[
+                        "Feature"
+                    ].tolist()
 
             elif feature_selection_method == "weight":
                 # Top features based on XGBoost feature importance (weight)
