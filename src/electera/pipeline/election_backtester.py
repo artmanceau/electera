@@ -74,6 +74,8 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
             "min_child_weight": 200,
             "n_estimators": 2500,
             "max_depth": 10,
@@ -375,6 +377,10 @@ class BackTester:
                 if model_name == "trivial_1":
                     model_args["y_prev"] = self.y_prev[trend]
 
+                # Adding a base score
+                elif model_name == 'boosting':
+                    model_args['parameters']['base_score'] = self.y_train[trend].mean() 
+
                 instance_model = model(**model_args)
 
                 trainings = {
@@ -390,9 +396,8 @@ class BackTester:
                         self.X_val[trend],
                         self.y_val[trend],
                         weighting='log',
-                        feature_selection_method='gain',
-                        nb_features='relative',
-                        param_search_method='optuna'
+                        feature_selection_method='none',
+                        param_search_method='none'
                     ),
                     "linear": lambda: instance_model.train(
                         self.X_train[trend], self.y_train[trend]

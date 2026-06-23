@@ -200,12 +200,12 @@ class BoostingModel:
 
             def objective(trial):
                 params = {
-                    "learning_rate": trial.suggest_float("learning_rate", 1e-4, 1e0, log=True),
-                    "max_depth": trial.suggest_int("max_depth", 5, 15),
-                    "min_child_weight": trial.suggest_int("min_child_weight", 15, 300),
-                    "alpha": trial.suggest_float("alpha", 1e-2, 1e2, log=True),
-                    "gamma": trial.suggest_float("gamma", 1e-2, 1e2, log=True),
-                    "lambda": trial.suggest_float("lambda", 1e-2, 1e2, log=True),
+                    "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True),
+                    "max_depth": trial.suggest_int("max_depth", 5, 12),
+                    "min_child_weight": trial.suggest_int("min_child_weight", 25, 350),
+                    "alpha": trial.suggest_float("alpha", 1e0, 1e2, log=True),
+                    "gamma": trial.suggest_float("gamma", 1e0, 1e2, log=True),
+                    "lambda": trial.suggest_float("lambda", 1e0, 1e2, log=True),
                     "eval_metric": "mae"
                 }
 

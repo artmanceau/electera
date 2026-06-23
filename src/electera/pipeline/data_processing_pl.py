@@ -199,8 +199,8 @@ class ElectionDataProcessor:
 
         # Join geo_data
         geo_data = self.add_geographical_data()
-        PARIS_LAT = 2.3522
-        PARIS_LON = 48.8566
+        PARIS_LAT = 2.3522 ; LYON_LAT = 4.8500 ; MARSEILLE_LAT = 5.4000
+        PARIS_LON = 48.8566 ; LYON_LON = 45.7500 ; MARSEILLE_LON = 43.3000
         communes = (
             communes.join(geo_data, on="codecommune", how="left")
             # Step 1: fill from parent commune
@@ -232,14 +232,28 @@ class ElectionDataProcessor:
                 pl.struct(
                     pl.lit(PARIS_LAT).alias("latitude"),
                     pl.lit(PARIS_LON).alias("longitude"),
-                ).alias("paris_coords")
+                ).alias("paris_coords"),
+                pl.struct(
+                    pl.lit(LYON_LAT).alias("latitude"),
+                    pl.lit(LYON_LON).alias("longitude"),
+                ).alias("lyon_coords"),
+                pl.struct(
+                    pl.lit(MARSEILLE_LAT).alias("latitude"),
+                    pl.lit(MARSEILLE_LON).alias("longitude"),
+                ).alias("marseille_coords")
             )
             .with_columns(
                 pld.col("coords")
                 .dist.haversine("paris_coords", "km")
-                .alias("distanceparis")
+                .alias("distanceparis"),
+                pld.col("coords")
+                .dist.haversine("lyon_coords", "km")
+                .alias("distancelyon"),
+                pld.col("coords")
+                .dist.haversine("marseille_coords", "km")
+                .alias("distancemarseille"),
             )
-            .drop("coords", "paris_coords")
+            .drop("coords", "paris_coords", 'lyon_coords', 'marseille_coords')
         )
         return communes
 
@@ -678,6 +692,32 @@ class ElectionDataProcessor:
             ),
         ).fill_nan(None)
 
+    def _project_test(self, df, key):
+        # Step 1: Build only the future rows (annee > last known year)
+        projected = (
+            df.group_by([key, "feature"])
+            .agg(
+                pl.int_range(pl.col("annee").max() + 1, 2028).alias("annee"),
+                pl.col("annee").max().alias("last_year"),
+                pl.col("raw").last().alias("raw_filled"),
+                pl.col("raw").diff(1).rolling_mean(window_size=8).last().alias("growth_rates"),
+            )
+            .explode("annee")
+            .with_columns(
+                (pl.col("annee") - pl.col("last_year")).alias("k"),
+            )
+            .with_columns(
+                raw=pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k")
+            ).filter(
+                (pl.col('k') > 0) & (pl.col('last_year') == 2022)
+            ).drop(
+                "last_year", "k", "raw_filled", "growth_rates"
+            )
+        )
+
+        # Step 2: Concatenate original df with projected rows
+        return pl.concat([df, projected], how="diagonal_relaxed").sort("feature", key, "annee")
+
     def _project(self, df, key):
         return (
             df.group_by([key, "feature"])
@@ -768,9 +808,12 @@ class ElectionDataProcessor:
                         df = self._build_year_grids(df, key)
 
                         # Projections
+                        # Logic for mixed end_year file
                         if max_year >= 2022:
+                            breakpoint()
                             logger.debug(f'Running projections for {file.replace('.parquet', '')} (last year: {max_year})')
                             df = self._project(df, key)
+                            
 
                         # Augmentations
                         df = self._augment(df, key)
@@ -926,6 +969,8 @@ class ElectionDataProcessor:
                 "lat",
                 "long",
                 "distanceparis",
+                "distancelyon",
+                "distancemarseille"
             ]
             + all_votes
             + self.percentile(self.tendances_column_pvote + ["pvotepar"])
@@ -954,6 +999,8 @@ class ElectionDataProcessor:
                 "lat",
                 "long",
                 "distanceparis",
+                "distancelyon",
+                "distancemarseille"
             ),
             on="codecommune",
             how="left",
@@ -1001,7 +1048,7 @@ class ElectionDataProcessor:
                 .fill_null(pl.col(c).mean().over("dep", "annee"))
                 .fill_null(pl.col(c).mean().over("annee"))  # Fallback to all
                 .alias(c)
-                for c in features + ["lat", "long", "distanceparis"]
+                for c in features + ["lat", "long", "distanceparis", 'distancelyon', 'distancemarseille']
             ]
         )
 

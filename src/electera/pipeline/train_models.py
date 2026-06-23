@@ -382,7 +382,7 @@ def run():
                                 y_train=trainer.y_train,
                                 X_val=trainer.X_val,
                                 y_val=trainer.y_val,
-                                weighting="log",
+                                weighting="log"
                             )
                             model_name = boosting_model.get_model_name() + f"_{var}_{feature_groups_str}" 
                             logger.info(f"Boosting model trained {model_name}...")
