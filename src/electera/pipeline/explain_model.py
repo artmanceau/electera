@@ -343,7 +343,7 @@ class Explainer:
         3. Run the methods successively
         """
         self.type_ = type_
-        self.t = 0 if self.type_ == "pres" else 1
+        self.t = 1 if self.type_ == "pres" else 0
         self.var = var
         self.year = year
         self.vars_ = vars_
