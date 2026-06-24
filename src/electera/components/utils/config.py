@@ -61,6 +61,9 @@ class BackTesterConfig(BaseModel):
             {"par", "TD", "TG"},
             {"par", "GCG", "C", "DCD"},
             {"CG", "CD", "C", "D", "G", "par"},  # existing default
+            {"taupar", "tauTD", "tauTG"},
+            {"taupar", "tauGCG", "tauC", "tauDCD"},
+            {"tauCG", "tauCD", "tauC", "tauD", "tauG", "taupar"},  # existing default
         ]
 
         # Ensure the input is a list of lists

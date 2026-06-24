@@ -12,11 +12,12 @@ class ElectionPredictor:
     """
 
     def __init__(self, trends):
-        self.trends = trends
-        self.models = {trend: None for trend in trends}
-        self.data_paths = {trend: None for trend in trends}
-        self.signatures = {trend: None for trend in trends}
-        self.features = {trend: None for trend in trends}
+        self.is_logit = 'tau' in trends[0]
+        self.trends = [trend.replace('tau', '') for trend in trends]
+        self.models = {trend: None for trend in self.trends}
+        self.data_paths = {trend: None for trend in self.trends}
+        self.signatures = {trend: None for trend in self.trends}
+        self.features = {trend: None for trend in self.trends}
 
     def _check_complete(self):
         pass
@@ -38,13 +39,20 @@ class ElectionPredictor:
             else:
                 return preds
 
+        def reverse_logit(x):
+            return 1 / (1 + np.exp(-x))
+
         for trend in self.trends:
-            X_result["pvote" + trend] = prediction_fn(
+            x = prediction_fn(
                 self.models[trend],
                 X,
                 predict_delta,
                 infer_multiple,
             )
+            if self.is_logit:
+                X_result["pvote" + trend] = reverse_logit(x)
+            else:
+                X_result["pvote" + trend] = x
 
         # We have to readjust
         # as X_result[['p'+trend for trend in self.trends if trend!='par']].sum(axis=1) == 1
