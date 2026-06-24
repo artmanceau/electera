@@ -74,20 +74,21 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
-            "subsample": 0.9,
-            "colsample_bytree": 0.9,
-            "min_child_weight": 200,
+            "subsample": 0.75,
+            "colsample_bytree": 0.75,
+            "min_child_weight": 5,
             "n_estimators": 2500,
             "max_depth": 10,
             "objective": "reg:absoluteerror",
             # "colsample_bytree": 0.8,
             # "colsample_bylevel": 0.8,
             # "colsample_bynode": 0.8,
-            # "learning_rate": 0.01,
+            "learning_rate": 0.01,
             "gamma": 5,
             "alpha": 5,
             "lambda": 5,
-            "early_stopping_rounds": 25,
+            "early_stopping_rounds": 15,
+            "verbose": 0
         }
     },
     "meta_boosting": {
@@ -396,8 +397,8 @@ class BackTester:
                         self.X_val[trend],
                         self.y_val[trend],
                         weighting='log',
-                        feature_selection_method='none',
-                        param_search_method='none'
+                        feature_selection_method='gain',
+                        param_search_method='optuna'
                     ),
                     "linear": lambda: instance_model.train(
                         self.X_train[trend], self.y_train[trend]

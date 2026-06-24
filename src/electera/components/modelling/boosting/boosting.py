@@ -15,12 +15,12 @@ from sklearn.model_selection import train_test_split
 BASE_PARAMS = {
     "xgboost": {
         "n_estimators": 1000,
-        "min_child_weight": 250,  # the minimum sum of instance weight needed in a leaf
+        "min_child_weight": 5,  # the minimum sum of instance weight needed in a leaf
         "max_depth": 8,
         # "colsample_bytree": 0.8,  # the ratio of features used by tree
         # "colsample_bylevel": 0.8,  # the ratio of features used by level
         # "colsample_bynode": 0.8,  # the ratio of features used by node
-        "learning_rate": 0.1,  # the learning rate of our GBM
+        "learning_rate": 0.01,  # the learning rate of our GBM
         # (i.e. how much we update our prediction with each successive tree)
         "early_stopping_rounds": 150,
         "lambda": 5,
@@ -187,7 +187,7 @@ class BoostingModel:
         self.param_search_method = param_search_method
 
         if param_search_method == "none":
-            pass
+            best_params = {}
 
         elif param_search_method == "optuna":
             # Optimize other parameters using the chosen method
@@ -201,8 +201,8 @@ class BoostingModel:
             def objective(trial):
                 params = {
                     "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True),
-                    "max_depth": trial.suggest_int("max_depth", 5, 12),
-                    "min_child_weight": trial.suggest_int("min_child_weight", 25, 350),
+                    "max_depth": trial.suggest_int("max_depth", 5, 10),
+                    # "min_child_weight": trial.suggest_int("min_child_weight", 1, 100),
                     "alpha": trial.suggest_float("alpha", 1e0, 1e2, log=True),
                     "gamma": trial.suggest_float("gamma", 1e0, 1e2, log=True),
                     "lambda": trial.suggest_float("lambda", 1e0, 1e2, log=True),
@@ -268,6 +268,7 @@ class BoostingModel:
             study = optuna.create_study(direction="minimize")
             study.optimize(objective, n_trials=10)
             best_params = study.best_params
+            logger.success(f"Best parameters found: {best_params}")
 
         else:
             raise ValueError(f"Unknown search method: {param_search_method}")
@@ -279,7 +280,6 @@ class BoostingModel:
             #    best_learning_rate  # Include the best learning rate from Stage 1
             # )
 
-        logger.success(f"Best parameters found: {best_params}")
         return best_params
 
     def feature_selection(self, feature_selection_method='none', nb_features='relative', X_val=None, y_val=None):
