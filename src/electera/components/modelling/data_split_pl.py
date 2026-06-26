@@ -14,17 +14,17 @@ def split_method(
 ):
     if way == "time-serie-cv":
         data_train = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") < int(test_year)
+            pl.col("annee") <= int(validation_year)
         ).filter(
-            pl.col('annee') != validation_year
+            pl.col('annee') != 1848
         ).filter(
-            pl.col('annee') >= int(test_year) - 20
+            pl.col('annee') >= int(validation_year) - 15
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") == int(test_year)
         )
         data_validation = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") == int(validation_year)
+            pl.col("annee") == int(train_year)
         )
     elif way == "last-only":
         data_train = data.filter(pl.col("election_type") == election_type).filter(
@@ -110,10 +110,12 @@ def get_Xy_pl(
     if predict_delta:
         y = f"delta{vote_variable}"
         y_prev = f"previousdelta{vote_variable}"
+        previous_delta = f"previousdelta{vote_variable}"
 
     else:
         y = vote_variable
         y_prev = f"previous{vote_variable}"
+        previous_delta = f"previousdelta{vote_variable}"
 
     data.select(
         # Features
@@ -127,6 +129,8 @@ def get_Xy_pl(
             "lat",
             "long",
             "distanceparis",
+            "distancelyon",
+            "distancemarseille",
             "dep_num",
             y,
             y_prev,
@@ -182,8 +186,8 @@ def get_Xy_pl(
             ),
             "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
             "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
-            "geo": ["lat", "long", "distanceparis", "dep_num"],
-            "previous_vote": set([y_prev, f"previous{y_prev}"]).intersection(
+            "geo": ["lat", "long", "distanceparis", "distancelyon", "distancemarseille", "dep_num"],
+            "previous_vote": set([y_prev, f"previous{y_prev}"]+[previous_delta]).intersection(
                 set(data_train.columns)
             ),
             "inscrits": ["inscrits"],

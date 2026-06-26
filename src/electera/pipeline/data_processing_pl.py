@@ -51,7 +51,7 @@ class ElectionDataProcessor:
     voteT2 = ["inscritsT2", "votantsT1", "exprimesT2", "abstentionsT2", "blancsnulsT2"]
     pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2", "pvoteexprT2"]
 
-    tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD"]
+    tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD", 'CGCCD']
     tendances_column_vote = [f"vote{tendance}" for tendance in tendances]
     tendances_column_pvote = ["p" + col for col in tendances_column_vote]
 
@@ -357,6 +357,7 @@ class ElectionDataProcessor:
                             df = df.with_columns(
                                 annee=pl.lit(year).cast(pl.Int64),
                                 election_code=pl.lit(election_code),
+                                voteCGCCD=pl.col('voteCG')+pl.col('voteC')+pl.col('voteCD'),
                                 election_type=pl.lit(election_type),
                                 type=pl.lit(self.type_encoding[election_type]),
                                 codecommune=pl.col("codecommune")
@@ -480,6 +481,7 @@ class ElectionDataProcessor:
                 pvoteTD=pl.col("voteTD") / pl.col("exprimes_"),
                 pvoteGCG=pl.col("voteGCG") / pl.col("exprimes_"),
                 pvoteDCD=pl.col("voteDCD") / pl.col("exprimes_"),
+                pvoteCGCCD=pl.col('voteCGCCD') / pl.col("exprimes_"),
                 # pvoixOUI=pl.col("voixOUI") / pl.col("exprimes_"),
                 # pvoixNON=pl.col("voixNON") / pl.col("exprimes_"),
             )

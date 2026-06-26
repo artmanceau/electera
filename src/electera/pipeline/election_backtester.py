@@ -78,16 +78,16 @@ MODEL_ARGS = {
             "colsample_bytree": 0.75,
             "min_child_weight": 25,
             "n_estimators": 2500,
-            "max_depth": 8,
+            "max_depth": 6,
             "objective": "reg:absoluteerror",
             # "colsample_bytree": 0.8,
             # "colsample_bylevel": 0.8,
             # "colsample_bynode": 0.8,
-            "learning_rate": 0.01,
-            "gamma": 5,
-            "alpha": 5,
-            "lambda": 5,
-            "early_stopping_rounds": 15,
+            "learning_rate": 0.001,
+            "gamma": 10,
+            "alpha": 10,
+            "lambda": 10,
+            "early_stopping_rounds": 10,
         }
     },
     "meta_boosting": {
@@ -98,7 +98,7 @@ MODEL_ARGS = {
         "n_splits_inner": 2,
         "n_splits_outer": 1,
         "n_trials": 1,
-        "poll_adj": False,
+        "poll_adj": True,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
@@ -173,7 +173,7 @@ class BackTester:
                 election_type=self.k_type_full,
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
-                selected_groups=["rank", "geo", "inscrits", "pct_change"],
+                selected_groups=["rank", "geo", "inscrits", "pct_change", 'raw', 'annee'],
                 selected_features=None,
                 split_method_way="time-serie-cv"
             )
@@ -217,6 +217,9 @@ class BackTester:
         exprimes_ = X_true[
             [f"vote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
         ].sum(axis=1)
+
+        # Remove Paris and Lyon, Marseille arrondissement (avoid duplicates)
+        X_true = X_true.loc[~(X_true['codecommune'].isin(["75056"] + [f"1320{i}" for i in range(1, 9 + 1)] + [f"132{i}" for i in range(10, 16 + 1)] + [f"69328{i}" for i in range(1, 9 + 1)])), :]
 
         # Predictions
         data = DataLoader.load_dataset(
@@ -379,9 +382,9 @@ class BackTester:
                     model_args["y_prev"] = self.y_prev[trend]
 
                 # Adding a base score
-                if model_name == 'boosting':
-                    logger.debug(f"Base score: {self.y_train[trend].mean()} ({trend})")
-                    model_args['parameters']['base_score'] = self.y_train[trend].mean()
+                # if model_name == 'boosting':
+                #     logger.debug(f"Base score: {self.y_train[trend].mean()} ({trend})")
+                #     model_args['parameters']['base_score'] = self.y_train[trend].mean()
 
                 instance_model = model(**model_args)
 
@@ -397,9 +400,9 @@ class BackTester:
                         self.y_train[trend],
                         self.X_val[trend],
                         self.y_val[trend],
-                        weighting='sqrt',
-                        feature_selection_method='permutation',
-                        param_search_method='optuna'
+                        weighting='equiproportional',
+                        feature_selection_method='none',
+                        param_search_method='none'
                     ),
                     "linear": lambda: instance_model.train(
                         self.X_train[trend], self.y_train[trend]
@@ -518,7 +521,10 @@ class BackTester:
                     )
 
                     # Log params and feature importance of all boosters
-                    if model_name == "meta_boosting":
+                    if model_name == 'boosting':
+                        instance_model.best_models = [instance_model.model]
+
+                    if (model_name == "meta_boosting") or (model_name == 'boosting'):
                         importance_types = [
                             "weight",
                             "gain",
