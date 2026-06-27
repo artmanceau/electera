@@ -48,19 +48,19 @@ class Explainer:
         # 1. Model-based feature importance
         logger.info("Calculating model-based feature importance...")
         importance_df = FeatureImportance.compute_importance(
-            models=self.model.models[self.var].best_models,
-            features=self.model.models[self.var].features,
+            models=self.model.models[self.var_c].best_models,
+            features=self.model.models[self.var_c].features,
             _get_importance_method=lambda model: model.feature_importances_,
         )
 
         # 2. Permutation feature importance
-        feature_importance_perm = np.zeros((len(self.model.models[self.var].features)))
+        feature_importance_perm = np.zeros((len(self.model.models[self.var_c].features)))
         PERMUTATION = False
         if PERMUTATION:
             logger.info("Calculating permutation feature importance...")
             perm_importance_df = FeatureImportance.compute_importance(
-                models=self.model.models[self.var].best_models,
-                features=self.model.models[self.var].features,
+                models=self.model.models[self.var_c].best_models,
+                features=self.model.models[self.var_c].features,
                 _get_importance_method=lambda model: permutation_importance(
                     model, X, y, n_repeats=2, random_state=42
                 ),
@@ -69,7 +69,7 @@ class Explainer:
             logger.warning("Skipping permutation feature importance")
             perm_importance_df = pd.DataFrame(
                 {
-                    "Feature": self.model.models[self.var].features,
+                    "Feature": self.model.models[self.var_c].features,
                     "Importance": feature_importance_perm,
                 }
             ).sort_values(by="Importance", ascending=False)
@@ -79,7 +79,7 @@ class Explainer:
             logger.info("Calculating SHAP-based feature importance...")
             shap_importance_df = pd.DataFrame(
                 {
-                    "Feature": self.model.models[self.var].features,
+                    "Feature": self.model.models[self.var_c].features,
                     "Importance": np.abs(shap_values).mean(axis=0),
                 }
             ).sort_values(by="Importance", ascending=False)
@@ -87,7 +87,7 @@ class Explainer:
             logger.warning("Skipping permutation feature importance")
             shap_importance_df = pd.DataFrame(
                 {
-                    "Feature": self.model.models[self.var].features,
+                    "Feature": self.model.models[self.var_c].features,
                     "Importance": feature_importance_perm,
                 }
             ).sort_values(by="Importance", ascending=False)
@@ -101,7 +101,7 @@ class Explainer:
         global_df.index.name = "feature"
         global_df.reset_index().to_parquet(
             self.output_dir
-            + f"feature_importance_{self.vars_}_{self.var}_{self.year}_{self.type_}_{self.model_version}.parquet",
+            + f"feature_importance_{self.vars_}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
         )
 
@@ -115,19 +115,22 @@ class Explainer:
         """Generate SHAP analysis plots."""
         logger.info("Generating SHAP analysis...")
         shap_values_per_model = {}
-        X_features = X[self.model.models[self.var].features]
+        X_features = X[self.model.models[self.var_c].features]
         for k in range(self.n_models):
-            predict_function = self.model.models[self.var].best_models[k].predict
-            n_features_in = len(self.model.models[self.var].features)
-            explainer_k = shap.Explainer(predict_function, X_features)
-            shap_values_per_model[k] = explainer_k(
-                X_features, max_evals=2 * n_features_in + 1
-            )
+            model = self.model.models[self.var_c].best_models[k]
+            explainer_k = shap.TreeExplainer(model)
+            shap_values_per_model = explainer_k.shap_values(X_features)
+            # predict_function = self.model.models[self.var_c].best_models[k].predict
+            # n_features_in = len(self.model.models[self.var_c].features)
+            # explainer_k = shap.TreeExplainer(predict_function, X_features)
+            # shap_values_per_model[k] = explainer_k(
+            #     X_features, max_evals=2 * n_features_in + 1
+            # )
 
         shap_values = np.zeros(X_features.shape)
         for k in range(self.n_models):
             shap_values += (
-                np.asarray(shap_values_per_model[k].values, dtype=float) / self.n_models
+                np.asarray(shap_values_per_model[k], dtype=float) / self.n_models
             )
         self.shap_values_computed = True
         return shap_values, X_features.columns
@@ -137,7 +140,7 @@ class Explainer:
         shap_values_aug = pd.DataFrame(shap_values, index=entities, columns=features)
         shap_values_aug.reset_index().to_parquet(
             self.output_dir
-            + f"shap_values_{self.vars_}_{self.var}_{self.year}_{self.type_}_{self.model_version}.parquet",
+            + f"shap_values_{self.vars_}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
         )
 
@@ -169,8 +172,7 @@ class Explainer:
         logger.info(
             f"Creating comprehensive explanation plots for {len(X.columns)} features"
         )
-
-        num_features = len(X.columns)
+        num_features = len(self.model.models[self.var_c].features)
         num_batches = (
             num_features + batch_size - 1
         ) // batch_size  # Calculate the number of batches
@@ -178,7 +180,7 @@ class Explainer:
         for batch_idx in range(num_batches):
             start_idx = batch_idx * batch_size
             end_idx = min(start_idx + batch_size, num_features)
-            batch_features = X.columns[start_idx:end_idx]
+            batch_features = self.model.models[self.var_c].features[start_idx:end_idx]
 
             logger.debug(
                 f"\nProcessing batch {batch_idx + 1}/{num_batches} \
@@ -198,8 +200,8 @@ class Explainer:
                 # 1. Partial Dependence Plot (PDP)
                 try:
                     PartialDependenceDisplay.from_estimator(
-                        estimator=self.model.models[self.var].best_models[k],
-                        X=X.dropna(subset=[feature]),
+                        estimator=self.model.models[self.var_c].best_models[k],
+                        X=X[self.model.models[self.var_c].features].dropna(subset=[feature]),
                         features=[feature],
                         grid_resolution=50,
                         kind="both",
@@ -240,8 +242,8 @@ class Explainer:
                 # 3. Accumulated Local Effect (ALE)
                 try:
                     ale(
-                        X=X.dropna(subset=[feature]),
-                        model=self.model.models[self.var].best_models[k],
+                        X=X[self.model.models[self.var_c].features].dropna(subset=[feature]),
+                        model=self.model.models[self.var_c].best_models[k],
                         feature=[feature],
                         grid_size=50,
                         include_CI=True,
@@ -304,7 +306,7 @@ class Explainer:
         logger.info("Generating tree visualization...")
 
         # Ensure the model is a tree-based model
-        if hasattr(self.model.models[self.var].best_models[k], "get_booster"):
+        if hasattr(self.model.models[self.var_c].best_models[k], "get_booster"):
             st = SuperTree(
                 self.model.get_booster(),
                 self.features,
@@ -345,6 +347,7 @@ class Explainer:
         self.type_ = type_
         self.t = 1 if self.type_ == "pres" else 0
         self.var = var
+        self.var_c = self.var.replace('tau', '')
         self.year = year
         self.vars_ = vars_
         logger.info(
@@ -356,13 +359,14 @@ class Explainer:
         # 0. Get model
         self.model, self.n_models = ec._load_model(
             data_path=self.data_path,
-            var=self.var,
+            var=self.var_c,
             year=self.year,
             type_=self.type_,
             vars_=self.vars_,
             model_version=self.model_version,
             fs=None,
         )
+
         data = DataLoader.load_dataset(
             self.model.data_paths[self.var],
             fs=None,
@@ -373,7 +377,7 @@ class Explainer:
         )
 
         # 1. Get sample data from model
-        X, y, c = ec.run(data)
+        X, y, c = ec.run(data, frac=None)
 
         # 2. build step factory
 

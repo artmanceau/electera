@@ -41,7 +41,8 @@ def get_fs():
 
 
 class AppData:
-    def __init__(self, data_path, version):
+    def __init__(self, data_path, version, tau):
+        self.tau = tau
         self.data_path = data_path
         self.version = version
         self.container = {}
@@ -57,6 +58,9 @@ class AppData:
         asset_name: Optional[str] | None = None,
     ):
         self.container[asset] = {}
+
+        if self.tau:
+            trends = [f'tau{trend}' for trend in trends]
 
         for trend in trends:
             if asset == "shap_values":
@@ -84,6 +88,9 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
+        if self.tau:
+            trends = [f'tau{trend}' for trend in trends]
+
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
             fs=get_fs().fs,

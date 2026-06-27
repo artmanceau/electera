@@ -77,7 +77,7 @@ MODEL_ARGS = {
             "subsample": 0.75,
             "colsample_bytree": 0.75,
             "min_child_weight": 25,
-            "n_estimators": 2500,
+            "n_estimators": 3000,
             "max_depth": 6,
             "objective": "reg:absoluteerror",
             # "colsample_bytree": 0.8,
@@ -400,9 +400,11 @@ class BackTester:
                         self.y_train[trend],
                         self.X_val[trend],
                         self.y_val[trend],
-                        weighting='equiproportional',
+                        weighting='sqrt',
                         feature_selection_method='none',
-                        param_search_method='none'
+                        nb_features='relative',
+                        param_search_method='none',
+                        self.meta_train[trend],
                     ),
                     "linear": lambda: instance_model.train(
                         self.X_train[trend], self.y_train[trend]

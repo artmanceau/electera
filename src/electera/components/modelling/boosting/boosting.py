@@ -8,7 +8,7 @@ from loguru import logger
 import optuna
 from sklearn.feature_selection import RFE
 from sklearn.inspection import permutation_importance
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import KFold, cross_val_score, GroupKFold
 from xgboost import XGBRegressor
 from sklearn.model_selection import train_test_split
 
@@ -102,6 +102,7 @@ class BoostingModel:
         feature_selection_method: str = "none",
         nb_features: int = 'relative',
         param_search_method="none",
+        meta_train: pd.DataFrame | None = None,
         **kwargs,
     ):
         """Train XGBoost model"""
@@ -130,7 +131,7 @@ class BoostingModel:
             self.params = self.parameters
 
         # Parameter search
-        best_params = self.parameter_search(param_search_method=param_search_method, X_val=X_train, y_val=y_train)
+        best_params = self.parameter_search(param_search_method=param_search_method, X_val=X_train, y_val=y_train, meta_val=meta_train)
 
         self.params.update(best_params)
 
@@ -176,12 +177,10 @@ class BoostingModel:
             return self.model.predict(X_test_boosting)
 
     def parameter_search(
-        self, param_search_method: str, X_val: pd.DataFrame, y_val: pd.DataFrame
+        self, param_search_method: str, X_val: pd.DataFrame, y_val: pd.DataFrame, meta_val: pd.DataFrame | None = None
     ):
         """
-        Perform parameter search for hyperparameter tuning in two stages:
-        1. Optimize learning rate using GridSearchCV.
-        2. Optimize other parameters using the chosen method (Bayesian, Random, or Grid Search).
+        Perform parameter search for hyperparameter tuning
         """
         logger.info(f"Starting parameter search (method: {param_search_method})...")
         self.param_search_method = param_search_method
@@ -210,13 +209,13 @@ class BoostingModel:
                 }
 
                 model = self.boosting_method(**params)
-                cv = KFold(n_splits=3, shuffle=True, random_state=42)
+                nested_cv = GroupKFold(n_splits=3, shuffle=True, random_state=42, groups=meta_val['codecommune']) if meta_val else KFold(n_splits=3, shuffle=True, random_state=42)
 
                 scores = cross_val_score(
                     model,
                     X,
                     y,
-                    cv=cv,
+                    cv=nested_cv,
                     scoring="neg_mean_absolute_error",
                     n_jobs=-1,
                 )

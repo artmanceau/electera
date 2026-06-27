@@ -26,7 +26,7 @@ def instantiate_session_state():
     st.session_state["home_run"] = True
     st.session_state["config"] = load_config()
     st.session_state["data"] = AppData(
-        st.session_state["config"].data_path, st.session_state["config"].model_version
+        st.session_state["config"].data_path, st.session_state["config"].model_version, st.session_state["config"].tau
     )
     st.session_state["state"] = SessionHandler()
 
