@@ -59,14 +59,10 @@ class AppData:
     ):
         self.container[asset] = {}
 
-        if self.tau:
-            trends = [f'tau{trend}' for trend in trends]
+        trends_ = [f'tau{trend}' for trend in trends] if self.tau else trends
 
         for trend in trends:
-            if asset == "shap_values":
-                file_path = f"{self.data_path}/output/explain/{asset}_{trend}_{year}_{election_type}_{self.version}.parquet"
-            else:
-                file_path = f"{self.data_path}/output/explain/{asset}_{trends}_{trend}_{year}_{election_type}_{self.version}.parquet"
+            file_path = f"{self.data_path}/output/explain/{asset}_{trends_}_{trend}_{year}_{election_type}_{self.version}.parquet"
 
             element = DataLoader.load_dataset(
                 file_path,
@@ -76,6 +72,7 @@ class AppData:
                 filters=filters,
             )
             self.container[asset][trend] = element
+
         logger.info(f"{asset} loaded with success!")
 
     def load_result(
@@ -110,7 +107,7 @@ class AppData:
         asset_name: Optional[str] | None = None,
     ):
         element = DataLoader.load_dataset(
-            f"{self.data_path}/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet",
+            f"{self.data_path}/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260623_174327.parquet",
             fs=get_fs().fs,
             formate="parquet",
             columns=columns,

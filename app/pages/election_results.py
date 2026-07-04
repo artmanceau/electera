@@ -115,18 +115,19 @@ try:
 except:
     st.warning("Election not computed yet or doesn't exist")
 
-try:
+
+if True:
     st.divider()
 
     load_feature_importance()
 
     show_feature_importance(
         st.session_state["data"].container["feature_importance"],
-        st.session_state["state"].get_blocs(as_type="code", order="political"),
+        st.session_state["state"].get_blocs(as_type="code", order="political", prefix='tau'),
     )
 
-except:
-    st.warning("Feature Importance not computed yet!")
+# except:
+#     st.warning("Feature Importance not computed yet!")
 
 try:
     st.divider()

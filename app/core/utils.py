@@ -6,8 +6,7 @@ import plotly.graph_objects as go
 import shap
 import streamlit as st
 from asset.definitions import candidats_2022_mapping, colors_dict, get_colors, trad
-from asset.features import FEATURE_AUG, FEATURES_MAP
-
+from asset.features import FEATURE_AUG, get_feature_desc
 
 def check_home_run():
     if "home_run" in st.session_state:
@@ -319,12 +318,17 @@ def show_feature_importance(importance_df, blocs):
         "Déterminants socio-économiques les plus importants dans le modèle de prédiction"
     )
 
-    nb_feat = st.slider(
-        "Selectionnez un nombre de variable pour visualiser l'importance des variables socio-économiques",
-        5,
-        50,
-    )
-    trends = ["par"] + [f"{b}" for b in blocs]
+    tab1, tab2 = st.columns([3, 1])
+    with tab1:
+        nb_feat = st.slider(
+            "Selectionnez un nombre de variable pour visualiser l'importance des variables socio-économiques",
+            5,
+            50,
+        )
+    with tab2:
+        importance_type = st.selectbox('Importance type', options=['gain', 'shap'])
+
+    trends = ["par"] + [f"{b.replace('tau', '')}" for b in blocs]
     tabs = st.tabs(["Participation"] + [f"Vote {trad[b]}" for b in blocs])
     for i, tab in enumerate(tabs):
         with tab:
@@ -335,11 +339,10 @@ def show_feature_importance(importance_df, blocs):
                     (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[0],
                     "",
                 )
-                + FEATURES_MAP.get(
-                    (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1],
-                    (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1],
+                + get_feature_desc(
+                    (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1]
                 )
-                for f in df["Feature_gain"].values
+                for f in df[f"Feature_{importance_type}"].values
             ]
             with st.expander("Feature utilisés"):
                 st.write(
@@ -347,22 +350,22 @@ def show_feature_importance(importance_df, blocs):
                 )
                 st.info(", ".join(df["feature_name"].to_list()))
 
-            st.write("Importance en gain total")
-            top_gain = df.nlargest(nb_feat, "Importance_gain")[
-                ["Feature_gain", "Importance_gain", "feature_name"]
+            st.write(f"Importance (impotance type: {importance_type})")
+            top_gain = df.nlargest(nb_feat, f"Importance_{importance_type}")[
+                [f"Feature_{importance_type}", f"Importance_{importance_type}", "feature_name"]
             ]
-            top_gain = top_gain.sort_values("Importance_gain", ascending=False)
+            top_gain = top_gain.sort_values(f"Importance_{importance_type}", ascending=False)
             chart = (
                 alt.Chart(top_gain)
                 .mark_bar()
                 .encode(
                     x=alt.X("feature_name:N", title="Feature"),
                     y=alt.Y(
-                        "Importance_gain:Q",
+                        f"Importance_{importance_type}:Q",
                         title="Importance",
                         axis=alt.Axis(format=".0%"),
                     ),
-                    tooltip=["Feature_gain", "Importance_gain", "feature_name"],
+                    tooltip=[f"Feature_{importance_type}", f"Importance_{importance_type}", "feature_name"],
                 )
                 .properties(width=600, height=400)
             )
@@ -482,7 +485,7 @@ def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
                         )
                     )
                 )
-
+            
                 expl = shap.Explanation(
                     values=shap_values_df.loc[
                         shap_values_df["codecommune"].isin(communes_communes), features

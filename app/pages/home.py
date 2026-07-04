@@ -67,12 +67,12 @@ pages = [
         "desc": "Analysez les predictions du modèle commune par commune",
         "icon": "🔍",
     },
-    {
-        "name": "Cartes",
-        "link": "pages/map_explorer.py",
-        "desc": "Comparer les prédictions du modèle aux résultats sur une carte de la France",
-        "icon": "🌍",
-    },
+    # {
+    #     "name": "Cartes",
+    #     "link": "pages/map_explorer.py",
+    #     "desc": "Comparer les prédictions du modèle aux résultats sur une carte de la France",
+    #     "icon": "🌍",
+    # },
     {
         "name": "Back-Testing",
         "link": "pages/back_testing.py",

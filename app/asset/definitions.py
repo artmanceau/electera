@@ -47,6 +47,17 @@ trad = {
     "C": "pour le centre",
     "D": "à droite",
     "CG": "pour le centre-gauche",
+
+    "tauTD": "à gauche (tout les partis)",
+    "tauTG": "à droite (tout les partis)",
+    "tauGCG": "à gauche et au centre-gauche",
+    "tauDCD": "à droite et au centre-droit",
+    "tauG": "à gauche",
+    "tauCD": "pour le centre-droite",
+    "tauC": "pour le centre",
+    "tauD": "à droite",
+    "tauCG": "pour le centre-gauche",
+
     "par": "participation",
 }
 

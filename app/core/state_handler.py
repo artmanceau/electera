@@ -89,7 +89,7 @@ class SessionHandler:
         self,
         as_type: Literal["verbose", "code"] = "code",
         order: Literal["alpha", "political"] | None = None,
-        prefix: Literal["p"] | None = None,
+        prefix: Literal["p", "tau"] | None = None,
     ):
         if as_type == "verbose":
             bloc_return = self.blocs
