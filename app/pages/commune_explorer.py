@@ -1,10 +1,6 @@
 import streamlit as st
 from core.utils import check_home_run, present_results, show_shap_values
 
-# from src.pipeline.counterfactuals import CounterfactualPipeline
-# from core.data_handler import get_fs
-
-
 @st.cache_data
 def load_results():
     st.session_state["data"].load_result(
@@ -18,7 +14,6 @@ def load_results():
     )
 
 
-@st.cache_data
 def load_shap_values():
     st.session_state["data"].load_explain(
         asset="shap_values",
@@ -59,30 +54,25 @@ check_home_run()
 
 st.session_state["state"].selection_box()
 
-try:
-    st.header("Resultat au niveau de chaque commune")
+st.header("Resultat au niveau de chaque commune")
 
-    load_communes_list()
-    st.session_state["state"].commune_selector()
-    st.write(
-        f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
-    )
+load_communes_list()
+st.session_state["state"].commune_selector()
+st.write(
+    f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
+)
 
-    st.divider()
+st.divider()
 
-    load_results()
+load_results()
 
-    present_results(
+present_results(
         st.session_state["data"].container["results_commune_selected"],
         year=st.session_state["state"].year,
         t=st.session_state["state"].get_type(as_type="code"),
         blocs=st.session_state["state"].get_blocs(as_type="code", order="political"),
         scale="local",
-    )
-
-except:
-    st.warning("Election not computed yet or doesn't exist")
-    st.stop()
+)
 
 st.divider()
 

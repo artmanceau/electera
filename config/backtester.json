@@ -10,5 +10,5 @@
     "organize_vote": true,
     "use_mlflow": true,
     "models" : ["boosting"],
-    "version" : "1.0.15"
+    "version" : "1.0.16"
 }
