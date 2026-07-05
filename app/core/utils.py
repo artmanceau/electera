@@ -1,12 +1,22 @@
-from typing import Optional
-
+from typing import Dict, List, Optional, Set
 import altair as alt
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import shap
+import pandas as pd
+import numpy as np
 import streamlit as st
 from asset.definitions import candidats_2022_mapping, colors_dict, get_colors, trad
 from asset.features import FEATURE_AUG, get_feature_desc
+
+# Constants
+DEFAULT_NB_FEAT = 10
+MIN_NB_FEAT = 5
+MAX_NB_FEAT = 100
+BASE_COLUMNS = {"codecommune", "base_value"}
+PLOT_TYPES_LOCAL = ["Waterfall", "Force"]
+PLOT_TYPES_GLOBAL = ["Beeswarm", "Bar", "Scatter"]
+
 
 def check_home_run():
     if "home_run" in st.session_state:
@@ -253,7 +263,7 @@ def present_results(data_line, year, t, blocs, scale):
                 """
                 )
                 result_func(
-                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="poll", p="p"
+                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="poll", p="pvote"
                 )
 
         with st.expander("Erreur", expanded=True):
@@ -326,7 +336,7 @@ def show_feature_importance(importance_df, blocs):
             50,
         )
     with tab2:
-        importance_type = st.selectbox('Importance type', options=['gain', 'shap'])
+        importance_type = st.selectbox('Importance type', options=['gain', 'shap', 'cover', 'weight', 'permutation', 'total_gain', 'total_cover'])
 
     trends = ["par"] + [f"{b.replace('tau', '')}" for b in blocs]
     tabs = st.tabs(["Participation"] + [f"Vote {trad[b]}" for b in blocs])
@@ -342,171 +352,367 @@ def show_feature_importance(importance_df, blocs):
                 + get_feature_desc(
                     (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1]
                 )
-                for f in df[f"Feature_{importance_type}"].values
+                for f in df['Feature'].values
             ]
             with st.expander("Feature utilisés"):
                 st.write(
-                    f"{len(df['feature_name'].to_list())} features utilisés (sélection par permutaiion feature importance)"
+                    f"{len(df['feature_name'].to_list())} features utilisés (sélection par permutation feature importance)"
                 )
                 st.info(", ".join(df["feature_name"].to_list()))
 
             st.write(f"Importance (impotance type: {importance_type})")
-            top_gain = df.nlargest(nb_feat, f"Importance_{importance_type}")[
-                [f"Feature_{importance_type}", f"Importance_{importance_type}", "feature_name"]
+            top_gain = df.nlargest(nb_feat, importance_type)[
+                [f"Feature", importance_type, "feature_name"]
             ]
-            top_gain = top_gain.sort_values(f"Importance_{importance_type}", ascending=False)
+            top_gain = top_gain.sort_values(importance_type, ascending=False)
             chart = (
                 alt.Chart(top_gain)
                 .mark_bar()
                 .encode(
                     x=alt.X("feature_name:N", title="Feature"),
                     y=alt.Y(
-                        f"Importance_{importance_type}:Q",
+                        f"{importance_type}:Q",
                         title="Importance",
-                        axis=alt.Axis(format=".0%"),
+                        axis=alt.Axis(),
                     ),
-                    tooltip=[f"Feature_{importance_type}", f"Importance_{importance_type}", "feature_name"],
+                    tooltip=["Feature", importance_type, "feature_name"],
                 )
                 .properties(width=600, height=400)
             )
             st.altair_chart(chart)
 
 
-@st.cache_data
-def load_data_sample(codecommune=None):
-    if codecommune is None:
-        st.session_state["data"].load_data_sample(
-            columns=[f"p{trend}_pred"],
-            filters=None,
-            asset_name="result_trend_i",
+def format_feature(feature: str, feature_aug: Dict[str, str], get_feature_desc: callable) -> str:
+    """Format a feature name for display."""
+    feature = feature.removeprefix("F_") if feature.startswith("F_") else feature
+    parts = feature.split("_")
+    return feature_aug.get(parts[0], "") + get_feature_desc(parts[-1])
+
+
+def generate_local_plot(
+    expl: shap.Explanation,
+    plot_type: str,
+    nb_feat: int,
+    feature_names: List[str],
+) -> None:
+    """Generate a local SHAP plot (Waterfall, Force, or Decision)."""
+    plt.close("all")
+    plt.figure()
+    if plot_type == "Waterfall":
+        shap.plots.waterfall(
+            expl,
+            max_display=nb_feat,
+            show=False,
         )
-    else:
-        pass
-
-
-@st.cache_data
-def load_base_values(trend):
-    try:
-        st.session_state["data"].load_result(
-            asset="results_full",
-            year=st.session_state["state"].year - 5,
-            election_type=st.session_state["state"].get_type(as_type="code"),
-            trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
-            columns=[f"p{trend}_true"],
-            filters=None,
-            asset_name="result_trend_i",
+    elif plot_type == "Force":
+        shap.plots.force(
+            expl,
+            matplotlib=True,
+            show=False,
+            feature_names=feature_names,  
         )
-        return st.session_state["data"].container["result_trend_i"].mean().iloc[0]
-    # Should be handle better in case no previous election available (no shap)?
-    except:
-        return 0.0
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
-@st.cache_data
-def load_data(features, selection_code_commune: Optional[str] | None = None):
-    filters = [
-        ("annee", "==", float(st.session_state["state"].year)),
-        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
-    ]
-    if selection_code_commune:
-        filters.append(("codecommune", "==", selection_code_commune))
-        name = "data_sample_commune"
-    else:
-        name = "data_sample_all"
+def generate_global_plot(
+    values: np.ndarray,
+    data: np.ndarray,
+    feature_names: List[str],
+    plot_type: str,
+    nb_feat: int,
+    x_feat: Optional[str] = None,
+    y_feat: Optional[str] = None,
+) -> None:
+    """Generate a global SHAP plot (Beeswarm, Bar, Scatter, etc.)."""
+    plt.close("all")
+    plt.figure()
 
-    st.session_state["data"].load_data_sample(
-        columns=features, filters=filters, asset_name=name
-    )
+    if plot_type == "Beeswarm":
+        # Calculate mean absolute SHAP values for each feature
+        mean_abs_shap = np.abs(values).mean(axis=0)
+        # Get indices of top nb_feat features
+        top_indices = np.argsort(mean_abs_shap)[-nb_feat:][::-1]  # Descending order
+        # Slice values and data to include only top features
+        values_subset = values[:, top_indices]
+        data_subset = data[:, top_indices] if data is not None else None
+        feature_names_subset = [feature_names[i] for i in top_indices]
+        # Generate the plot
+        shap.summary_plot(
+            values_subset,
+            data_subset,
+            feature_names=feature_names_subset,
+            show=False,
+            color_bar=True,
+        )
+    elif plot_type == "Bar":
+
+        mean_abs = np.abs(values).mean(axis=0)
+        idx = np.argsort(mean_abs)[-nb_feat:]
+        plt.barh(np.array(feature_names)[idx], mean_abs[idx])
+        plt.title("Mean Absolute SHAP Values")
+
+    elif plot_type == "Scatter":
+        if values.shape[1] >= 2 and x_feat and y_feat:
+            explanation = shap.Explanation(
+                values=values,
+                data=data,
+                feature_names=feature_names,
+            )
+           
+            ix = feature_names.index(x_feat)
+            iy = feature_names.index(y_feat)
+    
+            shap.plots.scatter(
+                explanation[:, ix],
+                color=explanation[:, iy],
+                show=False,
+            )
+
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
-def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
-    st.header("Shap values")
+def show_shap_values(
+    shap_df: Dict[str, pd.DataFrame],
+    data_sample: pd.DataFrame,
+    BLOCS: List[str],
+    selection_code_commune: Optional[str] = None,
+    feature_aug: Optional[Dict[str, str]] = None,
+    get_feature_desc: Optional[callable] = None,
+) -> None:
+    """
+    Display SHAP values for a given dataset and model.
 
-    # Get data values
+    Args:
+        shap_df: Dictionary of SHAP DataFrames, keyed by trend (e.g., "par", bloc names).
+        data_sample: DataFrame containing the raw data for the samples.
+        BLOCS: List of bloc names (e.g., ["LREM", "RN"]).
+        selection_code_commune: Optional commune code for local explanations.
+        feature_aug: Dictionary mapping feature prefixes to augmented names.
+        get_feature_desc: Function to get the description of a feature suffix.
+    """
+    st.header("SHAP Values Analysis")
+
+    # Get all columns (excluding base_value)
     all_columns = set()
     for df in shap_df.values():
         all_columns.update(df.columns)
+    all_columns.discard("base_value")
 
-    load_data(all_columns, selection_code_commune)
+    # Default feature augmentation and description functions
+    if feature_aug is None:
+        feature_aug = {}
+    if get_feature_desc is None:
+        get_feature_desc = lambda x: x
 
-    st.write(
-        "Les valeurs de shap quantifient à quel point une variable socio-économique permet en moyenne d'augmenter (ou de diminuer) la valeur de la prédiction par rapport à la prédiction moyenne."
+    nb_feat = st.slider(
+        "Number of features to display",
+        MIN_NB_FEAT,
+        MAX_NB_FEAT,
+        DEFAULT_NB_FEAT,
+        key="shap_nb_feat",
     )
 
-    nb_feat_shap = st.slider(
-        "Selectionnez un nombre de variable pour visualiser les valeurs de shap", 5, 30
-    )
+    trends = ["par"] + [f"{b}" for b in BLOCS]
+    tab_labels = ["Participation"] + [f"Vote {trad.get(b, b)}" for b in BLOCS]
+    tabs = st.tabs(tab_labels)
 
-    tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in BLOCS])
     for i, tab in enumerate(tabs):
         with tab:
-            trends = ["par"] + [f"{b}" for b in BLOCS]
-            shap_values_df = shap_df[trends[i]].copy()
-            features = list(set(shap_values_df.columns) - set(["codecommune"]))
-            if selection_code_commune is not None:
-                shap_commune = shap_values_df[
-                    shap_values_df["codecommune"].astype(str)
-                    == str(selection_code_commune)
-                ]
-                if len(shap_commune) == 0:
-                    st.warning("Pas de valeurs de Shap pour cette commune")
-                    st.stop()
+            trend = trends[i]
+            df = shap_df.get(trend)
+            if df is None or df.empty:
+                st.warning(f"No SHAP values for {tab_labels[i]}")
+                continue
 
-            # Get expected values
-            mv = load_base_values(trends[i])
+            # Extract base columns and raw features
+            base_cols = BASE_COLUMNS
+            raw_features = [c for c in df.columns if c not in base_cols]
+            feature_names = [format_feature(f, feature_aug, get_feature_desc) for f in raw_features]
 
+            # Filter data for the current trend
+            mask = df["codecommune"].isin(data_sample["codecommune"].values)
+            if not mask.any():
+                st.warning(f"No matching communes for {tab_labels[i]}")
+                continue
+
+            values = df.loc[mask, raw_features].astype(float).to_numpy()
+            data = data_sample.loc[
+                data_sample["codecommune"].isin(df.loc[mask, "codecommune"]),
+                raw_features,
+            ].astype(float).to_numpy()
+            base_value = float(df.loc[mask, "base_value"].iloc[0])
+
+            # Local mode (single commune)
             if selection_code_commune is not None:
+                local_mask = df["codecommune"].astype(str) == str(selection_code_commune)
+                if not local_mask.any():
+                    st.warning(f"No SHAP values for commune {selection_code_commune}")
+                    continue
+
+                local_df = df[local_mask]
+                x = local_df[raw_features].iloc[0].astype(float).values
+                x_data = data_sample.loc[
+                    data_sample["codecommune"] == selection_code_commune,
+                    raw_features,
+                ].iloc[0].astype(float).values
+
                 expl = shap.Explanation(
-                    values=shap_commune[features].iloc[0].astype(float).values,
-                    data=st.session_state["data"]
-                    .container["data_sample_all"]
-                    .loc[
-                        st.session_state["data"].container["data_sample_all"][
-                            "codecommune"
-                        ]
-                        == selection_code_commune,
-                        features,
-                    ]
-                    .iloc[0]
-                    .astype(float)
-                    .values,
-                    base_values=float(mv),
-                    feature_names=features,
+                    values=x,
+                    data=x_data,
+                    base_values=base_value,
+                    feature_names=feature_names,
                 )
-                shap.plots.waterfall(expl, max_display=nb_feat_shap)
 
+                local_plot_type = st.selectbox(
+                    "Local Plot Type",
+                    PLOT_TYPES_LOCAL,
+                    key=f"local_plot_{i}",
+                )
+                generate_local_plot(expl, local_plot_type, nb_feat, feature_names)
+
+            # Global mode (all communes)
             else:
-                communes_communes = list(
-                    set(shap_values_df["codecommune"]).intersection(
-                        set(
-                            st.session_state["data"].container["data_sample_all"][
-                                "codecommune"
-                            ]
-                        )
-                    )
+                global_plot_type = st.selectbox(
+                    "Global Plot Type",
+                    PLOT_TYPES_GLOBAL,
+                    key=f"global_plot_{i}",
                 )
-            
-                expl = shap.Explanation(
-                    values=shap_values_df.loc[
-                        shap_values_df["codecommune"].isin(communes_communes), features
-                    ]
-                    .astype(float)
-                    .values,
-                    data=st.session_state["data"]
-                    .container["data_sample_all"]
-                    .loc[
-                        st.session_state["data"]
-                        .container["data_sample_all"]["codecommune"]
-                        .isin(communes_communes),
-                        features,
-                    ],
-                    base_values=float(mv),
-                    feature_names=features,
-                )
-                shap.plots.beeswarm(expl, max_display=nb_feat_shap)
 
-            st.pyplot(plt.gcf())
-            plt.clf()
+                if global_plot_type == "Scatter":
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        x_feat = st.selectbox(
+                            "Shap values depending on feature",
+                            feature_names,
+                            key=f"x_feat_{i}",
+                        )
+                    with col2:
+                        y_feat = st.selectbox(
+                            "Interaction with feature",
+                            feature_names,
+                            key=f"y_feat_{i}",
+                        )
+                    generate_global_plot(
+                        values,
+                        data,
+                        feature_names,
+                        global_plot_type,
+                        nb_feat,
+                        x_feat,
+                        y_feat,
+                    )
+                else:
+                    generate_global_plot(
+                        values,
+                        data,
+                        feature_names,
+                        global_plot_type,
+                        nb_feat,
+                    )
+    
+# def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
+#     st.header("Shap values")
+
+#     all_columns = set()
+#     for df in shap_df.values():
+#         all_columns.update(df.columns)
+#     all_columns.discard("base_value")
+
+#     load_data(all_columns, selection_code_commune)
+
+#     def format_feature(f):
+#         f = f.removeprefix("F_") if f.startswith("F_") else f
+#         parts = f.split("_")
+#         return (
+#             FEATURE_AUG.get(parts[0], "")
+#             + get_feature_desc(parts[-1])
+#         )
+
+#     st.write(
+#         "Les valeurs de shap quantifient à quel point une variable socio-économique influence la prédiction."
+#     )
+
+#     nb_feat_shap = st.slider(
+#         "Selectionnez un nombre de variables pour visualiser les valeurs de shap", 5, 30
+#     )
+
+#     tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in BLOCS])
+
+#     for i, tab in enumerate(tabs):
+#         with tab:
+#             trends = ["par"] + [f"{b}" for b in BLOCS]
+#             shap_values_df = shap_df[trends[i]].copy()
+
+#             base_cols = {"codecommune", "base_value"}
+#             raw_features = [c for c in shap_values_df.columns if c not in base_cols]
+
+#             feature_names = [format_feature(f) for f in raw_features]
+
+#             if selection_code_commune is not None:
+#                 shap_commune = shap_values_df[
+#                     shap_values_df["codecommune"].astype(str) == str(selection_code_commune)
+#                 ]
+
+#                 if len(shap_commune) == 0:
+#                     st.warning("Pas de valeurs de Shap pour cette commune")
+#                     st.stop()
+
+#                 base_value = float(shap_commune["base_value"].iloc[0])
+
+#                 row_values = shap_commune[raw_features].iloc[0].astype(float).values
+#                 row_data = st.session_state["data"].container["data_sample_all"].loc[
+#                     st.session_state["data"].container["data_sample_all"]["codecommune"]
+#                     == selection_code_commune,
+#                     raw_features,
+#                 ].iloc[0].astype(float).values
+
+#                 expl = shap.Explanation(
+#                     values=row_values,
+#                     data=row_data,
+#                     base_values=base_value,
+#                     feature_names=feature_names,
+#                 )
+
+#                 shap.plots.waterfall(expl, max_display=nb_feat_shap)
+
+#             else:
+#                 communes_communes = list(
+#                     set(shap_values_df["codecommune"]).intersection(
+#                         set(st.session_state["data"].container["data_sample_all"]["codecommune"])
+#                     )
+#                 )
+
+#                 mask = shap_values_df["codecommune"].isin(
+#                     st.session_state["data"].container["data_sample_all"]["codecommune"].values
+#                 )
+
+#                 values = shap_values_df.loc[mask, raw_features].astype(float).to_numpy()
+
+#                 data = st.session_state["data"].container["data_sample_all"].loc[
+#                     st.session_state["data"].container["data_sample_all"]["codecommune"].isin(
+#                         shap_values_df.loc[mask, "codecommune"]
+#                     ),
+#                     raw_features,
+#                 ].astype(float).to_numpy()
+
+#                 base_value = shap_values_df.loc[mask, "base_value"].iloc[0]
+
+#                 st.write("BASE VALUE:", base_value)
+#                 st.write("SHAP CHECK SUM:", values[0].sum())
+
+#                 shap.summary_plot(
+#                     values,
+#                     data,
+#                     feature_names=feature_names,
+#                     show=False
+#                 )
+
+#             st.pyplot(plt.gcf())
+#             plt.clf()
+
+
 
 
 def plot_backtest(

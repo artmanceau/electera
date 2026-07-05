@@ -44,6 +44,17 @@ def load_communes_list():
     )
 
 
+def load_data(features, selection_code_commune):
+    filters = [
+        ("annee", "==", float(st.session_state["state"].year)),
+        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+        ("codecommune", "==", selection_code_commune)
+    ]
+    st.session_state["data"].load_data_sample(
+        columns=features, filters=filters, asset_name="data_sample_commune"
+    )
+
+
 check_home_run()
 
 st.session_state["state"].selection_box()
@@ -68,35 +79,29 @@ try:
         blocs=st.session_state["state"].get_blocs(as_type="code", order="political"),
         scale="local",
     )
+
 except:
     st.warning("Election not computed yet or doesn't exist")
+    st.stop()
 
-try:
-    st.divider()
+st.divider()
+
+if st.button("Compute shap values"):
+    st.session_state.show_shap_values = True
 
     load_shap_values()
 
+    features = set()
+    for df in st.session_state["data"].container["shap_values"].values():
+        features.update(df.columns)
+    features.discard("base_value")
+
+    load_data(features=features.union(['codecommune']), selection_code_commune=st.session_state['state'].codecommune)
+
+if st.session_state.show_shap_values:
     show_shap_values(
-        st.session_state["data"].container["shap_values"],
+        shap_df=st.session_state["data"].container["shap_values"],
+        data_sample=st.session_state["data"].container["data_sample_commune"],
         BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
         selection_code_commune=st.session_state["state"].codecommune,
     )
-except:
-    st.warning("Shap values not computed yet!")
-
-# st.divider()
-
-# VAR = st.selectbox(
-#         "Tendance politique", BLOCS, index=0
-#     )
-
-# delta = st.slider(
-#         "Changer le score de la tendance politique de x%",
-#         -0.5,
-#         0.5,
-#     )
-
-# Donner l'accès au service account à tout data
-# cf_generator = CounterfactualPipeline(VAR, YEAR, TYPE, BLOCS, st.session_state["config"].model_version, st.session_state["config"].data_path+'/', fs=get_fs().fs)
-# counterfactuals_list = cf_generator.run(codecommune=selection_code_commune, variation=delta)
-# Presentation of counterfactuals

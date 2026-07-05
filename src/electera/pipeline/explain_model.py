@@ -45,61 +45,132 @@ class Explainer:
         """Generate and save feature importance plots using multiple methods."""
         logger.info("Generating feature importance plots...")
 
-        # 1. Model-based feature importance
-        logger.info("Calculating model-based feature importance...")
-        importance_df = FeatureImportance.compute_importance(
-            models=self.model.models[self.var_c].best_models,
-            features=self.model.models[self.var_c].features,
-            _get_importance_method=lambda model: model.feature_importances_,
-        )
+        features = self.model.models[self.var_c].features
+        models = self.model.models[self.var_c].best_models
 
-        # 2. Permutation feature importance
-        feature_importance_perm = np.zeros((len(self.model.models[self.var_c].features)))
+        # ------------------------------------------------------------------
+        # 1. XGBoost booster importances
+        # ------------------------------------------------------------------
+        logger.info("Calculating booster feature importances...")
+
+        importance_types = [
+            "weight",
+            "gain",
+            "cover",
+            "total_gain",
+            "total_cover",
+        ]
+
+        booster_dfs = []
+
+        for importance_type in importance_types:
+            importance = pd.DataFrame(index=features)
+
+            for model in models:
+                score = model.get_booster().get_score(importance_type=importance_type)
+                importance[model] = pd.Series(score)
+
+            importance_mean = importance.mean(axis=1).fillna(0.0)
+
+            booster_df = (
+                importance_mean
+                .rename_axis("Feature")
+                .reset_index(name="Importance")
+                .sort_values("Importance", ascending=False)
+            )
+
+            booster_dfs.append(
+                booster_df.rename(
+                    columns={"Importance": importance_type}
+                )
+            )
+
+        booster_importance_df = booster_dfs[0]
+        for df in booster_dfs[1:]:
+            booster_importance_df = booster_importance_df.merge(
+                df,
+                on="Feature",
+                how="outer",
+            )
+
+        # ------------------------------------------------------------------
+        # 2. Permutation importance
+        # ------------------------------------------------------------------
         PERMUTATION = False
+
         if PERMUTATION:
             logger.info("Calculating permutation feature importance...")
+
             perm_importance_df = FeatureImportance.compute_importance(
-                models=self.model.models[self.var_c].best_models,
-                features=self.model.models[self.var_c].features,
+                models=models,
+                features=features,
                 _get_importance_method=lambda model: permutation_importance(
-                    model, X, y, n_repeats=2, random_state=42
+                    model,
+                    X,
+                    y,
+                    n_repeats=2,
+                    random_state=42,
                 ),
             )
         else:
             logger.warning("Skipping permutation feature importance")
-            perm_importance_df = pd.DataFrame(
-                {
-                    "Feature": self.model.models[self.var_c].features,
-                    "Importance": feature_importance_perm,
-                }
-            ).sort_values(by="Importance", ascending=False)
 
-        # 3. SHAP-based feature importance
-        if self.shap_values_computed:
-            logger.info("Calculating SHAP-based feature importance...")
-            shap_importance_df = pd.DataFrame(
-                {
-                    "Feature": self.model.models[self.var_c].features,
-                    "Importance": np.abs(shap_values).mean(axis=0),
-                }
-            ).sort_values(by="Importance", ascending=False)
+            perm_importance_df = (
+                pd.DataFrame(
+                    {
+                        "Feature": features,
+                        "Importance": np.zeros(len(features)),
+                    }
+                )
+                .sort_values("Importance", ascending=False)
+            )
+
+        # ------------------------------------------------------------------
+        # 3. SHAP importance
+        # ------------------------------------------------------------------
+        if self.shap_values_computed and shap_values is not None:
+            logger.info("Calculating SHAP feature importance...")
+
+            shap_importance_df = (
+                pd.DataFrame(
+                    {
+                        "Feature": features,
+                        "Importance": np.abs(shap_values).mean(axis=0),
+                    }
+                )
+                .sort_values("Importance", ascending=False)
+            )
         else:
-            logger.warning("Skipping permutation feature importance")
-            shap_importance_df = pd.DataFrame(
-                {
-                    "Feature": self.model.models[self.var_c].features,
-                    "Importance": feature_importance_perm,
-                }
-            ).sort_values(by="Importance", ascending=False)
+            logger.warning("Skipping SHAP feature importance")
 
-        parts = [
-            importance_df.add_suffix("_gain"),
-            perm_importance_df.add_suffix("_perm"),
-            shap_importance_df.add_suffix("_shap"),
-        ]
-        global_df = pd.concat(parts, axis=1)
-        global_df.index.name = "feature"
-        global_df.reset_index().to_parquet(
+            shap_importance_df = (
+                pd.DataFrame(
+                    {
+                        "Feature": features,
+                        "Importance": np.zeros(len(features)),
+                    }
+                )
+                .sort_values("Importance", ascending=False)
+            )
+
+        # ------------------------------------------------------------------
+        # Save
+        # ------------------------------------------------------------------
+        global_df = (
+            booster_importance_df
+            .merge(
+                perm_importance_df.rename(columns={"Importance": "permutation"}),
+                on="Feature",
+                how="left",
+            )
+            .merge(
+                shap_importance_df.rename(columns={"Importance": "shap"}),
+                on="Feature",
+                how="left",
+            )
+        )
+
+        global_df.to_parquet(
             self.output_dir
             + f"feature_importance_{self.vars_}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
@@ -109,36 +180,51 @@ class Explainer:
             f"Feature importance saved to {self.output_dir} using multiple methods."
         )
 
-        return (importance_df, perm_importance_df, shap_importance_df)
+        return (
+            booster_importance_df,
+            perm_importance_df,
+            shap_importance_df,
+        )
 
     def compute_shap_values(self, X):
-        """Generate SHAP analysis plots."""
+        """Compute the average SHAP values and base value across the ensemble."""
         logger.info("Generating SHAP analysis...")
-        shap_values_per_model = {}
+
         X_features = X[self.model.models[self.var_c].features]
+
+        shap_values_per_model = []
+        base_values = []
+
         for k in range(self.n_models):
             model = self.model.models[self.var_c].best_models[k]
-            explainer_k = shap.TreeExplainer(model)
-            shap_values_per_model = explainer_k.shap_values(X_features)
-            # predict_function = self.model.models[self.var_c].best_models[k].predict
-            # n_features_in = len(self.model.models[self.var_c].features)
-            # explainer_k = shap.TreeExplainer(predict_function, X_features)
-            # shap_values_per_model[k] = explainer_k(
-            #     X_features, max_evals=2 * n_features_in + 1
-            # )
+            explainer = shap.TreeExplainer(model)
 
-        shap_values = np.zeros(X_features.shape)
-        for k in range(self.n_models):
-            shap_values += (
-                np.asarray(shap_values_per_model[k], dtype=float) / self.n_models
-            )
+            shap_values = explainer.shap_values(X_features)
+            shap_values_per_model.append(np.asarray(shap_values, dtype=float))
+
+            base_value = explainer.expected_value
+            base_values.append(float(base_value))
+
+        shap_values = np.mean(shap_values_per_model, axis=0)
+        base_value = float(np.mean(base_values))
+
         self.shap_values_computed = True
-        return shap_values, X_features.columns
 
-    def save_shap_values(self, entities, features, shap_values):
-        """Save shape values along with feature names and commune name"""
-        shap_values_aug = pd.DataFrame(shap_values, index=entities, columns=features)
-        shap_values_aug.reset_index().to_parquet(
+        return shap_values, base_value, X_features.columns
+
+    def save_shap_values(self, entities, features, shap_values, base_value):
+        """Save SHAP values together with the entity identifier and base value."""
+
+        shap_values_aug = pd.DataFrame(
+            shap_values,
+            index=entities,
+            columns=features,
+        )
+
+        shap_values_aug = shap_values_aug.reset_index(names="codecommune")
+        shap_values_aug["base_value"] = base_value
+
+        shap_values_aug.to_parquet(
             self.output_dir
             + f"shap_values_{self.vars_}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
@@ -383,9 +469,9 @@ class Explainer:
 
         # 2.1. Shap values
         if "shap_values" in self.steps:
-            shap_values, features = self.compute_shap_values(X)
+            shap_values, base_value, features = self.compute_shap_values(X)
             self.save_shap_values(
-                entities=c, features=features, shap_values=shap_values
+                entities=c, features=features, shap_values=shap_values, base_value=base_value
             )
         if "plot_shap_values" in self.steps:
             self.plot_shap_summary(shap_values=shap_values)

@@ -30,10 +30,27 @@ candidats_2022_mapping = {
         "Nathalie Arthaud",
     ],
     "CG": ["Anne Hidalgo", "Yannick Jadot"],
+    'GCG': [
+        "Anne Hidalgo",
+        "Yannick Jadot",
+        "Jean-Luc Mélenchon",
+        "Fabien Roussel",
+        "Philippe Poutou",
+        "Nathalie Arthaud"
+    ],
+    'TG': [ "Anne Hidalgo",
+        "Yannick Jadot",
+        "Jean-Luc Mélenchon",
+        "Fabien Roussel",
+        "Philippe Poutou",
+        "Nathalie Arthaud",
+        'Motié des voix pour Emmanuel Macron'],
     "C": [
         "Emmanuel Macron",
     ],
+    'TD': ["Valérie Pécresse", "Nicolas Dupont-Aignan", "Marine Le Pen", "Éric Zemmour", 'Motié des voix pour Emmanuel Macron'],
     "CD": ["Valérie Pécresse", "Nicolas Dupont-Aignan"],
+    'DCD': ["Valérie Pécresse", "Nicolas Dupont-Aignan", "Marine Le Pen", "Éric Zemmour"],
     "D": ["Marine Le Pen", "Éric Zemmour"],
 }
 

@@ -39,6 +39,31 @@ def load_shap_values():
     )
 
 
+@st.cache_data
+def load_data(features, sample=None):
+    # Define your filters
+    filters = [
+        ("annee", "==", float(st.session_state["state"].year)),
+        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+    ]
+    if sample is not None:
+        st.session_state["data"].load_data_sample(
+            columns=['codecommune'],
+            filters=filters,
+            asset_name='communes'
+        )
+        communes = st.session_state["data"].container["communes"]
+        sampled_communes = communes.sample(frac=sample, random_state=42)
+        sampled_commune_codes = sampled_communes['codecommune'].tolist()
+        filters = filters + [("codecommune", "in", sampled_commune_codes)]
+
+    st.session_state["data"].load_data_sample(
+        columns=features,
+        filters=filters,
+        asset_name='data_sample_all'
+    )
+
+
 check_home_run()
 
 st.session_state["state"].selection_box()
@@ -111,32 +136,39 @@ try:
             st.session_state["state"].year,
             st.session_state["state"].get_type(as_type="code"),
         )
-
 except:
     st.warning("Election not computed yet or doesn't exist")
+    st.stop()
 
+st.divider()
 
-if True:
-    st.divider()
-
+if st.button("Compute feature importance"):
+    st.session_state.show_feature_importance = True
     load_feature_importance()
 
+if st.session_state.show_feature_importance:
     show_feature_importance(
         st.session_state["data"].container["feature_importance"],
-        st.session_state["state"].get_blocs(as_type="code", order="political", prefix='tau'),
+        st.session_state["state"].get_blocs(as_type="code", order="political", prefix="tau"),
     )
 
-# except:
-#     st.warning("Feature Importance not computed yet!")
+st.divider()
 
-try:
-    st.divider()
-
+if st.button("Compute shap values"):
+    st.session_state.show_shap_values = True
+    
     load_shap_values()
 
+    features = set()
+    for df in st.session_state["data"].container["shap_values"].values():
+        features.update(df.columns)
+    features.discard("base_value")
+
+    load_data(features=features, sample=0.2)
+
+if st.session_state.show_shap_values:
     show_shap_values(
-        st.session_state["data"].container["shap_values"],
+        shap_df=st.session_state["data"].container["shap_values"],
+        data_sample=st.session_state["data"].container["data_sample_all"],
         BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
     )
-except:
-    st.warning("Shap Values not computed yet!")
