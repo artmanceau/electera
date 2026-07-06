@@ -42,7 +42,6 @@ class SessionHandler:
                     default=st.session_state["config"].years_to_display[
                         reverse_convert("type", self.type)
                     ][: min(3, len(st.session_state["config"].years_to_display))],
-                    on_change=st.cache_data.clear(),
                 )
 
             else:
@@ -128,7 +127,7 @@ class SessionHandler:
             "Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear()
         )
 
-        if communes_list["nomcommune"] == 'PARIS':
+        if communes_list["nomcommune"][0] == 'PARIS':
             arrondissements = communes_list[
                 communes_list["nomcommune"] == self.commune
             ]["codecommune"]

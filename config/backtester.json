@@ -1,5 +1,5 @@
 {
-    "political_trends": [["taupar", "tauD", "tauG", "tauC", "tauCD", "tauCG"], ["taupar", "tauTD", "tauTG"], ["taupar", "tauDCD", "tauGCG", "tauC"]],
+    "political_trends": [["par", "D", "G", "C", "CD", "CG"], ["par", "TD", "TG"], ["par", "DCD", "GCG", "C"]],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "dataset_path": "derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260623_174327.parquet",
     "random_seed": 42,
@@ -10,5 +10,5 @@
     "organize_vote": true,
     "use_mlflow": true,
     "models" : ["boosting"],
-    "version" : "1.0.16"
+    "version" : "1.0.17"
 }

@@ -13,6 +13,7 @@ BASE_FEATURES = [
     "F_raw_popcommunesvbbm/vbbmpauvresriches",
 
     "F_{metric}_pibdepartements/pib",
+    
     "F_{metric}_capitalimmobiliercommunes/capitalratio",
     "F_{metric}_etrangerscommunes/petranger",
     "F_{metric}_revcommunes/revratio",
@@ -52,7 +53,7 @@ BASE_FEATURES = [
     "F_{metric}_proprietairescommunes/ppropri",
     "F_{metric}_pibcommunes/pibratio",
     "F_{metric}_revcommunes/revratiofoy",
-    #"F_{metric}_rsacommunes/prsa",
+    "F_{metric}_rsacommunes/prsa",
     "F_{metric}_capitalimmobiliercommunes/prixm2ratio",
     "F_{metric}_capitalimmobiliercommunes/propappartement",
     "F_{metric}_naticommunes/pimmigre",

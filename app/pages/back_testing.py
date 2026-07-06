@@ -63,11 +63,11 @@ def build_pres_table(df: pd.DataFrame, years: list, parties: list) -> pd.DataFra
         }
         # Votes per bloc
         for p in parties:
-            pred[f'pvote{p}'] = d[f"pvote{p}_pred"].sum()
-            true[f'pvote{p}'] = d[f"pvote{p}_true"].sum()
+            pred[f'pvote{p}'] = d[f"pvote{p}_pred"].sum() * 100
+            true[f'pvote{p}'] = d[f"pvote{p}_true"].sum() * 100
 
-        result_cols[f"{year}_pres_pred"] = pd.Series(pred)
-        result_cols[f"{year}_pres_true"] = pd.Series(true)
+        result_cols[f"{year}_pres_pred"] = pd.Series(pred) * 100
+        result_cols[f"{year}_pres_true"] = pd.Series(true) * 100
 
     return pd.DataFrame(result_cols)
 

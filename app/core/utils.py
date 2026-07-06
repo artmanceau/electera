@@ -167,9 +167,12 @@ def present_results(data_line, year, t, blocs, scale):
                 Résultats
             """
             )
-            result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="vote"
-            )
+            if int(year) < 2026:
+                result_func(
+                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="vote"
+                )
+            else:
+                st.write('Election qui n\'a pas encore eu lieu')
 
         with st.expander("Prédictions", expanded=True):
             st.write(
@@ -241,9 +244,12 @@ def present_results(data_line, year, t, blocs, scale):
                 Résultats
             """
             )
-            result_func(
-                data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="pvote"
-            )
+            if int(year) < 2026:
+                result_func(
+                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="pvote"
+                )
+            else:
+                st.write('Election qui n\'a pas encore eu lieu')
 
         with st.expander("Prédictions", expanded=True):
             st.write(

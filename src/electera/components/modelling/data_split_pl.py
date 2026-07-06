@@ -233,7 +233,7 @@ def get_Xy_pl(
     # Assert no null
     for df in [X_train, X_test, X_val]:
         assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
-
+    
     return (
         X_train.to_pandas(),
         X_val.to_pandas(),

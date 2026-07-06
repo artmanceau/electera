@@ -56,7 +56,7 @@ from electera.components.utils.read_config import ConfigReader
 
 # TODO:
 # - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
-FEATURES = list(set(make_features("rank")).union(set(make_features("pct_change"))))
+FEATURES = list(set(make_features("raw")))
 
 
 S3_SAVE = True
@@ -173,8 +173,8 @@ class BackTester:
                 election_type=self.k_type_full,
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
-                selected_groups=['rank', 'geo', 'inscrits', 'pct_change'],
-                selected_features=None,
+                selected_groups=[],
+                selected_features=FEATURES,
                 split_method_way="time-serie-cv"
             )
 
@@ -401,7 +401,7 @@ class BackTester:
                         self.X_val[trend],
                         self.y_val[trend],
                         weighting='sqrt',
-                        feature_selection_method='permutation',
+                        feature_selection_method='none',
                         nb_features='relative',
                         param_search_method='none',
                         meta_train=self.meta_train[trend],
