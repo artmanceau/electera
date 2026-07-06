@@ -128,12 +128,12 @@ class SessionHandler:
             "Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear()
         )
 
-        if len(communes_list[communes_list["nomcommune"] == self.commune]) > 1:
+        if communes_list["nomcommune"] == 'PARIS':
             arrondissements = communes_list[
                 communes_list["nomcommune"] == self.commune
             ]["codecommune"]
             self.codecommune = st.selectbox(
-                "Selectionnez une arrondissement",
+                "Selectionnez un arrondissement",
                 [""] + arrondissements,
                 on_change=st.cache_data.clear(),
             )

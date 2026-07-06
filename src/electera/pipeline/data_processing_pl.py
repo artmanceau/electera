@@ -652,6 +652,7 @@ class ElectionDataProcessor:
 
         # Interpolate missing values linearly within each (key, feature) group
         df = df.sort(key, "feature", "annee").with_columns(
+            pl.col("raw").is_null().over(key, "feature").alias("is_interpolated"),
             pl.col("raw").interpolate().over(key, "feature"),
         )
 
@@ -677,19 +678,19 @@ class ElectionDataProcessor:
         # catalog = df.group_by("feature").agg(pl.col("annee").unique().sort())
         return df
 
-    def _augment(self, df, key):
+    def _augment(self, df, key, k=5):
         return df.with_columns(
             raw=pl.col('raw').round(4),
-            lag=(pl.col("raw").shift(1).round(4)).over(
+            lag=(pl.col("raw").shift(k).round(4)).over(
                 key, "feature", order_by="annee"
             ),
             rank=(pl.col("raw").rank(descending=False) / pl.col("raw").count())
             .round(4)
             .over("feature", "annee"),
-            delta=(pl.col("raw").diff(1).round(4)).over(
+            delta=(pl.col("raw").diff(k).round(4)).over(
                 key, "feature", order_by="annee"
             ),
-            pct_change=(pl.col("raw").pct_change(1).round(4).clip(-1, 1)).over(
+            pct_change=(pl.col("raw").pct_change(k).round(4).clip(-1, 1)).over(
                 key, "feature", order_by="annee"
             ),
         ).fill_nan(None)

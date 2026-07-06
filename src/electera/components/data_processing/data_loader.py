@@ -7,9 +7,24 @@ import shutil
 from typing import List, Optional, Tuple
 
 import pandas as pd
+import pyarrow.dataset as ds
 import polars as pl
 import s3fs
 from loguru import logger
+
+
+def pyarrow_filters_to_polars(filters: list[tuple]) -> pl.Expr:
+    op_map = {
+            "==": lambda col, val: pl.col(col) == val,
+            "!=": lambda col, val: pl.col(col) != val,
+            ">":  lambda col, val: pl.col(col) > val,
+            ">=": lambda col, val: pl.col(col) >= val,
+            "<":  lambda col, val: pl.col(col) < val,
+            "<=": lambda col, val: pl.col(col) <= val,
+            'in': lambda col, val: pl.col(col).is_in(val)
+    }
+    exprs = [op_map[op](col, val) for col, op, val in filters]
+    return exprs
 
 
 class DataUtils:
@@ -77,10 +92,16 @@ class DataUtils:
     ) -> pd.DataFrame:
         logger.debug(f"Loading dataset from {file_path}...")
         if fs is None:
-            data = pl.scan_parquet(file_path).collect()
+            data = pl.scan_parquet(file_path)
         else:
-            data = pl.scan_parquet(file_path).collect()
-        return data
+            dataset = ds.dataset(file_path, filesystem=fs, format="parquet")
+            data = pl.scan_pyarrow_dataset(dataset)
+            if filters:
+                exprs = pyarrow_filters_to_polars(filters)
+                data = data.filter(*exprs)
+            if columns:
+                data = data.select(columns)
+        return data.collect()
 
     def _read_csv(
         file_path: str,

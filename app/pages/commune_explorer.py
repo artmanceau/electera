@@ -41,9 +41,9 @@ def load_communes_list():
 
 def load_data(features, selection_code_commune):
     filters = [
-        ("annee", "==", float(st.session_state["state"].year)),
+        ("annee", "==", int(st.session_state["state"].year)),
         ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
-        ("codecommune", "==", selection_code_commune)
+        ("codecommune", "==", str(selection_code_commune))
     ]
     st.session_state["data"].load_data_sample(
         columns=features, filters=filters, asset_name="data_sample_commune"
@@ -88,7 +88,7 @@ if st.button("Compute shap values"):
 
     load_data(features=features.union(['codecommune']), selection_code_commune=st.session_state['state'].codecommune)
 
-if st.session_state.show_shap_values:
+if st.session_state.show_shap_values and 'data_sample_commune' in st.session_state["data"].container:
     show_shap_values(
         shap_df=st.session_state["data"].container["shap_values"],
         data_sample=st.session_state["data"].container["data_sample_commune"],

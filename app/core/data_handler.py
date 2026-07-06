@@ -1,8 +1,8 @@
-from typing import List, Literal, Optional, Tuple
-
+from typing import List, Literal, Optional, Tuple, Union
 import s3fs
 from loguru import logger
-
+import pandas as pd
+import polars as pl
 from electera.components.data_processing.data_loader import DataLoader
 
 
@@ -40,6 +40,13 @@ def get_fs():
     return FileSystem.instance
 
 
+def _convert_to_pandas(X: Union[pl.DataFrame, pd.DataFrame]):
+    if isinstance(X, pl.DataFrame):
+        return X.to_pandas()
+    else:
+        return X
+
+
 class AppData:
     def __init__(self, data_path, version, tau):
         self.tau = tau
@@ -70,8 +77,9 @@ class AppData:
                 formate="parquet",
                 columns=columns,
                 filters=filters,
+                engine='polars'
             )
-            self.container[asset][trend] = element
+            self.container[asset][trend] = _convert_to_pandas(element)
 
         logger.info(f"{asset} loaded with success!")
 
@@ -94,11 +102,12 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
+            engine='polars'
         )
         logger.info(f"{asset} loaded with success!")
 
         asset_name = asset_name if asset_name is not None else asset
-        self.container[asset_name] = element
+        self.container[asset_name] = _convert_to_pandas(element)
 
     def load_data_sample(
         self,
@@ -112,7 +121,8 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
+            engine='polars'
         )
         logger.info(f"{asset_name} loaded with success!")
         asset_name = asset_name if asset_name is not None else "data"
-        self.container[asset_name] = element
+        self.container[asset_name] = _convert_to_pandas(element)

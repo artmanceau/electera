@@ -30,33 +30,44 @@ def load_feature_importance():
 
 
 @st.cache_data
-def load_shap_values():
+def load_shap_values(sampled_communes_codes):
     st.session_state["data"].load_explain(
         asset="shap_values",
         year=st.session_state["state"].year,
         election_type=st.session_state["state"].get_type(as_type="code"),
         trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
+        filters=[("codecommune", "in", sampled_communes_codes)]
     )
+
+@st.cache_data
+def sample_communes(sample_frac=None):
+    filters = [
+        ("annee", "==", int(st.session_state["state"].year)),
+        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+    ]
+    st.session_state["data"].load_data_sample(
+            columns=['codecommune'],
+            filters=filters,
+            asset_name='sampled_communes'
+    )
+    communes = st.session_state["data"].container["sampled_communes"]
+
+    if sample_frac is not None:
+        sampled_communes = communes.sample(frac=sample_frac, random_state=42)
+        sampled_commune_codes = sampled_communes['codecommune'].tolist()
+    else:
+        sampled_commune_codes = communes['codecommune'].tolist()
+    return sampled_commune_codes
 
 
 @st.cache_data
-def load_data(features, sample=None):
+def load_data(features, sampled_communes_codes):
     # Define your filters
     filters = [
-        ("annee", "==", float(st.session_state["state"].year)),
+        ("annee", "==", int(st.session_state["state"].year)),
         ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+        ("codecommune", "in", sampled_communes_codes)
     ]
-    if sample is not None:
-        st.session_state["data"].load_data_sample(
-            columns=['codecommune'],
-            filters=filters,
-            asset_name='communes'
-        )
-        communes = st.session_state["data"].container["communes"]
-        sampled_communes = communes.sample(frac=sample, random_state=42)
-        sampled_commune_codes = sampled_communes['codecommune'].tolist()
-        filters = filters + [("codecommune", "in", sampled_commune_codes)]
-
     st.session_state["data"].load_data_sample(
         columns=features,
         filters=filters,
@@ -153,15 +164,17 @@ st.divider()
 
 if st.button("Compute shap values"):
     st.session_state.show_shap_values = True
-    
-    load_shap_values()
+
+    sampled_communes_codes = sample_communes(sample_frac=0.2)
+
+    load_shap_values(sampled_communes_codes)
 
     features = set()
     for df in st.session_state["data"].container["shap_values"].values():
         features.update(df.columns)
     features.discard("base_value")
 
-    load_data(features=features, sample=0.2)
+    load_data(features=features, sampled_communes_codes=sampled_communes_codes)
 
 if st.session_state.show_shap_values:
     show_shap_values(
