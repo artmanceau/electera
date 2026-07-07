@@ -28,17 +28,9 @@ def load_shap_values():
 
 @st.cache_data
 def load_communes_list():
-    st.session_state["data"].load_result(
-        asset="results_full",
-        trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
-        year=st.session_state["state"].year,
-        election_type=st.session_state["state"].get_type(as_type="code"),
-        columns=["codecommune", "nomcommune"],
-        filters=None,
-        asset_name="communes_list",
-    )
+    st.session_state["data"].load_communes_list()
 
-
+@st.cache_data
 def load_data(features, selection_code_commune):
     filters = [
         ("annee", "==", int(st.session_state["state"].year)),

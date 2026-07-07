@@ -55,9 +55,13 @@ class AppData:
         self.version = version
         self.container = {}
 
+    def load_communes_list(self):
+        commmunes_list = pd.read_csv('app/asset/communes2022.csv')
+        self.container['communes_list'] = commmunes_list
+        
     def _load_trend(self, fs, version, asset: str, trend: str, trends_: list, year: int, election_type: str, columns, filters):
         """Load a single trend dataset."""
-        file_path = f"{self.data_path}/output/explain/{asset}_{trends_}_{year}_{election_type}_{version}.parquet"
+        file_path = f"{self.data_path}/output/explain/{asset}_{trends_}_{trend}_{year}_{election_type}_{version}.parquet"
         element = DataLoader.load_dataset(
             file_path,
             fs=fs,

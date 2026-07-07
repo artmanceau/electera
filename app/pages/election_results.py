@@ -42,16 +42,9 @@ def load_shap_values(sampled_communes_codes):
 
 @st.cache_data
 def sample_communes(sample_frac=None):
-    filters = [
-        ("annee", "==", float(st.session_state["state"].year)),
-        ("election_type", "==", str(st.session_state["state"].get_type(as_type="code_full"))),
-    ]
-    st.session_state["data"].load_data_sample(
-            columns=['codecommune'],
-            filters=filters,
-            asset_name='sampled_communes'
-    )
-    communes = st.session_state["data"].container["sampled_communes"]
+    st.session_state["data"].load_communes_list()
+
+    communes = st.session_state["data"].container["communes_list"]
 
     if sample_frac is not None:
         sampled_communes = communes.sample(frac=sample_frac, random_state=42)

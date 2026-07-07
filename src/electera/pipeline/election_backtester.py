@@ -189,7 +189,7 @@ class BackTester:
             + f"raw/elections/{election_type}/{k_year}/{election_type_code}{k_year}_csv/{election_type_code}{k_year}comm.parquet"
         )
         if 'CGCCD' in k_political_trends:
-            political_trends = list(set(k_political_trends)-set(['CGCCD']))
+            political_trends = ['par', 'CG', 'C', 'G', 'D', 'CD']
             X_true = DataLoader.load_dataset(ground_truth_data_path)[
                 ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
                 + [f"vote{trend.replace('tau', '')}" for trend in political_trends if trend.replace('tau', '') != "par"]
@@ -287,13 +287,25 @@ class BackTester:
             poll_data_path,
             fs=DataUtils._create_fs() if DataUtils._detect_s3(poll_data_path) else None,
         ):
-            X_poll = DataLoader.load_dataset(poll_data_path)[
-                [
-                    trend.replace("vote", "").replace('tau', '')
-                    for trend in k_political_trends
-                    if trend.replace('tau', '') != "par"
+            if 'CGCCD' in k_political_trends:
+                political_trends = ['par', 'CG', 'C', 'G', 'D', 'CD']
+                X_poll = DataLoader.load_dataset(poll_data_path)[
+                    [
+                        trend.replace("vote", "").replace('tau', '')
+                        for trend in political_trends
+                        if trend.replace('tau', '') != "par"
+                    ]
                 ]
-            ]
+                X_poll = X_poll.copy()
+                X_poll['CGCCD'] = X_poll['CG'] + X_poll['C'] + X_poll['CD'] 
+            else:
+                X_poll = DataLoader.load_dataset(poll_data_path)[
+                    [
+                        trend.replace("vote", "").replace('tau', '')
+                        for trend in k_political_trends
+                        if trend.replace('tau', '') != "par"
+                    ]
+                ]
             poll_results = X_poll.mean()  # Could be a better formula to aggregate polls
             for trend in k_political_trends:
                 trend = trend.replace('tau', '')
