@@ -55,7 +55,7 @@ def load_results_over_time() -> pd.DataFrame | None:
 
     # Thread the data loading
     results = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=len(years)) as executor:
         futures = [
             executor.submit(
                 _load_result_for_year,

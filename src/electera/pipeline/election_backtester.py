@@ -188,12 +188,24 @@ class BackTester:
             self.config.data_path
             + f"raw/elections/{election_type}/{k_year}/{election_type_code}{k_year}_csv/{election_type_code}{k_year}comm.parquet"
         )
-        X_true = DataLoader.load_dataset(ground_truth_data_path)[
-            ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-            + [f"vote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
-            + [f"pvote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
-            + ["ppar"]
-        ]
+        if 'CGCCD' in k_political_trends:
+            political_trends = list(set(k_political_trends)-set(['CGCCD']))
+            X_true = DataLoader.load_dataset(ground_truth_data_path)[
+                ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
+                + [f"vote{trend.replace('tau', '')}" for trend in political_trends if trend.replace('tau', '') != "par"]
+                + [f"pvote{trend.replace('tau', '')}" for trend in political_trends if trend.replace('tau', '') != "par"]
+                + ["ppar"]
+            ]
+            X_true = X_true.copy()
+            X_true['voteCGCCD'] = X_true['voteCG'] + X_true['voteC'] + X_true['voteCD']
+            X_true['pvoteCGCCD'] = X_true['pvoteCG'] + X_true['pvoteC'] + X_true['pvoteCD']
+        else:
+            X_true = DataLoader.load_dataset(ground_truth_data_path)[
+                ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
+                + [f"vote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
+                + [f"pvote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
+                + ["ppar"]
+            ]
         X_true = X_true.dropna()
         str_cols = ["codecommune", "nomcommune"]
         float_cols = [

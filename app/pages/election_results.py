@@ -46,8 +46,8 @@ def sample_communes(sample_frac=None):
         ("annee", "==", float(st.session_state["state"].year)),
         ("election_type", "==", str(st.session_state["state"].get_type(as_type="code_full"))),
     ]
-    
     st.session_state["data"].load_data_sample(
+            columns=['codecommune'],
             filters=filters,
             asset_name='sampled_communes'
     )

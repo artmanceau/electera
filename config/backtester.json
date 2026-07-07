@@ -1,5 +1,5 @@
 {
-    "political_trends": [["par", "D", "G", "C", "CD", "CG"], ["par", "TD", "TG"], ["par", "DCD", "GCG", "C"], ["par", "D", "G", "CGCCD"]],
+    "political_trends": [["par", "D", "G", "CGCCD"], ["par", "D", "G", "C", "CD", "CG"], ["par", "TD", "TG"], ["par", "DCD", "GCG", "C"]],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "dataset_path": "derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/",
     "random_seed": 42,

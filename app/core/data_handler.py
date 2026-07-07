@@ -55,6 +55,18 @@ class AppData:
         self.version = version
         self.container = {}
 
+    def _load_trend(self, fs, version, asset: str, trend: str, trends_: list, year: int, election_type: str, columns, filters):
+        """Load a single trend dataset."""
+        file_path = f"{self.data_path}/output/explain/{asset}_{trends_}_{year}_{election_type}_{version}.parquet"
+        element = DataLoader.load_dataset(
+            file_path,
+            fs=fs,
+            formate="parquet",
+            columns=columns,
+            filters=filters,
+        )
+        return trend, _convert_to_pandas(element)
+
     def load_explain(
         self,
         asset: Literal["feature_importance", "shap_values"],
@@ -65,32 +77,21 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
-        """Load explanation data for trends, optionally with tau prefix."""
-        trends_ = [f"tau{trend}" for trend in trends] if self.tau else trends
-        data_path = self.data_path
-        version = self.version
+        self.container[asset] = {}
+
+        trends_ = [f'tau{trend}' for trend in trends] if self.tau else trends
+
         fs = get_fs().fs
 
-        def _load_trend(trend: str, trend_label: str) -> tuple[str, pd.DataFrame]:
-            """Load a single trend dataset (thread-safe: no self access)."""
-            file_path = f"{data_path}/output/explain/{asset}_{trend_label}_{year}_{election_type}_{version}.parquet"
-            element = DataLoader.load_dataset(
-                file_path,
-                fs=fs,
-                formate="parquet",
-                columns=columns,
-                filters=filters,
-            )
-            return trend, _convert_to_pandas(element)
-
-        results = {}
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(_load_trend, trend, trend_label) for trend, trend_label in zip(trends, trends_)]
+        with ThreadPoolExecutor(max_workers=len(trends)) as executor:
+            futures = [
+                executor.submit(self._load_trend, fs, self.version, asset, trend, trends_, year, election_type, columns, filters)
+                for trend in trends
+            ]
             for future in futures:
                 trend, data = future.result()
-                results[trend] = data
+                self.container[asset][trend] = data
 
-        self.container[asset] = results
         logger.info(f"{asset} loaded with success!")
 
     def load_result(
