@@ -74,20 +74,15 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
-            "subsample": 0.75,
-            "colsample_bytree": 0.75,
-            "min_child_weight": 25,
-            "n_estimators": 3000,
-            "max_depth": 6,
-            "objective": "reg:absoluteerror",
-            # "colsample_bytree": 0.8,
-            # "colsample_bylevel": 0.8,
-            # "colsample_bynode": 0.8,
+            "min_child_weight": 5,
+            "n_estimators": 4000,
+            "max_depth": 8,
+            "objective": "reg:squarederror",
             "learning_rate": 0.001,
             "gamma": 10,
             "alpha": 10,
             "lambda": 10,
-            "early_stopping_rounds": 10,
+            "early_stopping_rounds": 25,
         }
     },
     "meta_boosting": {
@@ -658,7 +653,6 @@ class BackTester:
                     mlflow.log_artifact(str(detailed_file))
 
 
-
 if __name__ == "__main__":
     backtester = BackTester()
     # List
@@ -669,7 +663,7 @@ if __name__ == "__main__":
 
     # 1. Load all dataset
     data = DataLoader.load_dataset(
-        backtester.config.data_path + backtester.config.dataset_path, engine="polars"
+        backtester.config.data_path + backtester.config.dataset_path, engine="polars", hive_partitioning=True
     )
     for model_name in models:
         logger.info(f"Model: {model_name}")

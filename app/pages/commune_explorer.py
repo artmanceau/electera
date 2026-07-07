@@ -42,7 +42,7 @@ def load_communes_list():
 def load_data(features, selection_code_commune):
     filters = [
         ("annee", "==", int(st.session_state["state"].year)),
-        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+        ("election_type", "==", str(st.session_state["state"].get_type(as_type="code_full"))),
         ("codecommune", "==", str(selection_code_commune))
     ]
     st.session_state["data"].load_data_sample(

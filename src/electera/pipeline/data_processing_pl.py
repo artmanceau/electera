@@ -99,6 +99,7 @@ class ElectionDataProcessor:
         "voteTD": pl.Float64,
         "voteGCG": pl.Float64,
         "voteDCD": pl.Float64,
+        'voteCGCCD': pl.Float64,
         # "voixOUI": pl.Float64,
         # "voixNON": pl.Float64,
     }
@@ -652,7 +653,6 @@ class ElectionDataProcessor:
 
         # Interpolate missing values linearly within each (key, feature) group
         df = df.sort(key, "feature", "annee").with_columns(
-            pl.col("raw").is_null().over(key, "feature").alias("is_interpolated"),
             pl.col("raw").interpolate().over(key, "feature"),
         )
 
@@ -797,11 +797,11 @@ class ElectionDataProcessor:
                             continue
 
                         max_year = (
-                            df.select("annee")
-                            .max()
-                            .collect()
-                            .get_column("annee")
-                            .item()
+                             df.select("annee")
+                             .max()
+                             .collect()
+                             .get_column("annee")
+                             .item()
                         )
 
                         # Build year grids and fill gaps (linear interpolation)
@@ -1080,7 +1080,7 @@ class ElectionDataProcessor:
 
         # The feature dataset should not contain any missing/inf/nan values
         assert (
-            dataset.drop(cs.string() | cs.boolean())
+            dataset.select(features).drop(cs.string() | cs.boolean())
             .select(pl.all().is_nan().sum())
             .sum_horizontal()
             .item()
@@ -1121,14 +1121,24 @@ class ElectionDataProcessor:
     def save_processed_data(self, agg_data):
         if not DataUtils._detect_s3(self.config.data_path):
             os.makedirs("data/derived/processed/", exist_ok=True)
+        else:
+            fs = DataUtils._create_fs()
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"data_processed_{'_'.join(self.config.elections_type)}_from{self.config.year_inf}_to{self.config.year_sup}_{timestamp}.parquet"
 
-        DataLoader.write_dataset(
-            agg_data,
+        agg_data.write_parquet(
             self.config.data_path + "derived/processed/" + filename,
+            use_pyarrow=True,
+            pyarrow_options={
+                "filesystem": fs,
+                "partition_cols": ["annee", 'election_type'],
+            },
         )
+        # DataLoader.write_dataset(
+        #     agg_data,
+        #     self.config.data_path + "derived/processed/" + filename,
+        # )
 
         logger.success(
             f"All processed data saved to {self.config.data_path + 'derived/processed/'}"
@@ -1175,7 +1185,7 @@ def main():
     agg_dataset = agg_dataset.rechunk()
 
     # Save to S3
-    processor.save_processed_data(agg_dataset.to_pandas())
+    processor.save_processed_data(agg_dataset)
 
     return None
 

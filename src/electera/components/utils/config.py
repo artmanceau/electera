@@ -59,11 +59,13 @@ class BackTesterConfig(BaseModel):
         # Define allowed variable sets
         allowed_sets = [
             {"par", "TD", "TG"},
+            {"par", "D", "G", 'CGCCD'},
             {"par", "GCG", "C", "DCD"},
             {"CG", "CD", "C", "D", "G", "par"},  # existing default
             {"taupar", "tauTD", "tauTG"},
             {"taupar", "tauGCG", "tauC", "tauDCD"},
             {"tauCG", "tauCD", "tauC", "tauD", "tauG", "taupar"},  # existing default
+            {"taupar", "tauD", "tauG", 'tauCGCCD'},
         ]
 
         # Ensure the input is a list of lists

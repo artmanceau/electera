@@ -117,7 +117,7 @@ def get_Xy_pl(
         y_prev = f"previous{vote_variable}"
         previous_delta = f"previousdelta{vote_variable}"
 
-    data.select(
+    data = data.select(
         # Features
         list(cs.expand_selector(data, cs.starts_with("F_")))
         # Other columns, target and previous vote cols

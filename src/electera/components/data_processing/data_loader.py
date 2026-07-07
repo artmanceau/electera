@@ -4,7 +4,7 @@ import json
 import os
 import pickle
 import shutil
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Literal
 
 import pandas as pd
 import pyarrow.dataset as ds
@@ -13,7 +13,7 @@ import s3fs
 from loguru import logger
 
 
-def pyarrow_filters_to_polars(filters: list[tuple]) -> pl.Expr:
+def convert_filters(filters: list[tuple]) -> pl.Expr:
     op_map = {
             "==": lambda col, val: pl.col(col) == val,
             "!=": lambda col, val: pl.col(col) != val,
@@ -64,6 +64,7 @@ class DataUtils:
         fs: object = None,
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
+        hive_partitioning: Optional[bool] = False
     ) -> pd.DataFrame:
         """Reads a parquet file.
 
@@ -89,19 +90,30 @@ class DataUtils:
         fs: object = None,
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
+        hive_partitioning: Optional[bool] = False
     ) -> pd.DataFrame:
         logger.debug(f"Loading dataset from {file_path}...")
         if fs is None:
-            data = pl.scan_parquet(file_path)
+            lf = pl.scan_parquet(file_path)
         else:
-            dataset = ds.dataset(file_path, filesystem=fs, format="parquet")
-            data = pl.scan_pyarrow_dataset(dataset)
+            lf = pl.scan_parquet(
+                file_path,
+                storage_options={
+                    "aws_endpoint_url": "https://minio.lab.sspcloud.fr",
+                    "aws_region": "us-east-1",
+                },
+                credential_provider=pl.CredentialProviderAWS(
+                    profile_name="default",
+                    region_name="us-east-1",
+                ),
+                hive_partitioning=True
+            )
             if filters:
-                exprs = pyarrow_filters_to_polars(filters)
-                data = data.filter(*exprs)
+                exprs = convert_filters(filters)
+                lf = lf.filter(*exprs)
             if columns:
-                data = data.select(columns)
-        return data.collect()
+                lf = lf.select(columns)
+        return lf.collect()
 
     def _read_csv(
         file_path: str,
@@ -218,7 +230,8 @@ class DataLoader:
         formate: str = "parquet",
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
-        engine="pandas",
+        engine: Literal['pandas', 'polars'] = "pandas",
+        hive_partitioning: Optional[bool] = False
     ) -> pd.DataFrame:
         """Loads a dataset either locally or in S3 depending on the file_path
 
@@ -240,7 +253,7 @@ class DataLoader:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if not DataUtils._exists(file_path, fs):
             raise FileNotFoundError(f"The file {file_path} can't be found.")
-        data = read_method[engine][formate](file_path, fs, columns, filters)
+        data = read_method[engine][formate](file_path, fs, columns, filters, hive_partitioning)
         logger.debug(f"Dataset loaded: {data.shape}")
         return data
 

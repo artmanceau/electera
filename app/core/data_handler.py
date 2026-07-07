@@ -4,7 +4,7 @@ from loguru import logger
 import pandas as pd
 import polars as pl
 from electera.components.data_processing.data_loader import DataLoader
-
+from concurrent.futures import ThreadPoolExecutor
 
 class FileSystem:
     instance = None
@@ -48,6 +48,7 @@ def _convert_to_pandas(X: Union[pl.DataFrame, pd.DataFrame]):
 
 
 class AppData:
+
     def __init__(self, data_path, version, tau):
         self.tau = tau
         self.data_path = data_path
@@ -64,23 +65,32 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
-        self.container[asset] = {}
+        """Load explanation data for trends, optionally with tau prefix."""
+        trends_ = [f"tau{trend}" for trend in trends] if self.tau else trends
+        data_path = self.data_path
+        version = self.version
+        fs = get_fs().fs
 
-        trends_ = [f'tau{trend}' for trend in trends] if self.tau else trends
-
-        for trend in trends:
-            file_path = f"{self.data_path}/output/explain/{asset}_{trends_}_{trend}_{year}_{election_type}_{self.version}.parquet"
-
+        def _load_trend(trend: str, trend_label: str) -> tuple[str, pd.DataFrame]:
+            """Load a single trend dataset (thread-safe: no self access)."""
+            file_path = f"{data_path}/output/explain/{asset}_{trend_label}_{year}_{election_type}_{version}.parquet"
             element = DataLoader.load_dataset(
                 file_path,
-                fs=get_fs().fs,
+                fs=fs,
                 formate="parquet",
                 columns=columns,
                 filters=filters,
-                engine='polars'
             )
-            self.container[asset][trend] = _convert_to_pandas(element)
+            return trend, _convert_to_pandas(element)
 
+        results = {}
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(_load_trend, trend, trend_label) for trend, trend_label in zip(trends, trends_)]
+            for future in futures:
+                trend, data = future.result()
+                results[trend] = data
+
+        self.container[asset] = results
         logger.info(f"{asset} loaded with success!")
 
     def load_result(
@@ -102,7 +112,6 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine='polars'
         )
         logger.info(f"{asset} loaded with success!")
 
@@ -121,7 +130,6 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine='polars'
         )
         logger.info(f"{asset_name} loaded with success!")
         asset_name = asset_name if asset_name is not None else "data"

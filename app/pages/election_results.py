@@ -39,14 +39,15 @@ def load_shap_values(sampled_communes_codes):
         filters=[("codecommune", "in", sampled_communes_codes)]
     )
 
+
 @st.cache_data
 def sample_communes(sample_frac=None):
     filters = [
-        ("annee", "==", int(st.session_state["state"].year)),
-        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+        ("annee", "==", float(st.session_state["state"].year)),
+        ("election_type", "==", str(st.session_state["state"].get_type(as_type="code_full"))),
     ]
+    
     st.session_state["data"].load_data_sample(
-            columns=['codecommune'],
             filters=filters,
             asset_name='sampled_communes'
     )
@@ -65,7 +66,7 @@ def load_data(features, sampled_communes_codes):
     # Define your filters
     filters = [
         ("annee", "==", int(st.session_state["state"].year)),
-        ("type", "==", int(st.session_state["state"].get_type(as_type="number"))),
+        ("election_type", "==", str(st.session_state["state"].get_type(as_type="code_full"))),
         ("codecommune", "in", sampled_communes_codes)
     ]
     st.session_state["data"].load_data_sample(
@@ -77,7 +78,7 @@ def load_data(features, sampled_communes_codes):
 
 check_home_run()
 
-st.session_state["state"].selection_box()
+st.session_state["state"].selection_box(multiple_years=False, clear_cache_on_rerun=True)
 
 
 load_results()

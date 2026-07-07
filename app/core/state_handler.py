@@ -18,7 +18,7 @@ class SessionHandler:
 
         self.years = None
 
-    def selection_box(self, multiple_years=False):
+    def selection_box(self, multiple_years=False, clear_cache_on_rerun=True):
         """Selection method for year, type and blocs"""
         # User selections
         col1, col2, col3 = st.columns(3)
@@ -30,7 +30,7 @@ class SessionHandler:
                     for el in st.session_state["config"].types_to_display
                 ],
                 index=0,
-                on_change=st.cache_data.clear(),
+                on_change=st.cache_data.clear() if clear_cache_on_rerun else None
             )
         with col2:
             if multiple_years:
@@ -41,7 +41,8 @@ class SessionHandler:
                     ],
                     default=st.session_state["config"].years_to_display[
                         reverse_convert("type", self.type)
-                    ][: min(3, len(st.session_state["config"].years_to_display))],
+                    ],
+                    on_change=st.cache_data.clear() if clear_cache_on_rerun else None
                 )
 
             else:
@@ -51,7 +52,7 @@ class SessionHandler:
                         reverse_convert("type", self.type)
                     ],
                     index=0,
-                    on_change=st.cache_data.clear(),
+                    on_change=st.cache_data.clear() if clear_cache_on_rerun else None
                 )
 
         with col3:
@@ -62,7 +63,7 @@ class SessionHandler:
                     for el in st.session_state["config"].political_divisions_to_dislay
                 ],
                 index=0,
-                on_change=st.cache_data.clear(),
+                on_change=st.cache_data.clear() if clear_cache_on_rerun else None
             )
         logger.debug(f"State registered: {self.type} | {self.year} | {self.blocs}")
 
@@ -72,13 +73,15 @@ class SessionHandler:
     def get_years(self):
         return self.years
 
-    def get_type(self, as_type: Literal["verbose", "code", "number"] = "code"):
+    def get_type(self, as_type: Literal["verbose", "code", "number", 'code_full'] = "code"):
         if as_type == "verbose":
             return self.type
         else:
             code = reverse_convert("type", self.type)
             if as_type == "code":
                 return code
+            elif as_type == 'code_full':
+                return 'presidentiel' if code == "pres" else ('legislative' if code == "leg" else "")
             elif as_type == "number":
                 return 0 if code == "pres" else (1 if code == "leg" else 2)
             else:
@@ -126,8 +129,7 @@ class SessionHandler:
         self.commune = st.selectbox(
             "Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear()
         )
-
-        if communes_list["nomcommune"][0] == 'PARIS':
+        if self.commune == 'PARIS':
             arrondissements = communes_list[
                 communes_list["nomcommune"] == self.commune
             ]["codecommune"]
