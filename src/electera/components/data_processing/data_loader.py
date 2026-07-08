@@ -274,7 +274,7 @@ class DataLoader:
         read_method = {
             "pandas": {"csv": DataUtils._read_csv, "parquet": DataUtils._read_parquet},
             "polars": {"parquet": DataUtils._read_parquet_pl},
-            'polars_pyarrow': {'parquet': DataUtils._read_parquet_pl_pyarrow}
+            'polars-pyarrow': {'parquet': DataUtils._read_parquet_pl_pyarrow}
         }
         # S3 path - starts with s3://
         if not fs:
