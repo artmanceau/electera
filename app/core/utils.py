@@ -190,52 +190,55 @@ def present_results(data_line, year, t, blocs, scale):
                 Erreur de la prédiction du modèle pour l'élection
             """
             )
-            if scale == "local":
-                col_config = {}
-                for b in blocs:
-                    col_config[f"vote{b}_diff"] = st.column_config.NumberColumn(
-                        f"Différence avec la prédiction du vote {trad[b]}",
+            if int(year) < 2026:
+                if scale == "local":
+                    col_config = {}
+                    for b in blocs:
+                        col_config[f"vote{b}_diff"] = st.column_config.NumberColumn(
+                            f"Différence avec la prédiction du vote {trad[b]}",
+                            format="%,.0f",
+                        )
+                    col_config["votants_diff"] = st.column_config.NumberColumn(
+                        "Différence avec la prédiction pour le taux de participation",
                         format="%,.0f",
                     )
-                col_config["votants_diff"] = st.column_config.NumberColumn(
-                    "Différence avec la prédiction pour le taux de participation",
-                    format="%,.0f",
+                    data_element = data_line[
+                        [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
+                    ].reset_index(drop=True)
+                else:
+                    data_element = (
+                        data_line.loc[
+                            [f"vote{b}" for b in blocs] + ["votants"],
+                            f"{year}_{t}_diff_agg",
+                        ]
+                        .to_frame()
+                        .T
+                    )
+                    col_config = {}
+                    for b in blocs:
+                        col_config[f"vote{b}"] = st.column_config.NumberColumn(
+                            f"Différence avec la prédiction du vote {trad[b]}",
+                            format="%,.0f",
+                        )
+                    col_config["votants"] = st.column_config.NumberColumn(
+                        "Différence avec la prédiction pour la participation",
+                        format="%,.0f",
+                    )
+                st.dataframe(
+                    data_element,
+                    hide_index=True,
+                    column_config=col_config,
                 )
-                data_element = data_line[
-                    [f"vote{b}_diff" for b in blocs] + ["votants_diff"]
-                ].reset_index(drop=True)
+                data_plot = data_element.T.copy()
+                trad_ = trad
+                trad_["votants"] = "participation"
+                data_plot.index = [
+                    f"Vote {trad[c.replace('vote', '').replace('_diff', '')]}"
+                    for c in data_plot.index
+                ]
+                st.bar_chart(data=data_plot, sort=False)
             else:
-                data_element = (
-                    data_line.loc[
-                        [f"vote{b}" for b in blocs] + ["votants"],
-                        f"{year}_{t}_diff_agg",
-                    ]
-                    .to_frame()
-                    .T
-                )
-                col_config = {}
-                for b in blocs:
-                    col_config[f"vote{b}"] = st.column_config.NumberColumn(
-                        f"Différence avec la prédiction du vote {trad[b]}",
-                        format="%,.0f",
-                    )
-                col_config["votants"] = st.column_config.NumberColumn(
-                    "Différence avec la prédiction pour la participation",
-                    format="%,.0f",
-                )
-            st.dataframe(
-                data_element,
-                hide_index=True,
-                column_config=col_config,
-            )
-            data_plot = data_element.T.copy()
-            trad_ = trad
-            trad_["votants"] = "participation"
-            data_plot.index = [
-                f"Vote {trad[c.replace('vote', '').replace('_diff', '')]}"
-                for c in data_plot.index
-            ]
-            st.bar_chart(data=data_plot, sort=False)
+                st.write('Election qui n\'a pas encore eu lieu')
 
     with tab1:
         with st.expander("Résultats", expanded=True):
@@ -278,55 +281,58 @@ def present_results(data_line, year, t, blocs, scale):
                 Erreur de la prédiction du modèle pour l'élection
             """
             )
-            if scale == "local":
-                data_element = data_line[
-                    [f"pvote{b}_diff" for b in blocs] + ["pvotepar_diff"]
-                ].reset_index(drop=True)
-                col_config = {}
-                for b in blocs:
-                    col_config[f"pvote{b}_diff"] = st.column_config.NumberColumn(
-                        f"Différence avec la prédiction du vote {trad[b]}",
+            if int(year) < 2026:
+                if scale == "local":
+                    data_element = data_line[
+                        [f"pvote{b}_diff" for b in blocs] + ["pvotepar_diff"]
+                    ].reset_index(drop=True)
+                    col_config = {}
+                    for b in blocs:
+                        col_config[f"pvote{b}_diff"] = st.column_config.NumberColumn(
+                            f"Différence avec la prédiction du vote {trad[b]}",
+                            help="L'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l'echelle agrégée.",
+                            format="%.1f%%",
+                        )
+                    col_config["pvotepar_diff"] = st.column_config.NumberColumn(
+                        "Différence avec la prédiction pour la participation",
                         help="L'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l'echelle agrégée.",
                         format="%.1f%%",
                     )
-                col_config["pvotepar_diff"] = st.column_config.NumberColumn(
-                    "Différence avec la prédiction pour la participation",
-                    help="L'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l'echelle agrégée.",
-                    format="%.1f%%",
-                )
-            else:
-                data_element = (
-                    data_line.loc[
-                        [f"pvote{b}" for b in blocs] + ["pvotepar"],
-                        f"{year}_{t}_diff_agg",
-                    ]
-                    .to_frame()
-                    .T
-                )
-                col_config = {}
-                for b in blocs:
-                    col_config[f"pvote{b}"] = st.column_config.NumberColumn(
-                        f"Différence avec la prédiction du vote {trad[b]}",
+                else:
+                    data_element = (
+                        data_line.loc[
+                            [f"pvote{b}" for b in blocs] + ["pvotepar"],
+                            f"{year}_{t}_diff_agg",
+                        ]
+                        .to_frame()
+                        .T
+                    )
+                    col_config = {}
+                    for b in blocs:
+                        col_config[f"pvote{b}"] = st.column_config.NumberColumn(
+                            f"Différence avec la prédiction du vote {trad[b]}",
+                            help="L'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l'echelle agrégée.",
+                            format="%.1f%%",
+                        )
+                    col_config["pvotepar"] = st.column_config.NumberColumn(
+                        "Différence avec la prédiction pour la participation",
                         help="L'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l'echelle agrégée.",
                         format="%.1f%%",
                     )
-                col_config["pvotepar"] = st.column_config.NumberColumn(
-                    "Différence avec la prédiction pour la participation",
-                    help="L'erreur est ici calculée comme la différence entre le résultat réel et la prédiction à l'echelle agrégée.",
-                    format="%.1f%%",
-                )
 
-            st.dataframe(
-                data_element,
-                hide_index=True,
-                column_config=col_config,
-            )
-            data_plot = data_element.T.copy()
-            data_plot.index = [
-                f"Vote {trad[c.replace('pvote', '').replace('_diff', '')]}"
-                for c in data_plot.index
-            ]
-            st.bar_chart(data=data_plot, sort=False)
+                st.dataframe(
+                    data_element,
+                    hide_index=True,
+                    column_config=col_config,
+                )
+                data_plot = data_element.T.copy()
+                data_plot.index = [
+                    f"Vote {trad[c.replace('pvote', '').replace('_diff', '')]}"
+                    for c in data_plot.index
+                ]
+                st.bar_chart(data=data_plot, sort=False)
+            else:
+                st.write('Election qui n\'a pas encore eu lieu')
 
 
 def show_feature_importance(importance_df, blocs):
@@ -388,11 +394,11 @@ def show_feature_importance(importance_df, blocs):
             st.altair_chart(chart)
 
 
-def format_feature(feature: str, feature_aug: Dict[str, str], get_feature_desc: callable) -> str:
+def format_feature(feature: str) -> str:
     """Format a feature name for display."""
     feature = feature.removeprefix("F_") if feature.startswith("F_") else feature
     parts = feature.split("_")
-    return feature_aug.get(parts[0], "") + get_feature_desc(parts[-1])
+    return FEATURE_AUG.get(parts[0], "") + get_feature_desc(parts[-1])
 
 
 def generate_local_plot(
@@ -404,6 +410,7 @@ def generate_local_plot(
     """Generate a local SHAP plot (Waterfall, Force, or Decision)."""
     plt.close("all")
     plt.figure()
+    plt.rcParams['font.size'] = 8  # Smaller feature names
     if plot_type == "Waterfall":
         shap.plots.waterfall(
             expl,
@@ -415,7 +422,7 @@ def generate_local_plot(
             expl,
             matplotlib=True,
             show=False,
-            feature_names=feature_names,  
+            feature_names=feature_names,
         )
     st.pyplot(plt.gcf())
     plt.close()
@@ -450,9 +457,9 @@ def generate_global_plot(
             feature_names=feature_names_subset,
             show=False,
             color_bar=True,
+            plot_size=(10, 6),
         )
     elif plot_type == "Bar":
-
         mean_abs = np.abs(values).mean(axis=0)
         idx = np.argsort(mean_abs)[-nb_feat:]
         plt.barh(np.array(feature_names)[idx], mean_abs[idx])
@@ -465,7 +472,7 @@ def generate_global_plot(
                 data=data,
                 feature_names=feature_names,
             )
-           
+
             ix = feature_names.index(x_feat)
             iy = feature_names.index(y_feat)
     
@@ -484,8 +491,6 @@ def show_shap_values(
     data_sample: pd.DataFrame,
     BLOCS: List[str],
     selection_code_commune: Optional[str] = None,
-    feature_aug: Optional[Dict[str, str]] = None,
-    get_feature_desc: Optional[callable] = None,
 ) -> None:
     """
     Display SHAP values for a given dataset and model.
@@ -495,8 +500,6 @@ def show_shap_values(
         data_sample: DataFrame containing the raw data for the samples.
         BLOCS: List of bloc names (e.g., ["LREM", "RN"]).
         selection_code_commune: Optional commune code for local explanations.
-        feature_aug: Dictionary mapping feature prefixes to augmented names.
-        get_feature_desc: Function to get the description of a feature suffix.
     """
     st.header("SHAP Values Analysis")
 
@@ -505,12 +508,6 @@ def show_shap_values(
     for df in shap_df.values():
         all_columns.update(df.columns)
     all_columns.discard("base_value")
-
-    # Default feature augmentation and description functions
-    if feature_aug is None:
-        feature_aug = {}
-    if get_feature_desc is None:
-        get_feature_desc = lambda x: x
 
     nb_feat = st.slider(
         "Number of features to display",
@@ -535,7 +532,7 @@ def show_shap_values(
             # Extract base columns and raw features
             base_cols = BASE_COLUMNS
             raw_features = [c for c in df.columns if c not in base_cols]
-            feature_names = [format_feature(f, feature_aug, get_feature_desc) for f in raw_features]
+            feature_names = [format_feature(f) for f in raw_features]
 
             # Filter data for the current trend
             mask = df["codecommune"].isin(data_sample["codecommune"].values)
@@ -570,7 +567,6 @@ def show_shap_values(
                     base_values=base_value,
                     feature_names=feature_names,
                 )
-
                 local_plot_type = st.selectbox(
                     "Local Plot Type",
                     PLOT_TYPES_LOCAL,

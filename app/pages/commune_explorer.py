@@ -13,7 +13,7 @@ def load_results():
         asset_name="results_commune_selected",
     )
 
-
+@st.cache_data
 def load_shap_values():
     st.session_state["data"].load_explain(
         asset="shap_values",
@@ -30,6 +30,7 @@ def load_shap_values():
 def load_communes_list():
     st.session_state["data"].load_communes_list()
 
+
 @st.cache_data
 def load_data(features, selection_code_commune):
     filters = [
@@ -44,7 +45,7 @@ def load_data(features, selection_code_commune):
 
 check_home_run()
 
-st.session_state["state"].selection_box()
+st.session_state["state"].selection_box(multiple_years=False, clear_cache_on_rerun=True)
 
 st.header("Resultat au niveau de chaque commune")
 
@@ -79,6 +80,7 @@ if st.button("Compute shap values"):
     features.discard("base_value")
 
     load_data(features=features.union(['codecommune']), selection_code_commune=st.session_state['state'].codecommune)
+
 
 if st.session_state.show_shap_values and 'data_sample_commune' in st.session_state["data"].container:
     show_shap_values(

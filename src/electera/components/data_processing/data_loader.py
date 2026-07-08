@@ -17,7 +17,7 @@ def convert_filters(filters: list[tuple]) -> pl.Expr:
     op_map = {
             "==": lambda col, val: pl.col(col) == val,
             "!=": lambda col, val: pl.col(col) != val,
-            ">":  lambda col, val: pl.col(col) > val,
+            ">": lambda col, val: pl.col(col) > val,
             ">=": lambda col, val: pl.col(col) >= val,
             "<":  lambda col, val: pl.col(col) < val,
             "<=": lambda col, val: pl.col(col) <= val,
@@ -106,14 +106,15 @@ class DataUtils:
                     profile_name="default",
                     region_name="us-east-1",
                 ),
-                hive_partitioning=True
+                glob=False,
+                hive_partitioning=hive_partitioning
             )
             if filters:
                 exprs = convert_filters(filters)
                 lf = lf.filter(*exprs)
             if columns:
                 lf = lf.select(columns)
-        return lf.collect()
+        return lf.collect(streaming=True)
 
     def _read_csv(
         file_path: str,

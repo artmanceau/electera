@@ -68,6 +68,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
+            engine="polars"
         )
         return trend, _convert_to_pandas(element)
 
@@ -117,6 +118,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
+            engine="polars"
         )
         logger.info(f"{asset} loaded with success!")
 
@@ -135,6 +137,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
+            engine="polars"
         )
         logger.info(f"{asset_name} loaded with success!")
         asset_name = asset_name if asset_name is not None else "data"

@@ -459,6 +459,7 @@ class Explainer:
             formate="parquet",
             columns=None,
             filters=None,
+            hive_partitioning=True,
             engine="polars",
         )
 

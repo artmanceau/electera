@@ -127,8 +127,9 @@ class SessionHandler:
         communes = communes_list["nomcommune"].drop_duplicates()
 
         self.commune = st.selectbox(
-            "Selectionnez une commune", [""] + communes, on_change=st.cache_data.clear()
+            "Selectionnez une commune", [""] + communes, index=None, on_change=st.cache_data.clear()
         )
+
         if self.commune == 'PARIS':
             arrondissements = communes_list[
                 communes_list["nomcommune"] == self.commune
