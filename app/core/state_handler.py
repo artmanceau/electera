@@ -129,6 +129,8 @@ class SessionHandler:
         self.commune = st.selectbox(
             "Selectionnez une commune", [""] + communes, index=None, on_change=st.cache_data.clear()
         )
+        if self.commune is None:
+            st.stop()
 
         if self.commune == 'PARIS':
             arrondissements = communes_list[

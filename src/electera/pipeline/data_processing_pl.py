@@ -1127,6 +1127,8 @@ class ElectionDataProcessor:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"data_processed_{'_'.join(self.config.elections_type)}_from{self.config.year_inf}_to{self.config.year_sup}_{timestamp}.parquet"
 
+        agg_data = agg_data.sort(["annee", "election_type", "codecommune"], maintain_order=True)
+
         agg_data.write_parquet(
             self.config.data_path + "derived/processed/" + filename,
             use_pyarrow=True,

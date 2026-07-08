@@ -22,6 +22,11 @@ class FileSystem:
                 key=key,
                 secret=secret,
             )
+            self.storage_options = {
+                "aws_access_key_id": key,
+                "aws_secret_access_key": secret,
+                "aws_region": "us-east-1"
+            }
             self.initialized = True
 
     @classmethod
@@ -34,6 +39,13 @@ def load_fs(client_kwargs, key, secret):
 
 
 def get_fs():
+    if not FileSystem.is_initialized():
+        raise ValueError("Call load_fs first!")
+
+    return FileSystem.instance
+
+
+def get_storage_options():
     if not FileSystem.is_initialized():
         raise ValueError("Call load_fs first!")
 
@@ -68,7 +80,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine="polars"
+            engine="polars-pyarrow"
         )
         return trend, _convert_to_pandas(element)
 
@@ -118,7 +130,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine="polars"
+            engine="polars-pyarrow"
         )
         logger.info(f"{asset} loaded with success!")
 
@@ -137,7 +149,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine="polars"
+            engine="polars-pyarrow"
         )
         logger.info(f"{asset_name} loaded with success!")
         asset_name = asset_name if asset_name is not None else "data"
