@@ -18,7 +18,7 @@ def split_method(
         ).filter(
             pl.col('annee') != 1848
         ).filter(
-            pl.col('annee') >= int(validation_year) - 15
+            pl.col('annee') >= int(validation_year) - 20
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") == int(test_year)

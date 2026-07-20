@@ -74,11 +74,15 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
+            "subsample": 0.8,
             "min_child_weight": 5,
             "n_estimators": 4000,
             "max_depth": 8,
             "objective": "reg:squarederror",
             "learning_rate": 0.001,
+            "colsample_bytree": 0.8,  # the ratio of features used by tree
+            "colsample_bylevel": 0.8,  # the ratio of features used by level
+            "colsample_bynode": 0.8,  # the ratio of features used by node
             "gamma": 10,
             "alpha": 10,
             "lambda": 10,
@@ -342,7 +346,7 @@ class BackTester:
 
         # Alphabetic sort
         k_political_trends.sort()
-        vars_ = k_political_trends
+        vars_ = '_'.join(k_political_trends)
 
         DataLoader.write_dataset(
             result_all,
@@ -419,7 +423,7 @@ class BackTester:
                         self.y_train[trend],
                         self.X_val[trend],
                         self.y_val[trend],
-                        weighting='sqrt',
+                        weighting='proportional',
                         feature_selection_method='none',
                         nb_features='relative',
                         param_search_method='none',

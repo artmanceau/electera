@@ -160,7 +160,7 @@ st.divider()
 if st.button("Compute shap values"):
     st.session_state.show_shap_values = True
 
-    sampled_communes_codes = sample_communes(sample_frac=0.2)
+    sampled_communes_codes = sample_communes(sample_frac=None)
 
     load_shap_values(sampled_communes_codes)
 

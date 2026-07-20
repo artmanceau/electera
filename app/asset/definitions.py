@@ -55,8 +55,8 @@ candidats_2022_mapping = {
 }
 
 trad = {
-    "TD": "à gauche (tout les partis)",
-    "TG": "à droite (tout les partis)",
+    "TD": "à droite (tout les partis)", 
+    "TG": "à gauche (tout les partis)",
     "GCG": "à gauche et au centre-gauche",
     "DCD": "à droite et au centre-droit",
     "G": "à gauche",

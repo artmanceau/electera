@@ -135,7 +135,6 @@ def results_glob(data_line, year_type, blocs, label, p=""):
             Lorsqu'un candidat ne peut être classé dans un bloc, ses voix sont répartis à part égal entre l'ensemble des autres blocs",
             format="%.1f%%" if p in ["p", "pvote"] else "%,.0f",
         )
-
     st.dataframe(
         data_line.loc[[f"{p}{b}" for b in blocs], col].to_frame().T,
         hide_index=True,
