@@ -51,7 +51,7 @@ class ElectionDataProcessor:
     voteT2 = ["inscritsT2", "votantsT1", "exprimesT2", "abstentionsT2", "blancsnulsT2"]
     pvoteT2 = ["pvoteparT2", "pvoteabsT2", "pvoteblancsnulsT2", "pvoteexprT2"]
 
-    tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD", 'CGCCD']
+    tendances = ["G", "CG", "C", "CD", "D", "TD", "TG", "GCG", "DCD", "CGCCD"]
     tendances_column_vote = [f"vote{tendance}" for tendance in tendances]
     tendances_column_pvote = ["p" + col for col in tendances_column_vote]
 
@@ -99,7 +99,7 @@ class ElectionDataProcessor:
         "voteTD": pl.Float64,
         "voteGCG": pl.Float64,
         "voteDCD": pl.Float64,
-        'voteCGCCD': pl.Float64,
+        "voteCGCCD": pl.Float64,
         # "voixOUI": pl.Float64,
         # "voixNON": pl.Float64,
     }
@@ -200,8 +200,12 @@ class ElectionDataProcessor:
 
         # Join geo_data
         geo_data = self.add_geographical_data()
-        PARIS_LAT = 2.3522 ; LYON_LAT = 4.8500 ; MARSEILLE_LAT = 5.4000
-        PARIS_LON = 48.8566 ; LYON_LON = 45.7500 ; MARSEILLE_LON = 43.3000
+        PARIS_LAT = 2.3522
+        LYON_LAT = 4.8500
+        MARSEILLE_LAT = 5.4000
+        PARIS_LON = 48.8566
+        LYON_LON = 45.7500
+        MARSEILLE_LON = 43.3000
         communes = (
             communes.join(geo_data, on="codecommune", how="left")
             # Step 1: fill from parent commune
@@ -241,7 +245,7 @@ class ElectionDataProcessor:
                 pl.struct(
                     pl.lit(MARSEILLE_LAT).alias("latitude"),
                     pl.lit(MARSEILLE_LON).alias("longitude"),
-                ).alias("marseille_coords")
+                ).alias("marseille_coords"),
             )
             .with_columns(
                 pld.col("coords")
@@ -254,7 +258,7 @@ class ElectionDataProcessor:
                 .dist.haversine("marseille_coords", "km")
                 .alias("distancemarseille"),
             )
-            .drop("coords", "paris_coords", 'lyon_coords', 'marseille_coords')
+            .drop("coords", "paris_coords", "lyon_coords", "marseille_coords")
         )
         return communes
 
@@ -358,7 +362,9 @@ class ElectionDataProcessor:
                             df = df.with_columns(
                                 annee=pl.lit(year).cast(pl.Int64),
                                 election_code=pl.lit(election_code),
-                                voteCGCCD=pl.col('voteCG')+pl.col('voteC')+pl.col('voteCD'),
+                                voteCGCCD=pl.col("voteCG")
+                                + pl.col("voteC")
+                                + pl.col("voteCD"),
                                 election_type=pl.lit(election_type),
                                 type=pl.lit(self.type_encoding[election_type]),
                                 codecommune=pl.col("codecommune")
@@ -482,7 +488,7 @@ class ElectionDataProcessor:
                 pvoteTD=pl.col("voteTD") / pl.col("exprimes_"),
                 pvoteGCG=pl.col("voteGCG") / pl.col("exprimes_"),
                 pvoteDCD=pl.col("voteDCD") / pl.col("exprimes_"),
-                pvoteCGCCD=pl.col('voteCGCCD') / pl.col("exprimes_"),
+                pvoteCGCCD=pl.col("voteCGCCD") / pl.col("exprimes_"),
                 # pvoixOUI=pl.col("voixOUI") / pl.col("exprimes_"),
                 # pvoixNON=pl.col("voixNON") / pl.col("exprimes_"),
             )
@@ -680,7 +686,7 @@ class ElectionDataProcessor:
 
     def _augment(self, df, key, k=5):
         return df.with_columns(
-            raw=pl.col('raw').round(4),
+            raw=pl.col("raw").round(4),
             lag=(pl.col("raw").shift(k).round(4)).over(
                 key, "feature", order_by="annee"
             ),
@@ -702,19 +708,23 @@ class ElectionDataProcessor:
                 pl.int_range(pl.col("annee").max() + 1, 2028).alias("annee"),
                 pl.col("annee").max().alias("last_year"),
                 pl.col("raw").last().alias("raw_filled"),
-                pl.col("raw").diff(1).rolling_mean(window_size=5).last().alias("growth_rates"),
+                pl.col("raw")
+                .diff(1)
+                .rolling_mean(window_size=5)
+                .last()
+                .alias("growth_rates"),
             )
             .explode("annee")
             .with_columns(
                 (pl.col("annee") - pl.col("last_year")).alias("k"),
             )
             .with_columns(
-                raw=(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k")).clip(lower_bound=0)
-            ).filter(
-                (pl.col('k') > 0) & (pl.col('last_year') == 2022)
-            ).drop(
-                "last_year", "k", "raw_filled", "growth_rates"
+                raw=(pl.col("raw_filled") + pl.col("growth_rates") * pl.col("k")).clip(
+                    lower_bound=0
+                )
             )
+            .filter((pl.col("k") > 0) & (pl.col("last_year") == 2022))
+            .drop("last_year", "k", "raw_filled", "growth_rates")
         )
         return projected
 
@@ -797,11 +807,11 @@ class ElectionDataProcessor:
                             continue
 
                         max_year = (
-                             df.select("annee")
-                             .max()
-                             .collect()
-                             .get_column("annee")
-                             .item()
+                            df.select("annee")
+                            .max()
+                            .collect()
+                            .get_column("annee")
+                            .item()
                         )
 
                         # Build year grids and fill gaps (linear interpolation)
@@ -809,9 +819,13 @@ class ElectionDataProcessor:
 
                         # Projections
                         if max_year >= 2022:
-                            logger.debug(f'Running projections for {file.replace('.parquet', '')} (last year: {max_year})')
+                            logger.debug(
+                                f"Running projections for {file.replace('.parquet', '')} (last year: {max_year})"
+                            )
                             projected = self._project(df, key)
-                            df = pl.concat([df, projected], how="diagonal_relaxed").sort("feature", key, "annee")
+                            df = pl.concat(
+                                [df, projected], how="diagonal_relaxed"
+                            ).sort("feature", key, "annee")
 
                         # Augmentations
                         df = self._augment(df, key)
@@ -968,7 +982,7 @@ class ElectionDataProcessor:
                 "long",
                 "distanceparis",
                 "distancelyon",
-                "distancemarseille"
+                "distancemarseille",
             ]
             + all_votes
             + self.percentile(self.tendances_column_pvote + ["pvotepar"])
@@ -998,7 +1012,7 @@ class ElectionDataProcessor:
                 "long",
                 "distanceparis",
                 "distancelyon",
-                "distancemarseille"
+                "distancemarseille",
             ),
             on="codecommune",
             how="left",
@@ -1046,7 +1060,8 @@ class ElectionDataProcessor:
                 .fill_null(pl.col(c).mean().over("dep", "annee"))
                 .fill_null(pl.col(c).mean().over("annee"))  # Fallback to all
                 .alias(c)
-                for c in features + ["lat", "long", "distanceparis", 'distancelyon', 'distancemarseille']
+                for c in features
+                + ["lat", "long", "distanceparis", "distancelyon", "distancemarseille"]
             ]
         )
 
@@ -1080,7 +1095,8 @@ class ElectionDataProcessor:
 
         # The feature dataset should not contain any missing/inf/nan values
         assert (
-            dataset.select(features).drop(cs.string() | cs.boolean())
+            dataset.select(features)
+            .drop(cs.string() | cs.boolean())
             .select(pl.all().is_nan().sum())
             .sum_horizontal()
             .item()
@@ -1127,14 +1143,16 @@ class ElectionDataProcessor:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"data_processed_{'_'.join(self.config.elections_type)}_from{self.config.year_inf}_to{self.config.year_sup}_{timestamp}.parquet"
 
-        agg_data = agg_data.sort(["annee", "election_type", "codecommune"], maintain_order=True)
+        agg_data = agg_data.sort(
+            ["annee", "election_type", "codecommune"], maintain_order=True
+        )
 
         agg_data.write_parquet(
             self.config.data_path + "derived/processed/" + filename,
             use_pyarrow=True,
             pyarrow_options={
                 "filesystem": fs,
-                "partition_cols": ["annee", 'election_type'],
+                "partition_cols": ["annee", "election_type"],
             },
         )
         # DataLoader.write_dataset(

@@ -47,10 +47,22 @@ def load_results_over_time() -> pd.DataFrame | None:
 
     # Determine mode parameters
     if codecommune:
-        asset, columns, filters, axis = "results_full", None, [("codecommune", "==", codecommune)], 0
+        asset, columns, filters, axis = (
+            "results_full",
+            None,
+            [("codecommune", "==", codecommune)],
+            0,
+        )
     else:
         asset = "results_synth"
-        columns = {year: ["index", f"{year}_{election_type}_pred", f"{year}_{election_type}_true"] for year in years}
+        columns = {
+            year: [
+                "index",
+                f"{year}_{election_type}_pred",
+                f"{year}_{election_type}_true",
+            ]
+            for year in years
+        }
         filters, axis = None, 1
 
     # Thread the data loading
@@ -73,6 +85,7 @@ def load_results_over_time() -> pd.DataFrame | None:
 
     return pd.concat(results, axis=axis) if results else None
 
+
 @st.cache_data
 def load_communes_list():
     st.session_state["data"].load_communes_list()
@@ -91,15 +104,15 @@ def build_pres_table(df: pd.DataFrame, years: list, parties: list) -> pd.DataFra
             "pvotepar": d["pvotepar_pred"].sum(),
         }
         true = {
-            "pvotepar": d['pvotepar_true'].sum(),
+            "pvotepar": d["pvotepar_true"].sum(),
         }
         # Votes per bloc
         for p in parties:
-            pred[f'pvote{p}'] = d[f"pvote{p}_pred"].sum() 
-            true[f'pvote{p}'] = d[f"pvote{p}_true"].sum() 
+            pred[f"pvote{p}"] = d[f"pvote{p}_pred"].sum()
+            true[f"pvote{p}"] = d[f"pvote{p}_true"].sum()
 
         result_cols[f"{year}_pres_pred"] = pd.Series(pred)
-        result_cols[f"{year}_pres_true"] = pd.Series(true) 
+        result_cols[f"{year}_pres_true"] = pd.Series(true)
 
     return pd.DataFrame(result_cols)
 
@@ -116,12 +129,14 @@ st.session_state["state"].selection_box(multiple_years=True, clear_cache_on_reru
 
 tab1, tab2 = st.columns(2)
 with tab1:
-    mode_choice = st.radio('Mode', options=['France Entière', 'Commune'], on_change=st.cache_data.clear())
+    mode_choice = st.radio(
+        "Mode", options=["France Entière", "Commune"], on_change=st.cache_data.clear()
+    )
 
-if mode_choice == 'France Entière':
-    st.session_state['state'].codecommune = None
+if mode_choice == "France Entière":
+    st.session_state["state"].codecommune = None
 
-if mode_choice == 'Commune':
+if mode_choice == "Commune":
     with tab2:
         load_communes_list()
         st.session_state["state"].commune_selector()
@@ -130,10 +145,14 @@ if mode_choice == 'Commune':
         )
 
     data = load_results_over_time()
-    temporal_data = build_pres_table(data, years=st.session_state["state"].get_years(), parties=st.session_state["state"].get_blocs(as_type="code", order="alpha"))
+    temporal_data = build_pres_table(
+        data,
+        years=st.session_state["state"].get_years(),
+        parties=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
+    )
 
 
-if mode_choice == 'France Entière':
+if mode_choice == "France Entière":
     temporal_data = load_results_over_time()
 
 st.divider()

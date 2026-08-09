@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 import altair as alt
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -168,10 +168,14 @@ def present_results(data_line, year, t, blocs, scale):
             )
             if int(year) < 2026:
                 result_func(
-                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="vote"
+                    data_line,
+                    year_type=f"{year}_{t}",
+                    blocs=blocs,
+                    label="true",
+                    p="vote",
                 )
             else:
-                st.write('Election qui n\'a pas encore eu lieu')
+                st.write("Election qui n'a pas encore eu lieu")
 
         with st.expander("Prédictions", expanded=True):
             st.write(
@@ -237,7 +241,7 @@ def present_results(data_line, year, t, blocs, scale):
                 ]
                 st.bar_chart(data=data_plot, sort=False)
             else:
-                st.write('Election qui n\'a pas encore eu lieu')
+                st.write("Election qui n'a pas encore eu lieu")
 
     with tab1:
         with st.expander("Résultats", expanded=True):
@@ -248,10 +252,14 @@ def present_results(data_line, year, t, blocs, scale):
             )
             if int(year) < 2026:
                 result_func(
-                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="true", p="pvote"
+                    data_line,
+                    year_type=f"{year}_{t}",
+                    blocs=blocs,
+                    label="true",
+                    p="pvote",
                 )
             else:
-                st.write('Election qui n\'a pas encore eu lieu')
+                st.write("Election qui n'a pas encore eu lieu")
 
         with st.expander("Prédictions", expanded=True):
             st.write(
@@ -271,7 +279,11 @@ def present_results(data_line, year, t, blocs, scale):
                 """
                 )
                 result_func(
-                    data_line, year_type=f"{year}_{t}", blocs=blocs, label="poll", p="pvote"
+                    data_line,
+                    year_type=f"{year}_{t}",
+                    blocs=blocs,
+                    label="poll",
+                    p="pvote",
                 )
 
         with st.expander("Erreur", expanded=True):
@@ -331,7 +343,7 @@ def present_results(data_line, year, t, blocs, scale):
                 ]
                 st.bar_chart(data=data_plot, sort=False)
             else:
-                st.write('Election qui n\'a pas encore eu lieu')
+                st.write("Election qui n'a pas encore eu lieu")
 
 
 def show_feature_importance(importance_df, blocs):
@@ -347,7 +359,18 @@ def show_feature_importance(importance_df, blocs):
             50,
         )
     with tab2:
-        importance_type = st.selectbox('Importance type', options=['gain', 'shap', 'cover', 'weight', 'permutation', 'total_gain', 'total_cover'])
+        importance_type = st.selectbox(
+            "Importance type",
+            options=[
+                "gain",
+                "shap",
+                "cover",
+                "weight",
+                "permutation",
+                "total_gain",
+                "total_cover",
+            ],
+        )
 
     trends = ["par"] + [f"{b.replace('tau', '')}" for b in blocs]
     tabs = st.tabs(["Participation"] + [f"Vote {trad[b]}" for b in blocs])
@@ -363,7 +386,7 @@ def show_feature_importance(importance_df, blocs):
                 + get_feature_desc(
                     (f.removeprefix("F_") if f.startswith("F_") else f).split("_")[-1]
                 )
-                for f in df['Feature'].values
+                for f in df["Feature"].values
             ]
             with st.expander("Feature utilisés"):
                 st.write(
@@ -373,7 +396,7 @@ def show_feature_importance(importance_df, blocs):
 
             st.write(f"Importance (impotance type: {importance_type})")
             top_gain = df.nlargest(nb_feat, importance_type)[
-                [f"Feature", importance_type, "feature_name"]
+                ["Feature", importance_type, "feature_name"]
             ]
             top_gain = top_gain.sort_values(importance_type, ascending=False)
             chart = (
@@ -409,7 +432,7 @@ def generate_local_plot(
     """Generate a local SHAP plot (Waterfall, Force, or Decision)."""
     plt.close("all")
     plt.figure()
-    plt.rcParams['font.size'] = 8  # Smaller feature names
+    plt.rcParams["font.size"] = 8  # Smaller feature names
     if plot_type == "Waterfall":
         shap.plots.waterfall(
             expl,
@@ -474,7 +497,7 @@ def generate_global_plot(
 
             ix = feature_names.index(x_feat)
             iy = feature_names.index(y_feat)
-    
+
             shap.plots.scatter(
                 explanation[:, ix],
                 color=explanation[:, iy],
@@ -540,25 +563,36 @@ def show_shap_values(
                 continue
 
             values = df.loc[mask, raw_features].astype(float).to_numpy()
-            data = data_sample.loc[
-                data_sample["codecommune"].isin(df.loc[mask, "codecommune"]),
-                raw_features,
-            ].astype(float).to_numpy()
+            data = (
+                data_sample.loc[
+                    data_sample["codecommune"].isin(df.loc[mask, "codecommune"]),
+                    raw_features,
+                ]
+                .astype(float)
+                .to_numpy()
+            )
             base_value = float(df.loc[mask, "base_value"].iloc[0])
 
             # Local mode (single commune)
             if selection_code_commune is not None:
-                local_mask = df["codecommune"].astype(str) == str(selection_code_commune)
+                local_mask = df["codecommune"].astype(str) == str(
+                    selection_code_commune
+                )
                 if not local_mask.any():
                     st.warning(f"No SHAP values for commune {selection_code_commune}")
                     continue
 
                 local_df = df[local_mask]
                 x = local_df[raw_features].iloc[0].astype(float).values
-                x_data = data_sample.loc[
-                    data_sample["codecommune"] == selection_code_commune,
-                    raw_features,
-                ].iloc[0].astype(float).values
+                x_data = (
+                    data_sample.loc[
+                        data_sample["codecommune"] == selection_code_commune,
+                        raw_features,
+                    ]
+                    .iloc[0]
+                    .astype(float)
+                    .values
+                )
 
                 expl = shap.Explanation(
                     values=x,
@@ -612,7 +646,8 @@ def show_shap_values(
                         global_plot_type,
                         nb_feat,
                     )
-    
+
+
 # def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
 #     st.header("Shap values")
 
@@ -712,8 +747,6 @@ def show_shap_values(
 
 #             st.pyplot(plt.gcf())
 #             plt.clf()
-
-
 
 
 def plot_backtest(

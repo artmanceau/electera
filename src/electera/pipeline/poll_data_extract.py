@@ -544,7 +544,8 @@ class FetcherUtils:
         try:
             x = int(s)
             return x
-        except:
+        except Exception as e:
+            logger.warning(e)
             logger.warning(f"Could not conver to valid number: {s}")
             return np.nan
 

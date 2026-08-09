@@ -37,7 +37,8 @@ st.header("Carte des résultats électoraux")
 communes_geojson = load_geojson_page(COMMUNES_MAP_PATH, get_fs().fs)
 try:
     load_results()
-except:
+except Exception as e:
+    print(e)
     st.warning("No election data fetched!")
     st.stop()
 

@@ -15,13 +15,13 @@ from loguru import logger
 
 def convert_filters(filters: list[tuple]) -> pl.Expr:
     op_map = {
-            "==": lambda col, val: pl.col(col) == val,
-            "!=": lambda col, val: pl.col(col) != val,
-            ">": lambda col, val: pl.col(col) > val,
-            ">=": lambda col, val: pl.col(col) >= val,
-            "<":  lambda col, val: pl.col(col) < val,
-            "<=": lambda col, val: pl.col(col) <= val,
-            'in': lambda col, val: pl.col(col).is_in(val)
+        "==": lambda col, val: pl.col(col) == val,
+        "!=": lambda col, val: pl.col(col) != val,
+        ">": lambda col, val: pl.col(col) > val,
+        ">=": lambda col, val: pl.col(col) >= val,
+        "<": lambda col, val: pl.col(col) < val,
+        "<=": lambda col, val: pl.col(col) <= val,
+        "in": lambda col, val: pl.col(col).is_in(val),
     }
     exprs = [op_map[op](col, val) for col, op, val in filters]
     return exprs
@@ -65,7 +65,7 @@ class DataUtils:
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         hive_partitioning: Optional[bool] = False,
-        storage_otpions: Optional[dict] | None = None
+        storage_otpions: Optional[dict] | None = None,
     ) -> pd.DataFrame:
         """Reads a parquet file.
 
@@ -92,7 +92,7 @@ class DataUtils:
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         hive_partitioning: Optional[bool] = False,
-        storage_options: Optional[dict] | None = None
+        storage_options: Optional[dict] | None = None,
     ) -> pd.DataFrame:
         logger.debug(f"Loading dataset from {file_path}...")
         if fs is None:
@@ -122,14 +122,16 @@ class DataUtils:
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         hive_partitioning: Optional[bool] = False,
-        storage_options: Optional[dict] | None = None
+        storage_options: Optional[dict] | None = None,
     ) -> pd.DataFrame:
         logger.debug(f"Loading dataset from {file_path}...")
         if fs is None:
             lf = pl.scan_parquet(file_path)
         else:
             if hive_partitioning:
-                dset = ds.dataset(file_path, filesystem=fs, format="parquet", partitioning="hive")
+                dset = ds.dataset(
+                    file_path, filesystem=fs, format="parquet", partitioning="hive"
+                )
             else:
                 dset = ds.dataset(file_path, filesystem=fs, format="parquet")
             lf = pl.scan_pyarrow_dataset(dset)
@@ -139,7 +141,6 @@ class DataUtils:
             if columns:
                 lf = lf.select(columns)
         return lf.collect(streaming=True)
-
 
     def _read_csv(
         file_path: str,
@@ -256,9 +257,9 @@ class DataLoader:
         formate: str = "parquet",
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
-        engine: Literal['pandas', 'polars'] = "pandas",
+        engine: Literal["pandas", "polars"] = "pandas",
         hive_partitioning: Optional[bool] = False,
-        storage_options: Optional[dict] | None = None
+        storage_options: Optional[dict] | None = None,
     ) -> pd.DataFrame:
         """Loads a dataset either locally or in S3 depending on the file_path
 
@@ -274,14 +275,16 @@ class DataLoader:
         read_method = {
             "pandas": {"csv": DataUtils._read_csv, "parquet": DataUtils._read_parquet},
             "polars": {"parquet": DataUtils._read_parquet_pl},
-            'polars-pyarrow': {'parquet': DataUtils._read_parquet_pl_pyarrow}
+            "polars-pyarrow": {"parquet": DataUtils._read_parquet_pl_pyarrow},
         }
         # S3 path - starts with s3://
         if not fs:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if not DataUtils._exists(file_path, fs):
             raise FileNotFoundError(f"The file {file_path} can't be found.")
-        data = read_method[engine][formate](file_path, fs, columns, filters, hive_partitioning, storage_options)
+        data = read_method[engine][formate](
+            file_path, fs, columns, filters, hive_partitioning, storage_options
+        )
         logger.debug(f"Dataset loaded: {data.shape}")
         return data
 

@@ -74,7 +74,7 @@ Application pour visualiser les performances du modèle
 streamlit run app/app.py
 ```
 
-Application déployée en ligne : https://electera-fnefwttermgjettzdiwaxd.streamlit.app/ 
+Application déployée en ligne : https://electera-fnefwttermgjettzdiwaxd.streamlit.app/
 
 ## Modèle mathématique [2]
 

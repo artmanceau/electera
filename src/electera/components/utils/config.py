@@ -23,7 +23,7 @@ class BackTesterConfig(BaseModel):
     )
 
     # Test/validation configuration
-    k_year: List[int]
+    k_year: dict[str, List[int]]
 
     k_type: List[Literal["pres", "leg", "ref"]] = Field(
         description="Type of test election (abbreviated)"
@@ -59,13 +59,13 @@ class BackTesterConfig(BaseModel):
         # Define allowed variable sets
         allowed_sets = [
             {"par", "TD", "TG"},
-            {"par", "D", "G", 'CGCCD'},
+            {"par", "D", "G", "CGCCD"},
             {"par", "GCG", "C", "DCD"},
             {"CG", "CD", "C", "D", "G", "par"},  # existing default
             {"taupar", "tauTD", "tauTG"},
             {"taupar", "tauGCG", "tauC", "tauDCD"},
             {"tauCG", "tauCD", "tauC", "tauD", "tauG", "taupar"},  # existing default
-            {"taupar", "tauD", "tauG", 'tauCGCCD'},
+            {"taupar", "tauD", "tauG", "tauCGCCD"},
         ]
 
         # Ensure the input is a list of lists

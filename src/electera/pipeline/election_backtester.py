@@ -174,13 +174,16 @@ class BackTester:
                 predict_perc=self.config.predict_percentile,
                 selected_groups=[],
                 selected_features=FEATURES,
-                split_method_way="time-serie-cv"
+                split_method_way="time-serie-cv",
             )
 
             for name, value in zip(container_names, values):
                 getattr(self, name)[trend] = value
 
             self.feature_names[trend] = self.X_train[trend].columns.tolist()
+            logger.debug(
+                f"Features used for trend {trend} : {self.feature_names[trend]}"
+            )
 
     def organize_vote(self, k_year, k_type, k_political_trends, model_name):
         # Simulate a production setting
@@ -192,31 +195,53 @@ class BackTester:
             self.config.data_path
             + f"raw/elections/{election_type}/{k_year}/{election_type_code}{k_year}_csv/{election_type_code}{k_year}comm.parquet"
         )
-        if 'CGCCD' in k_political_trends:
-            political_trends = ['par', 'CG', 'C', 'G', 'D', 'CD']
+        if "CGCCD" in k_political_trends:
+            political_trends = ["par", "CG", "C", "G", "D", "CD"]
             X_true = DataLoader.load_dataset(ground_truth_data_path)[
                 ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-                + [f"vote{trend.replace('tau', '')}" for trend in political_trends if trend.replace('tau', '') != "par"]
-                + [f"pvote{trend.replace('tau', '')}" for trend in political_trends if trend.replace('tau', '') != "par"]
+                + [
+                    f"vote{trend.replace('tau', '')}"
+                    for trend in political_trends
+                    if trend.replace("tau", "") != "par"
+                ]
+                + [
+                    f"pvote{trend.replace('tau', '')}"
+                    for trend in political_trends
+                    if trend.replace("tau", "") != "par"
+                ]
                 + ["ppar"]
             ]
             X_true = X_true.copy()
-            X_true['voteCGCCD'] = X_true['voteCG'] + X_true['voteC'] + X_true['voteCD']
-            X_true['pvoteCGCCD'] = X_true['pvoteCG'] + X_true['pvoteC'] + X_true['pvoteCD']
+            X_true["voteCGCCD"] = X_true["voteCG"] + X_true["voteC"] + X_true["voteCD"]
+            X_true["pvoteCGCCD"] = (
+                X_true["pvoteCG"] + X_true["pvoteC"] + X_true["pvoteCD"]
+            )
         else:
             X_true = DataLoader.load_dataset(ground_truth_data_path)[
                 ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
-                + [f"vote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
-                + [f"pvote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
+                + [
+                    f"vote{trend.replace('tau', '')}"
+                    for trend in k_political_trends
+                    if trend.replace("tau", "") != "par"
+                ]
+                + [
+                    f"pvote{trend.replace('tau', '')}"
+                    for trend in k_political_trends
+                    if trend.replace("tau", "") != "par"
+                ]
                 + ["ppar"]
             ]
         X_true = X_true.dropna()
         str_cols = ["codecommune", "nomcommune"]
         float_cols = [
-            f"pvote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"
+            f"pvote{trend.replace('tau', '')}"
+            for trend in k_political_trends
+            if trend.replace("tau", "") != "par"
         ] + ["ppar"]
         int_cols = [
-            f"vote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"
+            f"vote{trend.replace('tau', '')}"
+            for trend in k_political_trends
+            if trend.replace("tau", "") != "par"
         ] + [
             "inscrits",
             "votants",
@@ -226,11 +251,25 @@ class BackTester:
         X_true[int_cols] = X_true[int_cols].astype(int)
         X_true[float_cols] = X_true[float_cols].astype(float)
         exprimes_ = X_true[
-            [f"vote{trend.replace('tau', '')}" for trend in k_political_trends if trend.replace('tau', '') != "par"]
+            [
+                f"vote{trend.replace('tau', '')}"
+                for trend in k_political_trends
+                if trend.replace("tau", "") != "par"
+            ]
         ].sum(axis=1)
 
         # Remove Paris and Lyon, Marseille arrondissement (avoid duplicates)
-        X_true = X_true.loc[~(X_true['codecommune'].isin(["75056"] + [f"1320{i}" for i in range(1, 9 + 1)] + [f"132{i}" for i in range(10, 16 + 1)] + [f"69328{i}" for i in range(1, 9 + 1)])), :]
+        X_true = X_true.loc[
+            ~(
+                X_true["codecommune"].isin(
+                    ["75056"]
+                    + [f"1320{i}" for i in range(1, 9 + 1)]
+                    + [f"132{i}" for i in range(10, 16 + 1)]
+                    + [f"69328{i}" for i in range(1, 9 + 1)]
+                )
+            ),
+            :,
+        ]
 
         # Predictions
         data = DataLoader.load_dataset(
@@ -262,13 +301,17 @@ class BackTester:
             key: value
             for key, value in agg_results.items()
             if key
-            in [f"tot_pvote{trend.replace('tau', '')}" for trend in k_political_trends if trend != "par"]
+            in [
+                f"tot_pvote{trend.replace('tau', '')}"
+                for trend in k_political_trends
+                if trend != "par"
+            ]
         }
         logger.success(
             f"Total participation predicted {agg_results['tot_ppar'] * 100:.3f}% vs. result {(X_true['votants'].sum() / X_true['inscrits'].sum()) * 100:.3f}%. Diff: {np.abs(agg_results['tot_ppar'] - (X_true['votants'].sum() / X_true['inscrits'].sum())) * 100:.3f}%"
         )
         for trend in k_political_trends:
-            trend = trend.replace('tau', '')
+            trend = trend.replace("tau", "")
             if trend == "par":
                 continue
             logger.success(
@@ -291,28 +334,28 @@ class BackTester:
             poll_data_path,
             fs=DataUtils._create_fs() if DataUtils._detect_s3(poll_data_path) else None,
         ):
-            if 'CGCCD' in k_political_trends:
-                political_trends = ['par', 'CG', 'C', 'G', 'D', 'CD']
+            if "CGCCD" in k_political_trends:
+                political_trends = ["par", "CG", "C", "G", "D", "CD"]
                 X_poll = DataLoader.load_dataset(poll_data_path)[
                     [
-                        trend.replace("vote", "").replace('tau', '')
+                        trend.replace("vote", "").replace("tau", "")
                         for trend in political_trends
-                        if trend.replace('tau', '') != "par"
+                        if trend.replace("tau", "") != "par"
                     ]
                 ]
                 X_poll = X_poll.copy()
-                X_poll['CGCCD'] = X_poll['CG'] + X_poll['C'] + X_poll['CD'] 
+                X_poll["CGCCD"] = X_poll["CG"] + X_poll["C"] + X_poll["CD"]
             else:
                 X_poll = DataLoader.load_dataset(poll_data_path)[
                     [
-                        trend.replace("vote", "").replace('tau', '')
+                        trend.replace("vote", "").replace("tau", "")
                         for trend in k_political_trends
-                        if trend.replace('tau', '') != "par"
+                        if trend.replace("tau", "") != "par"
                     ]
                 ]
             poll_results = X_poll.mean()  # Could be a better formula to aggregate polls
             for trend in k_political_trends:
-                trend = trend.replace('tau', '')
+                trend = trend.replace("tau", "")
                 if trend != "par":
                     result_synthetic.loc["pvote" + trend, f"{k_year}_{k_type}_poll"] = (
                         round(poll_results[trend], 2)
@@ -346,7 +389,7 @@ class BackTester:
 
         # Alphabetic sort
         k_political_trends.sort()
-        vars_ = '_'.join(k_political_trends)
+        vars_ = "_".join(k_political_trends)
 
         DataLoader.write_dataset(
             result_all,
@@ -423,10 +466,10 @@ class BackTester:
                         self.y_train[trend],
                         self.X_val[trend],
                         self.y_val[trend],
-                        weighting='proportional',
-                        feature_selection_method='none',
-                        nb_features='relative',
-                        param_search_method='none',
+                        weighting="proportional",
+                        feature_selection_method="none",
+                        nb_features="relative",
+                        param_search_method="none",
                         meta_train=self.meta_train[trend],
                     ),
                     "linear": lambda: instance_model.train(
@@ -483,7 +526,10 @@ class BackTester:
                     "Baseline predictions (same as previous election of the same type)"
                 )
                 self.baseline_results[model_name] = ModelEvaluator.evaluate(
-                        self.y_test[trend], self.y_prev[trend].fillna(self.y_prev[trend].mean()), model_name, extended=True
+                    self.y_test[trend],
+                    self.y_prev[trend].fillna(self.y_prev[trend].mean()),
+                    model_name,
+                    extended=True,
                 )
                 logger.info("Baseline predictions (constant)")
                 # Adjust to the problem
@@ -546,10 +592,10 @@ class BackTester:
                     )
 
                     # Log params and feature importance of all boosters
-                    if model_name == 'boosting':
+                    if model_name == "boosting":
                         instance_model.best_models = [instance_model.model]
 
-                    if (model_name == "meta_boosting") or (model_name == 'boosting'):
+                    if (model_name == "meta_boosting") or (model_name == "boosting"):
                         importance_types = [
                             "weight",
                             "gain",
@@ -610,7 +656,9 @@ class BackTester:
                                 )
 
                 self.election_predictor.add_model(
-                    trend.replace('tau', ''), instance_model, features=self.feature_names[trend]
+                    trend.replace("tau", ""),
+                    instance_model,
+                    features=self.feature_names[trend],
                 )
                 self.election_predictor.sign_model(
                     trend,
@@ -637,7 +685,11 @@ class BackTester:
                 X_result = self.election_predictor.evaluate_predictions(X_pred, X_true)
                 X_synthetic = self.election_predictor.compute_agg_results(
                     X_result,
-                    blocs=[trend.replace('tau', '') for trend in k_political_trends if trend.replace('tau', '') != "par"],
+                    blocs=[
+                        trend.replace("tau", "")
+                        for trend in k_political_trends
+                        if trend.replace("tau", "") != "par"
+                    ],
                     election_code=f"{k_year}_{k_type}",
                 )
 
@@ -691,7 +743,9 @@ if __name__ == "__main__":
 
     # 1. Load all dataset
     data = DataLoader.load_dataset(
-        backtester.config.data_path + backtester.config.dataset_path, engine="polars", hive_partitioning=True
+        backtester.config.data_path + backtester.config.dataset_path,
+        engine="polars",
+        hive_partitioning=True,
     )
     for model_name in models:
         logger.info(f"Model: {model_name}")
@@ -700,8 +754,8 @@ if __name__ == "__main__":
             MODEL_ARGS[model_name],
         )
         for political_trends in k_political_trends:
-            for year in k_years:
-                for type_ in k_types:
+            for type_ in k_types:
+                for year in k_years[type_]:
                     logger.info(
                         f"Running backtest for year: {year}, type: {type_}, political_trends: {political_trends}"
                     )

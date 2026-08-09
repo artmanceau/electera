@@ -30,32 +30,45 @@ candidats_2022_mapping = {
         "Nathalie Arthaud",
     ],
     "CG": ["Anne Hidalgo", "Yannick Jadot"],
-    'GCG': [
+    "GCG": [
         "Anne Hidalgo",
         "Yannick Jadot",
         "Jean-Luc Mélenchon",
         "Fabien Roussel",
         "Philippe Poutou",
-        "Nathalie Arthaud"
+        "Nathalie Arthaud",
     ],
-    'TG': [ "Anne Hidalgo",
+    "TG": [
+        "Anne Hidalgo",
         "Yannick Jadot",
         "Jean-Luc Mélenchon",
         "Fabien Roussel",
         "Philippe Poutou",
         "Nathalie Arthaud",
-        'Motié des voix pour Emmanuel Macron'],
+        "Motié des voix pour Emmanuel Macron",
+    ],
     "C": [
         "Emmanuel Macron",
     ],
-    'TD': ["Valérie Pécresse", "Nicolas Dupont-Aignan", "Marine Le Pen", "Éric Zemmour", 'Motié des voix pour Emmanuel Macron'],
+    "TD": [
+        "Valérie Pécresse",
+        "Nicolas Dupont-Aignan",
+        "Marine Le Pen",
+        "Éric Zemmour",
+        "Motié des voix pour Emmanuel Macron",
+    ],
     "CD": ["Valérie Pécresse", "Nicolas Dupont-Aignan"],
-    'DCD': ["Valérie Pécresse", "Nicolas Dupont-Aignan", "Marine Le Pen", "Éric Zemmour"],
+    "DCD": [
+        "Valérie Pécresse",
+        "Nicolas Dupont-Aignan",
+        "Marine Le Pen",
+        "Éric Zemmour",
+    ],
     "D": ["Marine Le Pen", "Éric Zemmour"],
 }
 
 trad = {
-    "TD": "à droite (tout les partis)", 
+    "TD": "à droite (tout les partis)",
     "TG": "à gauche (tout les partis)",
     "GCG": "à gauche et au centre-gauche",
     "DCD": "à droite et au centre-droit",
@@ -64,7 +77,6 @@ trad = {
     "C": "pour le centre",
     "D": "à droite",
     "CG": "pour le centre-gauche",
-
     "tauTD": "à gauche (tout les partis)",
     "tauTG": "à droite (tout les partis)",
     "tauGCG": "à gauche et au centre-gauche",
@@ -74,7 +86,6 @@ trad = {
     "tauC": "pour le centre",
     "tauD": "à droite",
     "tauCG": "pour le centre-gauche",
-
     "par": "participation",
 }
 

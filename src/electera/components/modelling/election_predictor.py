@@ -12,8 +12,8 @@ class ElectionPredictor:
     """
 
     def __init__(self, trends):
-        self.is_logit = 'tau' in trends[0]
-        self.trends = [trend.replace('tau', '') for trend in trends]
+        self.is_logit = "tau" in trends[0]
+        self.trends = [trend.replace("tau", "") for trend in trends]
         self.models = {trend: None for trend in self.trends}
         self.data_paths = {trend: None for trend in self.trends}
         self.signatures = {trend: None for trend in self.trends}

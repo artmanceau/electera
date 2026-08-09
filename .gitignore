@@ -7,7 +7,6 @@ electera.egg-info/
 
 # Ruff cache files
 .ruff_cache
-.pre-commit-config.yaml
 
 # Data folder
 data/

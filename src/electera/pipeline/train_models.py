@@ -54,7 +54,9 @@ class ElectionModelTrainer:
         self.model_data = {}
         self.input_examples = {}
 
-    def data_processing(self, data, var, feature_groups=["rank", "inscrits", "type", "geo"]):
+    def data_processing(
+        self, data, var, feature_groups=["rank", "inscrits", "type", "geo"]
+    ):
         """Prepare training and testing data"""
         logger.info("Preparing data splits...")
 
@@ -118,7 +120,7 @@ class ElectionModelTrainer:
                 "R²": r2_scores,
             }
         )
-        comparison_df.to_csv('data/comp_table.csv')
+        comparison_df.to_csv("data/comp_table.csv")
 
         return comparison_df
 
@@ -276,11 +278,17 @@ def run():
     data = DataLoader.load_dataset(trainer.config.dataset_path, engine="polars")
 
     for var in trainer.config.vote_variable:
-        for feature_groups in [["raw", "inscrits", "type", "geo", 'annee', "previous_vote"], ["raw", "inscrits", "type", "geo", 'annee'], ["raw", "inscrits", "type", "geo"], ["rank", "inscrits", "type", "geo"], ["rank", "inscrits", "type", "geo", "pct_change"]]:
+        for feature_groups in [
+            ["raw", "inscrits", "type", "geo", "annee", "previous_vote"],
+            ["raw", "inscrits", "type", "geo", "annee"],
+            ["raw", "inscrits", "type", "geo"],
+            ["rank", "inscrits", "type", "geo"],
+            ["rank", "inscrits", "type", "geo", "pct_change"],
+        ]:
             feature_groups_str = "_".join(feature_groups)
 
             logger.info(f"Running for variable: {var}")
-            logger.info(f'Running for features: {feature_groups_str}')
+            logger.info(f"Running for features: {feature_groups_str}")
 
             # Process data
             trainer.data_processing(data, var, feature_groups)
@@ -334,7 +342,10 @@ def run():
                 bm = BenchmarkModels()
                 model_name = f"elastic_net_{var}_{feature_groups_str}"
                 y_4 = bm.train_linear_model(
-                    trainer.X_train, trainer.y_train, trainer.X_test, linear_model=LassoCV
+                    trainer.X_train,
+                    trainer.y_train,
+                    trainer.X_test,
+                    linear_model=LassoCV,
                 )
                 trainer.results[model_name] = ModelEvaluator.evaluate(
                     trainer.y_test, y_4, model_name, extended=True
@@ -382,9 +393,12 @@ def run():
                                 y_train=trainer.y_train,
                                 X_val=trainer.X_val,
                                 y_val=trainer.y_val,
-                                weighting="log"
+                                weighting="log",
                             )
-                            model_name = boosting_model.get_model_name() + f"_{var}_{feature_groups_str}" 
+                            model_name = (
+                                boosting_model.get_model_name()
+                                + f"_{var}_{feature_groups_str}"
+                            )
                             logger.info(f"Boosting model trained {model_name}...")
 
                             trainer.models[model_name] = model
@@ -403,7 +417,9 @@ def run():
                             )
 
             if "meta_boosting" in trainer.config.models:
-                for feature_selection_method in trainer.config.feature_selection_methods:
+                for (
+                    feature_selection_method
+                ) in trainer.config.feature_selection_methods:
                     for method in trainer.config.boosting_methods:
                         meta_booster = MetaBooster(
                             method=method,
@@ -422,21 +438,21 @@ def run():
                         )
                         y_pred = meta_booster.infer(trainer.X_test)
                         model_name = f"meta_booster_{method}_featselect:{feature_selection_method}_{var}_{feature_groups_str}"
-                        trainer.results[
-                            model_name
-                        ] = ModelEvaluator.evaluate(
+                        trainer.results[model_name] = ModelEvaluator.evaluate(
                             trainer.y_test,
                             y_pred,
                             model_name,
                             extended=True,
                         )
-                        trainer.predictions[
-                            model_name
-                        ] = pd.concat([trainer.y_test, pd.Series(y_pred)], axis=1)
+                        trainer.predictions[model_name] = pd.concat(
+                            [trainer.y_test, pd.Series(y_pred)], axis=1
+                        )
 
             if "meta_boosting_multiple" in trainer.config.models:
                 # meta-boosting using average predictions over multiple elections used for training
-                for feature_selection_method in trainer.config.feature_selection_methods:
+                for (
+                    feature_selection_method
+                ) in trainer.config.feature_selection_methods:
                     for method in trainer.config.boosting_methods:
                         meta_booster_multiple = MetaBoosterMultipleElections(
                             method=method,
@@ -457,17 +473,15 @@ def run():
                         )
                         y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
                         model_name = f"meta_booster_multiple_{method}_featselect:{feature_selection_method}_{var}_{feature_groups_str}"
-                        trainer.results[
-                            model_name
-                        ] = ModelEvaluator.evaluate(
+                        trainer.results[model_name] = ModelEvaluator.evaluate(
                             trainer.y_test,
                             y_pred,
                             model_name,
                             extended=True,
                         )
-                        trainer.predictions[
-                            model_name
-                        ] = pd.concat([trainer.y_test, y_pred], axis=1)
+                        trainer.predictions[model_name] = pd.concat(
+                            [trainer.y_test, y_pred], axis=1
+                        )
 
         # Compare models
         comparison_df = trainer.compare_models()
@@ -488,7 +502,9 @@ def run():
             )
 
             args = parser.parse_args()
-            trainer.save_results(experiment_name=args.experiment_name + f"_{var}_{feature_groups_str}")
+            trainer.save_results(
+                experiment_name=args.experiment_name + f"_{var}_{feature_groups_str}"
+            )
 
         logger.success("Model training pipeline completed!")
 

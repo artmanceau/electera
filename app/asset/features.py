@@ -2522,6 +2522,7 @@ FEATURE_DICT = {
 
 def get_feature_desc(feature_code):
     try:
-        return FEATURE_DICT[feature_code]['description']
-    except:
+        return FEATURE_DICT[feature_code]["description"]
+    except Exception as e:
+        print(e)
         return feature_code

@@ -73,16 +73,13 @@ class Explainer:
             importance_mean = importance.mean(axis=1).fillna(0.0)
 
             booster_df = (
-                importance_mean
-                .rename_axis("Feature")
+                importance_mean.rename_axis("Feature")
                 .reset_index(name="Importance")
                 .sort_values("Importance", ascending=False)
             )
 
             booster_dfs.append(
-                booster_df.rename(
-                    columns={"Importance": importance_type}
-                )
+                booster_df.rename(columns={"Importance": importance_type})
             )
 
         booster_importance_df = booster_dfs[0]
@@ -115,15 +112,12 @@ class Explainer:
         else:
             logger.warning("Skipping permutation feature importance")
 
-            perm_importance_df = (
-                pd.DataFrame(
-                    {
-                        "Feature": features,
-                        "Importance": np.zeros(len(features)),
-                    }
-                )
-                .sort_values("Importance", ascending=False)
-            )
+            perm_importance_df = pd.DataFrame(
+                {
+                    "Feature": features,
+                    "Importance": np.zeros(len(features)),
+                }
+            ).sort_values("Importance", ascending=False)
 
         # ------------------------------------------------------------------
         # 3. SHAP importance
@@ -131,43 +125,33 @@ class Explainer:
         if self.shap_values_computed and shap_values is not None:
             logger.info("Calculating SHAP feature importance...")
 
-            shap_importance_df = (
-                pd.DataFrame(
-                    {
-                        "Feature": features,
-                        "Importance": np.abs(shap_values).mean(axis=0),
-                    }
-                )
-                .sort_values("Importance", ascending=False)
-            )
+            shap_importance_df = pd.DataFrame(
+                {
+                    "Feature": features,
+                    "Importance": np.abs(shap_values).mean(axis=0),
+                }
+            ).sort_values("Importance", ascending=False)
         else:
             logger.warning("Skipping SHAP feature importance")
 
-            shap_importance_df = (
-                pd.DataFrame(
-                    {
-                        "Feature": features,
-                        "Importance": np.zeros(len(features)),
-                    }
-                )
-                .sort_values("Importance", ascending=False)
-            )
+            shap_importance_df = pd.DataFrame(
+                {
+                    "Feature": features,
+                    "Importance": np.zeros(len(features)),
+                }
+            ).sort_values("Importance", ascending=False)
 
         # ------------------------------------------------------------------
         # Save
         # ------------------------------------------------------------------
-        global_df = (
-            booster_importance_df
-            .merge(
-                perm_importance_df.rename(columns={"Importance": "permutation"}),
-                on="Feature",
-                how="left",
-            )
-            .merge(
-                shap_importance_df.rename(columns={"Importance": "shap"}),
-                on="Feature",
-                how="left",
-            )
+        global_df = booster_importance_df.merge(
+            perm_importance_df.rename(columns={"Importance": "permutation"}),
+            on="Feature",
+            how="left",
+        ).merge(
+            shap_importance_df.rename(columns={"Importance": "shap"}),
+            on="Feature",
+            how="left",
         )
 
         global_df.to_parquet(
@@ -287,7 +271,9 @@ class Explainer:
                 try:
                     PartialDependenceDisplay.from_estimator(
                         estimator=self.model.models[self.var_c].best_models[k],
-                        X=X[self.model.models[self.var_c].features].dropna(subset=[feature]),
+                        X=X[self.model.models[self.var_c].features].dropna(
+                            subset=[feature]
+                        ),
                         features=[feature],
                         grid_resolution=50,
                         kind="both",
@@ -328,7 +314,9 @@ class Explainer:
                 # 3. Accumulated Local Effect (ALE)
                 try:
                     ale(
-                        X=X[self.model.models[self.var_c].features].dropna(subset=[feature]),
+                        X=X[self.model.models[self.var_c].features].dropna(
+                            subset=[feature]
+                        ),
                         model=self.model.models[self.var_c].best_models[k],
                         feature=[feature],
                         grid_size=50,
@@ -433,7 +421,7 @@ class Explainer:
         self.type_ = type_
         self.t = 1 if self.type_ == "pres" else 0
         self.var = var
-        self.var_c = self.var.replace('tau', '')
+        self.var_c = self.var.replace("tau", "")
         self.year = year
         self.vars_ = vars_
         logger.info(
@@ -472,7 +460,10 @@ class Explainer:
         if "shap_values" in self.steps:
             shap_values, base_value, features = self.compute_shap_values(X)
             self.save_shap_values(
-                entities=c, features=features, shap_values=shap_values, base_value=base_value
+                entities=c,
+                features=features,
+                shap_values=shap_values,
+                base_value=base_value,
             )
         if "plot_shap_values" in self.steps:
             self.plot_shap_summary(shap_values=shap_values)

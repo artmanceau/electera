@@ -6,6 +6,7 @@ import polars as pl
 from electera.components.data_processing.data_loader import DataLoader
 from concurrent.futures import ThreadPoolExecutor
 
+
 class FileSystem:
     instance = None
 
@@ -25,7 +26,7 @@ class FileSystem:
             self.storage_options = {
                 "aws_access_key_id": key,
                 "aws_secret_access_key": secret,
-                "aws_region": "us-east-1"
+                "aws_region": "us-east-1",
             }
             self.initialized = True
 
@@ -60,7 +61,6 @@ def _convert_to_pandas(X: Union[pl.DataFrame, pd.DataFrame]):
 
 
 class AppData:
-
     def __init__(self, data_path, version, tau):
         self.tau = tau
         self.data_path = data_path
@@ -68,10 +68,21 @@ class AppData:
         self.container = {}
 
     def load_communes_list(self):
-        commmunes_list = pd.read_csv('app/asset/communes2022.csv')
-        self.container['communes_list'] = commmunes_list
-        
-    def _load_trend(self, fs, version, asset: str, trend: str, trends_: list, year: int, election_type: str, columns, filters):
+        commmunes_list = pd.read_csv("app/asset/communes2022.csv")
+        self.container["communes_list"] = commmunes_list
+
+    def _load_trend(
+        self,
+        fs,
+        version,
+        asset: str,
+        trend: str,
+        trends_: list,
+        year: int,
+        election_type: str,
+        columns,
+        filters,
+    ):
         """Load a single trend dataset."""
         file_path = f"{self.data_path}/output/explain/{asset}_{trends_}_{trend}_{year}_{election_type}_{version}.parquet"
         element = DataLoader.load_dataset(
@@ -80,7 +91,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine="polars-pyarrow"
+            engine="polars-pyarrow",
         )
         return trend, _convert_to_pandas(element)
 
@@ -96,13 +107,24 @@ class AppData:
     ):
         self.container[asset] = {}
 
-        trends_ = [f'tau{trend}' for trend in trends] if self.tau else trends
+        trends_ = [f"tau{trend}" for trend in trends] if self.tau else trends
 
         fs = get_fs().fs
 
         with ThreadPoolExecutor(max_workers=len(trends)) as executor:
             futures = [
-                executor.submit(self._load_trend, fs, self.version, asset, trend, trends_, year, election_type, columns, filters)
+                executor.submit(
+                    self._load_trend,
+                    fs,
+                    self.version,
+                    asset,
+                    trend,
+                    trends_,
+                    year,
+                    election_type,
+                    columns,
+                    filters,
+                )
                 for trend in trends
             ]
             for future in futures:
@@ -122,7 +144,7 @@ class AppData:
         asset_name: Optional[str] | None = None,
     ):
         if self.tau:
-            trends = [f'tau{trend}' for trend in trends]
+            trends = [f"tau{trend}" for trend in trends]
 
         element = DataLoader.load_dataset(
             f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
@@ -130,7 +152,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine="polars-pyarrow"
+            engine="polars-pyarrow",
         )
         logger.info(f"{asset} loaded with success!")
 
@@ -149,7 +171,7 @@ class AppData:
             formate="parquet",
             columns=columns,
             filters=filters,
-            engine="polars-pyarrow"
+            engine="polars-pyarrow",
         )
         logger.info(f"{asset_name} loaded with success!")
         asset_name = asset_name if asset_name is not None else "data"

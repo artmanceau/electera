@@ -13,12 +13,11 @@ def split_method(
     validation_year=None,
 ):
     if way == "time-serie-cv":
-        data_train = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") <= int(validation_year)
-        ).filter(
-            pl.col('annee') != 1848
-        ).filter(
-            pl.col('annee') >= int(validation_year) - 20
+        data_train = (
+            data.filter(pl.col("election_type") == election_type)
+            .filter(pl.col("annee") <= int(validation_year))
+            .filter(pl.col("annee") != 1848)
+            .filter(pl.col("annee") >= int(validation_year) - 20)
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") == int(test_year)
@@ -186,10 +185,17 @@ def get_Xy_pl(
             ),
             "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
             "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
-            "geo": ["lat", "long", "distanceparis", "distancelyon", "distancemarseille", "dep_num"],
-            "previous_vote": set([y_prev, f"previous{y_prev}"]+[previous_delta]).intersection(
-                set(data_train.columns)
-            ),
+            "geo": [
+                "lat",
+                "long",
+                "distanceparis",
+                "distancelyon",
+                "distancemarseille",
+                "dep_num",
+            ],
+            "previous_vote": set(
+                [y_prev, f"previous{y_prev}"] + [previous_delta]
+            ).intersection(set(data_train.columns)),
             "inscrits": ["inscrits"],
             "year": ["annee"],
             "type": ["type"],
@@ -212,8 +218,8 @@ def get_Xy_pl(
         null_cols_validation = set([s.name for s in data_validation if s.has_nulls()])
         null_cols = (null_cols_train.union(null_cols_test)).union(null_cols_validation)
 
-        if 'previous_vote' in selected_groups:
-            null_cols = null_cols.union(feature_groups['previous_vote'])
+        if "previous_vote" in selected_groups:
+            null_cols = null_cols.union(feature_groups["previous_vote"])
 
         features = list(set(features) - null_cols)
 
@@ -233,7 +239,7 @@ def get_Xy_pl(
     # Assert no null
     for df in [X_train, X_test, X_val]:
         assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
-    
+
     return (
         X_train.to_pandas(),
         X_val.to_pandas(),

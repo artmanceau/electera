@@ -36,7 +36,6 @@ def sample_df():
             "inscrits": [100, 200],
             "previouspvotea": [0.1, 0.2],
             "previouspvoteb": [0.1, 0.2],
-            "inscrits": [100, 200],
         }
     )
 

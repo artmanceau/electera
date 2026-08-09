@@ -100,7 +100,7 @@ class BoostingModel:
         y_val: pd.DataFrame | None = None,
         weighting: str = "equiproportional",
         feature_selection_method: str = "none",
-        nb_features: int = 'relative',
+        nb_features: int = "relative",
         param_search_method="none",
         meta_train: pd.DataFrame | None = None,
         **kwargs,
@@ -117,12 +117,15 @@ class BoostingModel:
         weights = self._compute_weights(X_train, y_train, weighting=weighting)
 
         # Features
-        self.feature_selection(feature_selection_method, nb_features=nb_features, X_val=X_train, y_val=y_train)
-
-        logger.debug(
-            f"With {len(self.features_selected)}/{X_train.shape[1]} features."
+        self.feature_selection(
+            feature_selection_method,
+            nb_features=nb_features,
+            X_val=X_train,
+            y_val=y_train,
         )
-        logger.debug(f'Feature selected: {self.features_selected}')
+
+        logger.debug(f"With {len(self.features_selected)}/{X_train.shape[1]} features.")
+        logger.debug(f"Feature selected: {self.features_selected}")
 
         # Parameters
         if self.parameters is None:
@@ -131,7 +134,12 @@ class BoostingModel:
             self.params = self.parameters
 
         # Parameter search
-        best_params = self.parameter_search(param_search_method=param_search_method, X_val=X_train, y_val=y_train, meta_val=meta_train)
+        best_params = self.parameter_search(
+            param_search_method=param_search_method,
+            X_val=X_train,
+            y_val=y_train,
+            meta_val=meta_train,
+        )
 
         self.params.update(best_params)
 
@@ -177,7 +185,11 @@ class BoostingModel:
             return self.model.predict(X_test_boosting)
 
     def parameter_search(
-        self, param_search_method: str, X_val: pd.DataFrame, y_val: pd.DataFrame, meta_val: pd.DataFrame | None = None
+        self,
+        param_search_method: str,
+        X_val: pd.DataFrame,
+        y_val: pd.DataFrame,
+        meta_val: pd.DataFrame | None = None,
     ):
         """
         Perform parameter search for hyperparameter tuning
@@ -190,26 +202,33 @@ class BoostingModel:
 
         elif param_search_method == "optuna":
             # Optimize other parameters using the chosen method
-            logger.debug(
-                f"Optimizing parameters using {param_search_method} search..."
-            )
-            _, X, _, y = train_test_split(
-                X_val, y_val, test_size=0.33, random_state=42
-            )
+            logger.debug(f"Optimizing parameters using {param_search_method} search...")
+            _, X, _, y = train_test_split(X_val, y_val, test_size=0.33, random_state=42)
 
             def objective(trial):
                 params = {
-                    "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True),
+                    "learning_rate": trial.suggest_float(
+                        "learning_rate", 1e-5, 1e-1, log=True
+                    ),
                     "max_depth": trial.suggest_int("max_depth", 5, 10),
                     # "min_child_weight": trial.suggest_int("min_child_weight", 1, 100),
                     "alpha": trial.suggest_float("alpha", 1e0, 1e2, log=True),
                     "gamma": trial.suggest_float("gamma", 1e0, 1e2, log=True),
                     "lambda": trial.suggest_float("lambda", 1e0, 1e2, log=True),
-                    "eval_metric": "mae"
+                    "eval_metric": "mae",
                 }
 
                 model = self.boosting_method(**params)
-                nested_cv = GroupKFold(n_splits=3, shuffle=True, random_state=42, groups=meta_val['codecommune']) if meta_val else KFold(n_splits=3, shuffle=True, random_state=42)
+                nested_cv = (
+                    GroupKFold(
+                        n_splits=3,
+                        shuffle=True,
+                        random_state=42,
+                        groups=meta_val["codecommune"],
+                    )
+                    if meta_val
+                    else KFold(n_splits=3, shuffle=True, random_state=42)
+                )
 
                 scores = cross_val_score(
                     model,
@@ -221,7 +240,7 @@ class BoostingModel:
                 )
                 return -scores.mean()
 
-            '''
+            """
             if param_search_method == "bayesian":
                 search_object = BayesSearchCV(
                     estimator=self.boosting_method(
@@ -263,7 +282,7 @@ class BoostingModel:
                     scoring="neg_mean_squared_error",
                     n_jobs=-1,
                 )
-            '''
+            """
             study = optuna.create_study(direction="minimize")
             study.optimize(objective, n_trials=10)
             best_params = study.best_params
@@ -281,7 +300,13 @@ class BoostingModel:
 
         return best_params
 
-    def feature_selection(self, feature_selection_method='none', nb_features='relative', X_val=None, y_val=None):
+    def feature_selection(
+        self,
+        feature_selection_method="none",
+        nb_features="relative",
+        X_val=None,
+        y_val=None,
+    ):
         """
         Perform feature selection based on the specified method.
         """
@@ -311,12 +336,16 @@ class BoostingModel:
                 self.importance_df = self.importance_df.sort_values(
                     by="Gain", ascending=False
                 )
-                if nb_features == 'relative':
+                if nb_features == "relative":
                     gain = self.importance_df["Gain"]
                     total_gain = gain.sum()
                     cum_ratio = gain.cumsum() / total_gain
-                    n_features_80 = min(len(self.importance_df), int((cum_ratio < 0.90).sum() + 1))
-                    self.features_selected = self.importance_df.head(n_features_80)["Feature"].tolist()
+                    n_features_80 = min(
+                        len(self.importance_df), int((cum_ratio < 0.90).sum() + 1)
+                    )
+                    self.features_selected = self.importance_df.head(n_features_80)[
+                        "Feature"
+                    ].tolist()
                 else:
                     self.features_selected = self.importance_df.head(nb_features)[
                         "Feature"
@@ -361,8 +390,10 @@ class BoostingModel:
                     by="Permutation", ascending=False
                 )
 
-                if nb_features == 'relative':
-                    logger.debug('Keeping features larger than twice the median importance')
+                if nb_features == "relative":
+                    logger.debug(
+                        "Keeping features larger than twice the median importance"
+                    )
                     # Keep features larger than twice the median importance
                     median_importance = self.importance_df["Permutation"].median()
                     threshold = 2 * median_importance

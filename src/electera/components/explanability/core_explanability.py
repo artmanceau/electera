@@ -1,4 +1,3 @@
-from loguru import logger
 from sklearn.model_selection import train_test_split
 
 from electera.components.data_processing.data_loader import DataLoader
@@ -19,12 +18,16 @@ class ExplainCore:
     def _load_model(data_path, var, year, type_, vars_, model_version, fs):
         model_path = f"{data_path}output/models/model_{year}_{type_}_{str(vars_)}_{model_version}.pkl"
         model = DataLoader.load_pickle(file_path=model_path, fs=fs)
-        n_models = len(model.models[var].best_models) if isinstance(model.models[var], MetaBooster) else 1
+        n_models = (
+            len(model.models[var].best_models)
+            if isinstance(model.models[var], MetaBooster)
+            else 1
+        )
 
         # Adapt boosting to metaboosting structure
         if isinstance(model.models[var], BoostingModel):
-            setattr(model.models[var], 'features', model.models[var].features_selected)
-            setattr(model.models[var], 'best_models', [model.models[var].model])
+            setattr(model.models[var], "features", model.models[var].features_selected)
+            setattr(model.models[var], "best_models", [model.models[var].model])
 
         return model, n_models
 
