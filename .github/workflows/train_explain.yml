@@ -1,5 +1,5 @@
 
-name: Train & Explain (Argo) – Pull Image
+name: Train & Explain (Argo)
 
 on:
     workflow_dispatch:
@@ -69,5 +69,5 @@ jobs:
         - name: Submit Argo workflow
           run: |
             argo submit ./.argo/train-and-explain.yaml \
-              -p image="${{ env.IMAGE_TAG }}" 
+              -p image="${{ env.IMAGE_TAG }}"
               --watch

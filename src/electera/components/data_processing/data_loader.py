@@ -149,7 +149,7 @@ class DataUtils:
         filters: Optional[List[Tuple]] | None = None,
         hive_partitioning: Optional[bool] = False,
         storage_options: Optional[dict] | None = None,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """Reads a parquet file.
 
