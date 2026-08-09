@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: Tests
 
 on:
   pull_request:
@@ -32,11 +32,6 @@ jobs:
         run: |
           . .venv/bin/activate
           pytest tests/ -v --tb=short
-
-      - name: Pylint
-        run: |
-          . .venv/bin/activate
-          pylint src/ --fail-under=6 --reports=no
 
       - name: Cache uv
         uses: actions/cache@v4

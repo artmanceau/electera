@@ -51,7 +51,3 @@ jobs:
             # Tag it with the commit SHA so you can always trace it back
             tags: |
               ${{ env.REGISTRY_URL }}/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
-
-        # 6️⃣  (Optional) Post‑publish notification
-        - name: Notify success
-          run: echo "✅ Docker image pushed: ${{ env.REGISTRY_URL }}/${{ secrets.IMAGE_NAME }}:${{ github.sha }}"
