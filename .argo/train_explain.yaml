@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+    generateName: train-and-explain-   # Argo will append a timestamp
+
+spec:
+    entrypoint: pipeline
+    arguments:
+      parameters:
+        - name: image
+          value: ""          # overridden at submit time
+        - name: model
+          value: ""          # overridden
+        - name: iterations
+          value: "1000"      # default
+    podFailurePolicy:
+      rule: Fail
+    templates:
+    - name: pipeline
+      steps:
+        # --- train -------------------------------------------------------
+        - - name: train
+            template: train
+        # --- explain ----------------------------------------------------
+        - - name: explain
+            template: explain
+
+    # ------------------------------------------------------------------
+    # Individual steps --------------------------------------------------
+    # ------------------------------------------------------------------
+    - name: train
+      container:
+        image: "{{workflow.parameters.image}}"
+        command: ["uv", "run", "python", "-m", "electera.pipeline.election_backtester"]
+        args:
+      outputs:
+        parameters:
+        - name: training-log
+          valueFrom:
+            path: /tmp/output/log.txt
+
+    - name: explain
+      container:
+        image: "{{workflow.parameters.image}}"
+        command: ["uv", "run", "python", "-m", "electera.pipeline.explain_model"]
+        args:
+      # Hook the training log into the explain step, if needed
+      inputs:
+        parameters:
+        - name: training-log

@@ -147,7 +147,9 @@ class DataUtils:
         fs: object = None,
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
-        **kwargs,
+        hive_partitioning: Optional[bool] = False,
+        storage_options: Optional[dict] | None = None,
+        **kwargs
     ) -> pd.DataFrame:
         """Reads a parquet file.
 

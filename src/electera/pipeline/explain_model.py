@@ -493,8 +493,8 @@ if __name__ == "__main__":
     years = explainer.config.years
     types = explainer.config.types
     vars_ = explainer.config.vars_
-    for year in years:
-        for type_ in types:
+    for type_ in types:
+        for year in years[type_]:
             for vs in vars_:
                 for var in vs:
                     explainer.explain(var, year, type_, str(vs))

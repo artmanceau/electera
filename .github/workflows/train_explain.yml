@@ -1,0 +1,73 @@
+
+name: Train & Explain (Argo) – Pull Image
+
+on:
+    workflow_dispatch:
+      inputs:
+        model:
+          description: 'Model name to train'
+          required: true
+          default: 'my_model'
+        iterations:
+          description: 'Training iterations'
+          required: false
+          default: '1000'
+        image_tag:
+          description: |
+            Fully‑qualified image tag that should be used. If omitted, the action falls back to
+            <registry>/<repo>:<github_sha> (registry defaults to docker.io,
+            repo comes from the DOCKERHUB_REPO secret).
+          required: false
+          default: ''
+
+jobs:
+    run-argo:
+      runs-on: ubuntu-latest
+      # you can keep this in the same namespace the rest of the project lives in
+      environment: production
+
+      # 2a  Build environment variables that we’ll reuse in several steps
+      env:
+        # If the user supplied an image_tag, use that – otherwise build a SHA‑tag
+        IMAGE_TAG: ${{ inputs.image_tag || format('docker.io/%s:%s', secrets.DOCKERHUB_REPO, github.sha) }}
+        MODEL_NAME: ${{ inputs.model }}
+        ITERATIONS: ${{ inputs.iterations }}
+
+      steps:
+        # • Checkout the repo so we have .argo/train-and-explain.yaml available
+        - name: Checkout repository
+          uses: actions/checkout@v4
+
+        # • Optional: login to Docker Hub and pull the image so the runner can verify it exists
+        - name: Docker login
+          if: secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN
+          run: |
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        - name: Pull image
+          run: docker pull ${{ env.IMAGE_TAG }}
+
+        # • Install kubectl – enough to talk to the cluster via the kubeconfig secret
+        - uses: azure/setup-kubectl@v4
+          with:
+            version: 'v1.30.0'
+
+        # • Install Argo CLI (v3.12.1 – you can bump the tag if you wish)
+        - name: Install Argo CLI
+          run: |
+            curl -sLO https://github.com/argoproj/argo-workflows/releases/download/v3.12.1/argo-linux-amd64
+            sudo mv argo-linux-amd64 /usr/local/bin/argo
+            chmod +x /usr/local/bin/argo
+
+        # • Load the kubeconfig from a secret (base64‑encoded file)
+        - name: Set up kubeconfig
+          run: |
+            mkdir -p $HOME/.kube
+            echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+            chmod 600 $HOME/.kube/config
+
+        # • Finally, submit the workflow to Argo
+        - name: Submit Argo workflow
+          run: |
+            argo submit ./.argo/train-and-explain.yaml \
+              -p image="${{ env.IMAGE_TAG }}" 
+              --watch

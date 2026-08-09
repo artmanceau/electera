@@ -283,7 +283,7 @@ class DownloadDataConfig(BaseModel):
 
 class ExplanabilityConfig(BaseModel):
     model_version: str
-    years: List[int]
+    years: dict[str, List[int]]
     types: List[str]
     vars_: List[List[str]]
     data_path: str
