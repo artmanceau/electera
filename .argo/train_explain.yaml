@@ -25,18 +25,9 @@ spec:
         image: "{{workflow.parameters.image}}"
         command: ["uv", "run", "python", "-m", "electera.pipeline.election_backtester"]
         args:
-      outputs:
-        parameters:
-        - name: training-log
-          valueFrom:
-            path: /tmp/output/log.txt
 
     - name: explain
       container:
         image: "{{workflow.parameters.image}}"
         command: ["uv", "run", "python", "-m", "electera.pipeline.explain_model"]
         args:
-      # Hook the training log into the explain step, if needed
-      inputs:
-        parameters:
-        - name: training-log

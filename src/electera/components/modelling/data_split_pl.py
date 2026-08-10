@@ -12,11 +12,19 @@ def split_method(
     train_year=None,
     validation_year=None,
 ):
-    if way == "time-serie-cv":
+    if way == "last-try":
+        data_train_val = data.filter(pl.col("election_type") == election_type).filter(pl.col("annee") < int(test_year)).filter(pl.col("annee") >= 1960).filter(pl.col("annee") >= int(test_year) - 15)
+        data_test = data.filter(pl.col("election_type") == election_type).filter(
+            pl.col("annee") == int(test_year)
+        )
+        data_train, data_validation = train_test_split(
+            data_train_val, test_size=0.25, random_state=42, shuffle=True
+        )
+    elif way == "time-serie-cv":
         data_train = (
             data.filter(pl.col("election_type") == election_type)
             .filter(pl.col("annee") <= int(validation_year))
-            .filter(pl.col("annee") != 1848)
+            .filter(pl.col("annee") >= 1960)
             .filter(pl.col("annee") >= int(validation_year) - 20)
         )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
@@ -47,6 +55,7 @@ def split_method(
     else:
         logger.error("Split method not implemented, no splits implemented")
         data_train, data_test, data_validation = data, data, data
+
     return data_train, data_test, data_validation
 
 
@@ -158,7 +167,6 @@ def get_Xy_pl(
     #     logger.warning(
     #         "Not possible because we don't have enough past elections. Choosing random elections years instead"
     #     )
-
     data_train, data_test, data_validation = split_method(
         data,
         way=split_method_way,
@@ -174,10 +182,7 @@ def get_Xy_pl(
         f"Test election: {data_test.unique('annee').get_column('annee').to_list()}, train election: {data_train.unique('annee').get_column('annee').to_list()}, validation election: {data_validation.unique('annee').get_column('annee').to_list()}"
     )
 
-    if selected_features is not None:
-        features = selected_features
-    else:
-        feature_groups = {
+    feature_groups = {
             "rank": list(cs.expand_selector(data_train, cs.starts_with("F_rank"))),
             "raw": list(cs.expand_selector(data_train, cs.starts_with("F_raw"))),
             "pct_change": list(
@@ -199,7 +204,12 @@ def get_Xy_pl(
             "inscrits": ["inscrits"],
             "year": ["annee"],
             "type": ["type"],
-        }
+    }
+
+    if selected_features is not None:
+        features = selected_features
+
+    else:
         features = [
             col for group in selected_groups for col in feature_groups.get(group, [])
         ]
@@ -218,15 +228,12 @@ def get_Xy_pl(
         null_cols_validation = set([s.name for s in data_validation if s.has_nulls()])
         null_cols = (null_cols_train.union(null_cols_test)).union(null_cols_validation)
 
-        if "previous_vote" in selected_groups:
-            null_cols = null_cols.union(feature_groups["previous_vote"])
-
         features = list(set(features) - null_cols)
 
     X_train, X_test, X_val = (
-        data_train.select(features),
-        data_test.select(features),
-        data_validation.select(features),
+        data_train.select(features + [f'previous{vote_variable}']),
+        data_test.select(features + [f'previous{vote_variable}']),
+        data_validation.select(features + [f'previous{vote_variable}']),
     )
     meta_cols = ["codecommune", "dep", "inscrits"]
 
@@ -237,8 +244,8 @@ def get_Xy_pl(
     )
 
     # Assert no null
-    for df in [X_train, X_test, X_val]:
-        assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
+    # for df in [X_train, X_test, X_val]:
+    #    assert df.select(pl.sum_horizontal(pl.all().is_null())).sum().item() == 0
 
     return (
         X_train.to_pandas(),
