@@ -12,7 +12,6 @@ jobs:
       env:
         # If the user supplied an image_tag, use that – otherwise build a SHA‑tag
         IMAGE_TAG: electera:latest
-        VERSION: ${{ inputs.version }}
 
       steps:
         - name: Checkout repository
