@@ -1,7 +1,6 @@
 import argparse
 import json
 import sys
-from typing import Any
 
 from loguru import logger
 from electera.pipeline.election_backtester import BackTester
@@ -12,12 +11,13 @@ def parse_json_arg(value):
     """Attempts to parse a string as JSON; returns the original value if it fails."""
     if value is None:
         return None
-    if isinstance(value, str) and (value.startswith('[') or value.startswith('{')):
+    if isinstance(value, str) and (value.startswith("[") or value.startswith("{")):
         try:
             return json.loads(value)
         except json.JSONDecodeError:
             return value
     return value
+
 
 def main():
     parser = argparse.ArgumentParser(description="Electera Pipeline CLI")
@@ -30,11 +30,25 @@ def main():
     bt_parser.add_argument("--models", type=str, help="Override models (JSON list)")
     bt_parser.add_argument("--k-year", type=str, help="Override k_year (JSON dict)")
     bt_parser.add_argument("--k-type", type=str, help="Override k_type (JSON list)")
-    bt_parser.add_argument("--political-trends", type=str, help="Override political_trends (JSON list of lists)")
-    bt_parser.add_argument("--predict-delta", type=str, help="Override predict_delta (true/false)")
-    bt_parser.add_argument("--predict-percentile", type=str, help="Override predict_percentile (true/false)")
-    bt_parser.add_argument("--organize-vote", type=str, help="Override organize_vote (true/false)")
-    bt_parser.add_argument("--use-mlflow", type=str, help="Override use_mlflow (true/false)")
+    bt_parser.add_argument(
+        "--political-trends",
+        type=str,
+        help="Override political_trends (JSON list of lists)",
+    )
+    bt_parser.add_argument(
+        "--predict-delta", type=str, help="Override predict_delta (true/false)"
+    )
+    bt_parser.add_argument(
+        "--predict-percentile",
+        type=str,
+        help="Override predict_percentile (true/false)",
+    )
+    bt_parser.add_argument(
+        "--organize-vote", type=str, help="Override organize_vote (true/false)"
+    )
+    bt_parser.add_argument(
+        "--use-mlflow", type=str, help="Override use_mlflow (true/false)"
+    )
     bt_parser.add_argument("--version", type=str, help="Override version")
 
     # Explainer Subcommand
@@ -42,7 +56,9 @@ def main():
     ex_parser.add_argument("--model-version", type=str, help="Override model_version")
     ex_parser.add_argument("--years", type=str, help="Override years (JSON dict)")
     ex_parser.add_argument("--types", type=str, help="Override types (JSON list)")
-    ex_parser.add_argument("--vars", dest="vars_", type=str, help="Override vars_ (JSON list of lists)")
+    ex_parser.add_argument(
+        "--vars", dest="vars_", type=str, help="Override vars_ (JSON list of lists)"
+    )
     ex_parser.add_argument("--data-path", type=str, help="Override data_path")
     ex_parser.add_argument("--steps", type=str, help="Override steps (JSON list)")
 
@@ -55,7 +71,10 @@ def main():
                 continue
             if value is not None:
                 parsed_val = parse_json_arg(value)
-                if isinstance(parsed_val, str) and parsed_val.lower() in ["true", "false"]:
+                if isinstance(parsed_val, str) and parsed_val.lower() in [
+                    "true",
+                    "false",
+                ]:
                     parsed_val = parsed_val.lower() == "true"
                 overrides[key] = parsed_val
 

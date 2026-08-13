@@ -12,28 +12,30 @@ def generate_backtest_params():
             for type_ in config.k_type:
                 for year in config.k_year.get(type_, []):
                     # We output the exact keys needed for config overrides
-                    params.append({
-                        "models": [model],
-                        "political_trends": [trends],
-                        "k_type": [type_],
-                        "k_year": {type_: [year]}
-                    })
+                    params.append(
+                        {
+                            "models": [model],
+                            "political_trends": [trends],
+                            "k_type": [type_],
+                            "k_year": {type_: [year]},
+                        }
+                    )
     return params
 
 
 def generate_explain_params():
-    config = ConfigReader._read_config("../config/explainability.json", ExplanabilityConfig)
+    config = ConfigReader._read_config(
+        "../config/explainability.json", ExplanabilityConfig
+    )
     params = []
     for type_ in config.types:
         for year in config.years.get(type_, []):
             for vs in config.vars_:
                 for var in vs:
                     # We output the exact keys needed for config overrides
-                    params.append({
-                        "types": [type_],
-                        "years": {type_: [year]},
-                        "vars_": [vs]
-                    })
+                    params.append(
+                        {"types": [type_], "years": {type_: [year]}, "vars_": [vs]}
+                    )
     return params
 
 
