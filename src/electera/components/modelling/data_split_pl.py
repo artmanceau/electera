@@ -166,6 +166,7 @@ def get_Xy_pl(
     else:
         y = vote_variable
         y_prev = f"previous{vote_variable}"
+        # y_prev_prev = f"previousprevious{vote_variable}"
         previous_delta = f"previousdelta{vote_variable}"
 
     data = data.select(
@@ -185,6 +186,7 @@ def get_Xy_pl(
             "dep_num",
             y,
             y_prev,
+            # y_prev_prev,
         ]
         + ["codecommune", "dep"]
     )
@@ -273,6 +275,7 @@ def get_Xy_pl(
 
         features = list(set(features) - null_cols)
 
+    # + [f'previous{vote_variable}', f'previousprevious{vote_variable}']
     X_train, X_test, X_val = (
         data_train.select(features),
         data_test.select(features),

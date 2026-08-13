@@ -113,11 +113,15 @@ MODEL_ARGS = {
 
 
 class BackTester:
-    def __init__(self):
+    def __init__(self, **kwargs):
         """ """
         self.config = ConfigReader._read_config(
             "../config/backtester.json", BackTesterConfig
         )
+        if kwargs:
+            for key, value in kwargs.items():
+                if hasattr(self.config, key):
+                    setattr(self.config, key, value)
         self.models = {}
         self.data = {}
         self.X = {}
@@ -752,39 +756,41 @@ class BackTester:
                     mlflow.log_artifact(str(synthetic_file))
                     mlflow.log_artifact(str(detailed_file))
 
+    def run(self):
+        """Runs the full backtesting pipeline."""
+        models = self.config.models
+        k_years = self.config.k_year
+        k_types = self.config.k_type
+        k_political_trends = self.config.political_trends
+
+        # 1. Load all dataset
+        data = DataLoader.load_dataset(
+            self.config.data_path + self.config.dataset_path,
+            engine="polars",
+            hive_partitioning=True,
+        )
+        for model_name in models:
+            logger.info(f"Model: {model_name}")
+            model, model_args = (
+                MODELS[model_name],
+                MODEL_ARGS[model_name],
+            )
+            for political_trends in k_political_trends:
+                for type_ in k_types:
+                    for year in k_years[type_]:
+                        logger.info(
+                            f"Running backtest for year: {year}, type: {type_}, political_trends: {political_trends}"
+                        )
+                        self.run_backtest(
+                            data=data,
+                            k_year=year,
+                            k_type=type_,
+                            k_political_trends=political_trends,
+                            model=model,
+                            model_args=model_args,
+                            model_name=model_name,
+                        )
+
 
 if __name__ == "__main__":
-    backtester = BackTester()
-    # List
-    models = backtester.config.models
-    k_years = backtester.config.k_year
-    k_types = backtester.config.k_type
-    k_political_trends = backtester.config.political_trends
-
-    # 1. Load all dataset
-    data = DataLoader.load_dataset(
-        backtester.config.data_path + backtester.config.dataset_path,
-        engine="polars",
-        hive_partitioning=True,
-    )
-    for model_name in models:
-        logger.info(f"Model: {model_name}")
-        model, model_args = (
-            MODELS[model_name],
-            MODEL_ARGS[model_name],
-        )
-        for political_trends in k_political_trends:
-            for type_ in k_types:
-                for year in k_years[type_]:
-                    logger.info(
-                        f"Running backtest for year: {year}, type: {type_}, political_trends: {political_trends}"
-                    )
-                    backtester.run_backtest(
-                        data=data,
-                        k_year=year,
-                        k_type=type_,
-                        k_political_trends=political_trends,
-                        model=model,
-                        model_args=model_args,
-                        model_name=model_name,
-                    )
+    BackTester().run()

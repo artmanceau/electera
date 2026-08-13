@@ -18,12 +18,17 @@ from electera.components.utils.read_config import ConfigReader
 
 
 class Explainer:
-    def __init__(self):
+    def __init__(self, **kwargs):
         """Initialize the explainability pipeline with a configuration."""
 
         self.config = ConfigReader._read_config(
             "../config/explainability.json", ExplanabilityConfig
         )
+        if kwargs:
+            for key, value in kwargs.items():
+                if hasattr(self.config, key):
+                    setattr(self.config, key, value)
+
         self.data_path = self.config.data_path
         self.model_version = self.config.model_version
         self.steps = self.config.steps
@@ -487,14 +492,17 @@ class Explainer:
 
         logger.success("Explain pipeline done")
 
+    def run(self):
+        """Runs the full explainability pipeline."""
+        years = self.config.years
+        types = self.config.types
+        vars_ = self.config.vars_
+        for type_ in types:
+            for year in years[type_]:
+                for vs in vars_:
+                    for var in vs:
+                        self.explain(var, year, type_, str(vs))
+
 
 if __name__ == "__main__":
-    explainer = Explainer()
-    years = explainer.config.years
-    types = explainer.config.types
-    vars_ = explainer.config.vars_
-    for type_ in types:
-        for year in years[type_]:
-            for vs in vars_:
-                for var in vs:
-                    explainer.explain(var, year, type_, str(vs))
+    Explainer().run()

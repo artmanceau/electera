@@ -211,7 +211,6 @@ class BoostingModel:
                         "learning_rate", 1e-5, 1e-1, log=True
                     ),
                     "max_depth": trial.suggest_int("max_depth", 5, 10),
-                    # "min_child_weight": trial.suggest_int("min_child_weight", 1, 100),
                     "alpha": trial.suggest_float("alpha", 1e0, 1e2, log=True),
                     "gamma": trial.suggest_float("gamma", 1e0, 1e2, log=True),
                     "lambda": trial.suggest_float("lambda", 1e0, 1e2, log=True),
@@ -226,7 +225,7 @@ class BoostingModel:
                         random_state=42,
                         groups=meta_val["codecommune"],
                     )
-                    if meta_val
+                    if meta_val is not None
                     else KFold(n_splits=3, shuffle=True, random_state=42)
                 )
 
