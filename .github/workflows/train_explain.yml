@@ -1,26 +1,31 @@
-
 name: Train & Explain pipelines
 
 on:
     workflow_dispatch:
       inputs:
-        bt_data_path:
+        # Shared parameters
+        version:
+          description: 'Override version'
+          required: false
+        k_year:
+          description: 'Override k_year (JSON dict)'
+          required: false
+        k_type:
+          description: 'Override k_type (JSON list)'
+          required: false
+        political_trends:
+          description: 'Override political_trends (JSON list of lists)'
+          required: false
+        data_path:
           description: 'Override data_path'
           required: false
+
+        # Backtester-specific overrides
         bt_dataset_path:
           description: 'Override dataset_path'
           required: false
         bt_models:
           description: 'Override models (JSON list, e.g. ["boosting"])'
-          required: false
-        bt_k_year:
-          description: 'Override k_year (JSON dict)'
-          required: false
-        bt_k_type:
-          description: 'Override k_type (JSON list)'
-          required: false
-        bt_political_trends:
-          description: 'Override political_trends (JSON list of lists)'
           required: false
         bt_predict_delta:
           description: 'Override predict_delta (true/false)'
@@ -34,26 +39,8 @@ on:
         bt_use_mlflow:
           description: 'Override use_mlflow (true/false)'
           required: false
-        bt_version:
-          description: 'Override version'
-          required: false
 
-        # Explainer overrides
-        ex_model_version:
-          description: 'Override model_version'
-          required: false
-        ex_years:
-          description: 'Override years (JSON dict)'
-          required: false
-        ex_types:
-          description: 'Override types (JSON list)'
-          required: false
-        ex_vars:
-          description: 'Override vars_ (JSON list of lists)'
-          required: false
-        ex_data_path:
-          description: 'Override data_path'
-          required: false
+        # Explainer-specific overrides
         ex_steps:
           description: 'Override steps (JSON list)'
           required: false
@@ -65,13 +52,14 @@ jobs:
 
       env:
         IMAGE_TAG: electera:latest
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
       steps:
         - name: Checkout repository
           uses: actions/checkout@v4
 
         - name: Login to Docker Hub
-          if: ${{ vars.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN }}
+          if: vars.DOCKERHUB_USERNAME && env.DOCKERHUB_TOKEN
           uses: docker/login-action@v4
           with:
             username: ${{ vars.DOCKERHUB_USERNAME }}
@@ -101,25 +89,22 @@ jobs:
             PARAMS=""
             PARAMS+="-p image=${{ env.IMAGE_TAG }}"
 
-            # Backtester params
-            [ -n "${{ github.event.inputs.bt_data_path }}" ] && PARAMS+=" -p bt_data_path=${{ github.event.inputs.bt_data_path }}"
+            # Shared params (apply to both)
+            [ -n "${{ github.event.inputs.version }}" ] && PARAMS+=" -p bt_version=${{ github.event.inputs.version }} -p ex_model_version=${{ github.event.inputs.version }}"
+            [ -n "${{ github.event.inputs.k_year }}" ] && PARAMS+=" -p bt_k_year=${{ github.event.inputs.k_year }} -p ex_years=${{ github.event.inputs.k_year }}"
+            [ -n "${{ github.event.inputs.k_type }}" ] && PARAMS+=" -p bt_k_type=${{ github.event.inputs.k_type }} -p ex_types=${{ github.event.inputs.k_type }}"
+            [ -n "${{ github.event.inputs.political_trends }}" ] && PARAMS+=" -p bt_political_trends=${{ github.event.inputs.political_trends }} -p ex_vars=${{ github.event.inputs.political_trends }}"
+            [ -n "${{ github.event.inputs.data_path }}" ] && PARAMS+=" -p bt_data_path=${{ github.event.inputs.data_path }} -p ex_data_path=${{ github.event.inputs.data_path }}"
+
+            # Backtester specific params
             [ -n "${{ github.event.inputs.bt_dataset_path }}" ] && PARAMS+=" -p bt_dataset_path=${{ github.event.inputs.bt_dataset_path }}"
             [ -n "${{ github.event.inputs.bt_models }}" ] && PARAMS+=" -p bt_models=${{ github.event.inputs.bt_models }}"
-            [ -n "${{ github.event.inputs.bt_k_year }}" ] && PARAMS+=" -p bt_k_year=${{ github.event.inputs.bt_k_year }}"
-            [ -n "${{ github.event.inputs.bt_k_type }}" ] && PARAMS+=" -p bt_k_type=${{ github.event.inputs.bt_k_type }}"
-            [ -n "${{ github.event.inputs.bt_political_trends }}" ] && PARAMS+=" -p bt_political_trends=${{ github.event.inputs.bt_political_trends }}"
             [ -n "${{ github.event.inputs.bt_predict_delta }}" ] && PARAMS+=" -p bt_predict_delta=${{ github.event.inputs.bt_predict_delta }}"
             [ -n "${{ github.event.inputs.bt_predict_percentile }}" ] && PARAMS+=" -p bt_predict_percentile=${{ github.event.inputs.bt_predict_percentile }}"
             [ -n "${{ github.event.inputs.bt_organize_vote }}" ] && PARAMS+=" -p bt_organize_vote=${{ github.event.inputs.bt_organize_vote }}"
             [ -n "${{ github.event.inputs.bt_use_mlflow }}" ] && PARAMS+=" -p bt_use_mlflow=${{ github.event.inputs.bt_use_mlflow }}"
-            [ -n "${{ github.event.inputs.bt_version }}" ] && PARAMS+=" -p bt_version=${{ github.event.inputs.bt_version }}"
 
-            # Explainer params
-            [ -n "${{ github.event.inputs.ex_model_version }}" ] && PARAMS+=" -p ex_model_version=${{ github.event.inputs.ex_model_version }}"
-            [ -n "${{ github.event.inputs.ex_years }}" ] && PARAMS+=" -p ex_years=${{ github.event.inputs.ex_years }}"
-            [ -n "${{ github.event.inputs.ex_types }}" ] && PARAMS+=" -p ex_types=${{ github.event.inputs.ex_types }}"
-            [ -n "${{ github.event.inputs.ex_vars }}" ] && PARAMS+=" -p ex_vars=${{ github.event.inputs.ex_vars }}"
-            [ -n "${{ github.event.inputs.ex_data_path }}" ] && PARAMS+=" -p ex_data_path=${{ github.event.inputs.ex_data_path }}"
+            # Explainer specific params
             [ -n "${{ github.event.inputs.ex_steps }}" ] && PARAMS+=" -p ex_steps=${{ github.event.inputs.ex_steps }}"
 
             # Credentials
