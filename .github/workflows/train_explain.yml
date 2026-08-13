@@ -73,9 +73,14 @@ jobs:
 
         - name: Install Argo CLI
           run: |
-            curl -sLO https://github.com/argoproj/argo-workflows/releases/download/v3.12.1/argo-linux-amd64
+            ARGO_VERSION=v3.6.5
+            curl -fL -o argo-linux-amd64.gz \
+              https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-amd64.gz
+            gunzip argo-linux-amd64.gz
+            chmod +x argo-linux-amd64
             sudo mv argo-linux-amd64 /usr/local/bin/argo
-            chmod +x /usr/local/bin/argo
+            file /usr/local/bin/argo
+            argo version
 
         - name: Set up kubeconfig
           run: |
