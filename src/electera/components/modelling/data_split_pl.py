@@ -12,8 +12,51 @@ def split_method(
     train_year=None,
     validation_year=None,
 ):
-    if way == "last-try":
-        data_train_val = data.filter(pl.col("election_type") == election_type).filter(pl.col("annee") < int(test_year)).filter(pl.col("annee") >= 1960).filter(pl.col("annee") >= int(test_year) - 15)
+    if way == "last-try-seq":
+        # 1. Get all available years before the test year, sorted most recent first
+        available_years = (
+            data.filter(
+                (pl.col("election_type") == election_type)
+                & (pl.col("annee") < int(test_year))
+            )
+            .filter(pl.col("annee") >= 1960)
+            .select("annee")
+            .unique()
+            .sort("annee", descending=True)
+            .to_series()
+            .to_list()
+        )
+        available_years = available_years[:3]
+        sampled_dfs = []
+
+        for i, year in enumerate(available_years, start=1):
+            # Filter data for this specific election year
+            year_data = data.filter(
+                (pl.col("election_type") == election_type) & (pl.col("annee") == year)
+            )
+
+            # Sample with fraction 1/i (1/1, 1/2, 1/3...)
+            sampled_year = year_data.sample(fraction=1 / i, seed=42)
+            sampled_dfs.append(sampled_year)
+
+        data_train_val = pl.concat(sampled_dfs)
+        data_test = data.filter(
+            (pl.col("election_type") == election_type)
+            & (pl.col("annee") == int(test_year))
+        )
+
+        # 5. Split into train and validation
+        data_train, data_validation = train_test_split(
+            data_train_val, test_size=0.25, random_state=42, shuffle=True
+        )
+
+    elif way == "last-try":
+        data_train_val = (
+            data.filter(pl.col("election_type") == election_type)
+            .filter(pl.col("annee") < int(test_year))
+            .filter(pl.col("annee") >= 1960)
+            .filter(pl.col("annee") >= int(test_year) - 15)
+        )
         data_test = data.filter(pl.col("election_type") == election_type).filter(
             pl.col("annee") == int(test_year)
         )
@@ -183,27 +226,27 @@ def get_Xy_pl(
     )
 
     feature_groups = {
-            "rank": list(cs.expand_selector(data_train, cs.starts_with("F_rank"))),
-            "raw": list(cs.expand_selector(data_train, cs.starts_with("F_raw"))),
-            "pct_change": list(
-                cs.expand_selector(data_train, cs.starts_with("F_pct_change"))
-            ),
-            "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
-            "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
-            "geo": [
-                "lat",
-                "long",
-                "distanceparis",
-                "distancelyon",
-                "distancemarseille",
-                "dep_num",
-            ],
-            "previous_vote": set(
-                [y_prev, f"previous{y_prev}"] + [previous_delta]
-            ).intersection(set(data_train.columns)),
-            "inscrits": ["inscrits"],
-            "year": ["annee"],
-            "type": ["type"],
+        "rank": list(cs.expand_selector(data_train, cs.starts_with("F_rank"))),
+        "raw": list(cs.expand_selector(data_train, cs.starts_with("F_raw"))),
+        "pct_change": list(
+            cs.expand_selector(data_train, cs.starts_with("F_pct_change"))
+        ),
+        "delta": list(cs.expand_selector(data_train, cs.starts_with("F_delta"))),
+        "lag": list(cs.expand_selector(data_train, cs.starts_with("F_lag"))),
+        "geo": [
+            "lat",
+            "long",
+            "distanceparis",
+            "distancelyon",
+            "distancemarseille",
+            "dep_num",
+        ],
+        "previous_vote": set(
+            [y_prev, f"previous{y_prev}"] + [previous_delta]
+        ).intersection(set(data_train.columns)),
+        "inscrits": ["inscrits"],
+        "year": ["annee"],
+        "type": ["type"],
     }
 
     if selected_features is not None:
@@ -231,9 +274,9 @@ def get_Xy_pl(
         features = list(set(features) - null_cols)
 
     X_train, X_test, X_val = (
-        data_train.select(features + [f'previous{vote_variable}']),
-        data_test.select(features + [f'previous{vote_variable}']),
-        data_validation.select(features + [f'previous{vote_variable}']),
+        data_train.select(features),
+        data_test.select(features),
+        data_validation.select(features),
     )
     meta_cols = ["codecommune", "dep", "inscrits"]
 

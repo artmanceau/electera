@@ -1,7 +1,6 @@
 BASE_FEATURES = [
     # inscrits
     "inscrits",
-    "annee",
     # geo
     "dep_num",
     "lat",

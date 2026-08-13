@@ -34,7 +34,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 import electera.components.mlflow.mlflow_utils as mlf_utils
-from assets.delta_pred_features import make_features, BASE_FEATURES
+from assets.delta_pred_features import BASE_FEATURES
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import (
     LinearModel,
@@ -56,7 +56,7 @@ from electera.components.utils.read_config import ConfigReader
 
 # TODO:
 # - Modèle pour les votes blancs? Fix: Predire pexpr plutôt que ppar.
-#FEATURES = list(set(make_features("raw")))
+# FEATURES = list(set(make_features("raw")))
 
 
 S3_SAVE = True
@@ -75,17 +75,17 @@ MODEL_ARGS = {
     "boosting": {
         "parameters": {
             "subsample": 0.8,
-            "min_child_weight": 5,
+            "min_child_weight": 1,
             "n_estimators": 4000,
             "max_depth": 8,
             "objective": "reg:squarederror",
-            "learning_rate": 0.001,
+            "learning_rate": 0.005,
             "colsample_bytree": 0.8,  # the ratio of features used by tree
             "colsample_bylevel": 0.8,  # the ratio of features used by level
             "colsample_bynode": 0.8,  # the ratio of features used by node
-            "gamma": 10,
-            "alpha": 10,
-            "lambda": 10,
+            "gamma": 5,
+            "alpha": 5,
+            "lambda": 5,
             "early_stopping_rounds": 25,
         }
     },
@@ -172,11 +172,9 @@ class BackTester:
                 election_type=self.k_type_full,
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
-                selected_groups=[
-                    "previous_vote",
-                ],
+                selected_groups=[],
                 selected_features=BASE_FEATURES,
-                split_method_way="last-try",
+                split_method_way="last-try-seq",
             )
 
             for name, value in zip(container_names, values):
@@ -468,7 +466,7 @@ class BackTester:
                         self.y_train[trend],
                         self.X_val[trend],
                         self.y_val[trend],
-                        weighting="equiproportional",
+                        weighting="proportional",
                         feature_selection_method="none",
                         nb_features="relative",
                         param_search_method="none",
@@ -695,15 +693,25 @@ class BackTester:
                     election_code=f"{k_year}_{k_type}",
                 )
                 # Log into mlflow aggregated metrics
-                synthetic_log_mlflow = X_synthetic[X_synthetic['index']==f'pvote{trend}'].iloc[0].to_dict()
-                clean_synthetic_log_mlflow = {k.split('_', 2)[-1] if k.count('_') >= 2 else k: v for k, v in synthetic_log_mlflow.items()}
                 for trend in k_political_trends:
+                    synthetic_log_mlflow = (
+                        X_synthetic[
+                            X_synthetic["index"] == f"pvote{trend.replace('tau', '')}"
+                        ]
+                        .iloc[0]
+                        .to_dict()
+                    )
+                    clean_synthetic_log_mlflow = {
+                        k.split("_", 2)[-1] if k.count("_") >= 2 else k: v
+                        for k, v in synthetic_log_mlflow.items()
+                    }
+
                     mlf_utils._log_numeric_metrics(
-                            trend=trend,
-                            values=clean_synthetic_log_mlflow,
-                            model_name=model_name,
-                            suffix="",
-                        )
+                        trend=trend,
+                        values=clean_synthetic_log_mlflow,
+                        model_name=model_name,
+                        suffix="",
+                    )
 
                 winner_pred = self.election_predictor.get_winner(
                     X_pred, self.k_type_full
