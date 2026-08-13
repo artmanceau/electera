@@ -51,7 +51,7 @@ jobs:
       environment: production
 
       env:
-        IMAGE_TAG: electera:latest
+        IMAGE_TAG: ${{ vars.DOCKERHUB_USERNAME }}/electera:latest
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
       steps:
