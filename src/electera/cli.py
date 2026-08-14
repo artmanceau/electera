@@ -49,6 +49,9 @@ def main():
     bt_parser.add_argument(
         "--use-mlflow", type=str, help="Override use_mlflow (true/false)"
     )
+    bt_parser.add_argument(
+        "--mlflow-experiment", type=str, help="Override mlflow_experiment"
+    )
     bt_parser.add_argument("--version", type=str, help="Override version")
 
     # Explainer Subcommand

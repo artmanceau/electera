@@ -34,7 +34,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 import electera.components.mlflow.mlflow_utils as mlf_utils
-from assets.delta_pred_features import BASE_FEATURES
+from assets.delta_pred_features import BASE_FEATURES, CHAMPION_FEATURES
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import (
     LinearModel,
@@ -74,15 +74,11 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
-            "subsample": 0.8,
             "min_child_weight": 1,
             "n_estimators": 4000,
             "max_depth": 8,
             "objective": "reg:squarederror",
             "learning_rate": 0.005,
-            "colsample_bytree": 0.8,  # the ratio of features used by tree
-            "colsample_bylevel": 0.8,  # the ratio of features used by level
-            "colsample_bynode": 0.8,  # the ratio of features used by node
             "gamma": 5,
             "alpha": 5,
             "lambda": 5,
@@ -143,8 +139,11 @@ class BackTester:
                 "mlflow_experiment",
                 "ElectionBacktests",
             )
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            mlflow.set_experiment(f"{experiment_base}_{timestamp}")
+            if experiment_base == "ElectionBacktests":
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                mlflow.set_experiment(f"{experiment_base}_{timestamp}")
+            else:
+                mlflow.set_experiment(experiment_base)
 
     def process_and_split_dataset(self, data, k_year, k_political_trends):
         """
@@ -177,7 +176,7 @@ class BackTester:
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
                 selected_groups=[],
-                selected_features=BASE_FEATURES,
+                selected_features=CHAMPION_FEATURES,
                 split_method_way="last-try-seq",
             )
 

@@ -11,13 +11,11 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+COPY config ./config
+COPY assets ./assets
 
 RUN uv sync --frozen
 
-COPY src ./src
-COPY config ./config
-
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app/src:/app
 
 CMD ["uv", "run", "python", "-m", "electera.pipeline.election_backtester"]
-CMD ["uv", "run", "python", "-m", "electera.pipeline.explain_model"]
