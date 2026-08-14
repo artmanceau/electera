@@ -76,12 +76,12 @@ MODEL_ARGS = {
         "parameters": {
             "min_child_weight": 1,
             "n_estimators": 4000,
-            "max_depth": 10,
+            "max_depth": 12,
             "objective": "reg:squarederror",
             "learning_rate": 0.005,
-            "gamma": 3,
-            "alpha": 3,
-            "lambda": 3,
+            "gamma": 1,
+            "alpha": 1,
+            "lambda": 1,
             "early_stopping_rounds": 25,
         }
     },
