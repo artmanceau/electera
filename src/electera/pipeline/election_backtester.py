@@ -109,11 +109,14 @@ MODEL_ARGS = {
 
 
 class BackTester:
-    def __init__(self, **kwargs):
+    def __init__(self, config=None, **kwargs):
         """ """
-        self.config = ConfigReader._read_config(
-            "../config/backtester.json", BackTesterConfig
-        )
+        if config:
+            self.config = config
+        else:
+            self.config = ConfigReader._read_config(
+                "../config/backtester.json", BackTesterConfig
+            )
         if kwargs:
             for key, value in kwargs.items():
                 if hasattr(self.config, key):
