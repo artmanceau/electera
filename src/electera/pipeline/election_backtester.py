@@ -34,7 +34,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 import electera.components.mlflow.mlflow_utils as mlf_utils
-from assets.delta_pred_features import BASE_FEATURES, CHAMPION_FEATURES
+from assets.delta_pred_features import (
+    BASE_FEATURES,
+    # CHAMPION_FEATURES,
+    CHAMPION_FEATURES_EXTENDED,
+)
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import (
     LinearModel,
@@ -76,7 +80,7 @@ MODEL_ARGS = {
         "parameters": {
             "min_child_weight": 1,
             "n_estimators": 4000,
-            "max_depth": 12,
+            "max_depth": 8,
             "objective": "reg:squarederror",
             "learning_rate": 0.005,
             "gamma": 1,
@@ -179,7 +183,7 @@ class BackTester:
                 predict_delta=self.config.predict_delta,
                 predict_perc=self.config.predict_percentile,
                 selected_groups=[],
-                selected_features=CHAMPION_FEATURES,
+                selected_features=CHAMPION_FEATURES_EXTENDED,
                 split_method_way="last-try-seq",
             )
 

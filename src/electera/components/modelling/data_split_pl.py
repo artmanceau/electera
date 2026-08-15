@@ -276,6 +276,12 @@ def get_Xy_pl(
         features = list(set(features) - null_cols)
 
     # + [f'previous{vote_variable}', f'previousprevious{vote_variable}']
+    features = list(
+        set(features)
+        & set(data_train.columns)
+        & set(data_test.columns)
+        & set(data_validation.columns)
+    )
     X_train, X_test, X_val = (
         data_train.select(features),
         data_test.select(features),

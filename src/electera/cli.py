@@ -81,7 +81,7 @@ def main():
                     parsed_val = parsed_val.lower() == "true"
                 overrides[key] = parsed_val
 
-        logger.info("Launching BackTester...")
+        logger.info(f"Launching BackTester with overrides: {overrides}")
         BackTester(**overrides).run()
 
     elif args.command == "explain":
@@ -92,7 +92,7 @@ def main():
             if value is not None:
                 overrides[key] = parse_json_arg(value)
 
-        logger.info("Launching Explainer...")
+        logger.info(f"Launching Explainer with overrides: {overrides}")
         Explainer(**overrides).run()
     else:
         parser.print_help()
