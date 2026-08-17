@@ -152,6 +152,7 @@ def get_Xy_pl(
     ],
     selected_features=None,
     split_method_way="random",
+    remove_nulls=True,
 ):
     # Tau is monotonic
     vote_variable_perc = (
@@ -295,7 +296,6 @@ def get_Xy_pl(
     )
     y_previous = data_test.get_column(y_prev)
 
-    remove_nulls = True
     if remove_nulls:
         null_cols_train = set([s.name for s in data_train if s.has_nulls()])
         null_cols_test = set([s.name for s in data_test if s.has_nulls()])

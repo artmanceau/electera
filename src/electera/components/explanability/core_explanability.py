@@ -42,6 +42,7 @@ class ExplainCore:
             predict_delta=False,
             predict_perc=False,
             split_method_way="time-serie-cv",
+            remove_nulls=False,
         )
         meta_test["y"] = y_test
         return X_test, meta_test
