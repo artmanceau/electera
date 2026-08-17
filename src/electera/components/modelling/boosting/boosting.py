@@ -203,28 +203,31 @@ class BoostingModel:
         elif param_search_method == "optuna":
             # Optimize other parameters using the chosen method
             logger.debug(f"Optimizing parameters using {param_search_method} search...")
-            _, X, _, y = train_test_split(X_val, y_val, test_size=0.33, random_state=42)
+            if meta_val is None:
+                _, X, _, y = train_test_split(
+                    X_val, y_val, test_size=0.33, random_state=42
+                )
+            else:
+                _, X, _, y, _, groups = train_test_split(
+                    X_val,
+                    y_val,
+                    meta_val["codecommune"],
+                    test_size=0.33,
+                    random_state=42,
+                )
 
             def objective(trial):
                 params = {
-                    "learning_rate": trial.suggest_float(
-                        "learning_rate", 1e-5, 1e-1, log=True
-                    ),
-                    "max_depth": trial.suggest_int("max_depth", 5, 10),
-                    "alpha": trial.suggest_float("alpha", 1e0, 1e2, log=True),
-                    "gamma": trial.suggest_float("gamma", 1e0, 1e2, log=True),
-                    "lambda": trial.suggest_float("lambda", 1e0, 1e2, log=True),
+                    "max_depth": trial.suggest_int("max_depth", 5, 15),
+                    "alpha": trial.suggest_float("alpha", 1e-1, 1e2, log=True),
+                    "gamma": trial.suggest_float("gamma", 1e-1, 1e2, log=True),
+                    "lambda": trial.suggest_float("lambda", 1e-1, 1e2, log=True),
                     "eval_metric": "mae",
                 }
 
                 model = self.boosting_method(**params)
                 nested_cv = (
-                    GroupKFold(
-                        n_splits=3,
-                        shuffle=True,
-                        random_state=42,
-                        groups=meta_val["codecommune"],
-                    )
+                    GroupKFold(n_splits=3, shuffle=True, random_state=42)
                     if meta_val is not None
                     else KFold(n_splits=3, shuffle=True, random_state=42)
                 )
@@ -235,6 +238,7 @@ class BoostingModel:
                     y,
                     cv=nested_cv,
                     scoring="neg_mean_absolute_error",
+                    groups=groups if meta_val is not None else None,
                     n_jobs=-1,
                 )
                 return -scores.mean()

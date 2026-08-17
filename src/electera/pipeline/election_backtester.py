@@ -78,10 +78,14 @@ MODEL_ARGS = {
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "parameters": {
+            "subsample": 0.8,
             "min_child_weight": 1,
             "n_estimators": 4000,
             "max_depth": 8,
             "objective": "reg:squarederror",
+            "colsample_bytree": 0.8,
+            "colsample_bylevel": 0.8,
+            "colsample_bynode": 0.8,
             "learning_rate": 0.005,
             "gamma": 1,
             "alpha": 1,
@@ -114,7 +118,6 @@ MODEL_ARGS = {
 
 class BackTester:
     def __init__(self, config=None, **kwargs):
-        """ """
         if config:
             self.config = config
         else:
@@ -205,7 +208,7 @@ class BackTester:
             self.config.data_path
             + f"raw/elections/{election_type}/{k_year}/{election_type_code}{k_year}_csv/{election_type_code}{k_year}comm.parquet"
         )
-        if "CGCCD" in k_political_trends:
+        if "CGCCD" in k_political_trends or "tauCGCCD" in k_political_trends:
             political_trends = ["par", "CG", "C", "G", "D", "CD"]
             X_true = DataLoader.load_dataset(ground_truth_data_path)[
                 ["codecommune", "nomcommune", "inscrits", "votants", "exprimes"]
@@ -344,7 +347,7 @@ class BackTester:
             poll_data_path,
             fs=DataUtils._create_fs() if DataUtils._detect_s3(poll_data_path) else None,
         ):
-            if "CGCCD" in k_political_trends:
+            if "CGCCD" in k_political_trends or "tauCGCCD" in k_political_trends:
                 political_trends = ["par", "CG", "C", "G", "D", "CD"]
                 X_poll = DataLoader.load_dataset(poll_data_path)[
                     [
@@ -479,7 +482,7 @@ class BackTester:
                         weighting="proportional",
                         feature_selection_method="none",
                         nb_features="relative",
-                        param_search_method="none",
+                        param_search_method="optuna",
                         meta_train=self.meta_train[trend],
                     ),
                     "linear": lambda: instance_model.train(

@@ -29,15 +29,44 @@ def split_method(
         available_years = available_years[:3]
         sampled_dfs = []
 
-        for i, year in enumerate(available_years, start=1):
-            # Filter data for this specific election year
-            year_data = data.filter(
-                (pl.col("election_type") == election_type) & (pl.col("annee") == year)
-            )
+        stratify = False
 
-            # Sample with fraction 1/i (1/1, 1/2, 1/3...)
-            sampled_year = year_data.sample(fraction=1 / i, seed=42)
+        if stratify:
+            for i, year in enumerate(available_years, start=1):
+                if i == 1:
+                    sampled_year = data.filter(
+                        (pl.col("election_type") == election_type)
+                        & (pl.col("annee") == year)
+                    )
+                else:
+                    # Filter data for this specific election year
+                    year_data = data.filter(
+                        (pl.col("election_type") == election_type)
+                        & (pl.col("annee") == year)
+                    )
+                    # Sample with fraction 1/i (1/2, 1/3...)
+                    strata = year_data.select(
+                        pl.col("inscrits").qcut(100, allow_duplicates=True)
+                    ).to_series()
+
+                    sampled_year, _ = train_test_split(
+                        year_data,
+                        train_size=1 / i,
+                        stratify=strata,
+                        random_state=42,
+                    )
             sampled_dfs.append(sampled_year)
+        else:
+            for i, year in enumerate(available_years, start=1):
+                # Filter data for this specific election year
+                year_data = data.filter(
+                    (pl.col("election_type") == election_type)
+                    & (pl.col("annee") == year)
+                )
+
+                # Sample with fraction 1/i (1/1, 1/2, 1/3...)
+                sampled_year = year_data.sample(fraction=1 / i, seed=42)
+                sampled_dfs.append(sampled_year)
 
         data_train_val = pl.concat(sampled_dfs)
         data_test = data.filter(
@@ -190,7 +219,7 @@ def get_Xy_pl(
         ]
         + ["codecommune", "dep"]
     )
-    data = data.drop_nulls(subset=y)
+    data = data.drop_nulls(subset=y).fill_nan(None)
 
     # Assert no NaN
     assert data.select(pl.sum_horizontal(cs.float().is_nan())).sum().item() == 0
