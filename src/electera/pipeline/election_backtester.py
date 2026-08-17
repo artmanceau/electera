@@ -80,7 +80,7 @@ MODEL_ARGS = {
         "parameters": {
             "subsample": 0.8,
             "min_child_weight": 1,
-            "n_estimators": 4000,
+            "n_estimators": 5000,
             "max_depth": 8,
             "objective": "reg:squarederror",
             "colsample_bytree": 0.8,

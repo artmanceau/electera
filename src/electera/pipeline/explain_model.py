@@ -501,7 +501,7 @@ class Explainer:
             for year in years[type_]:
                 for vs in vars_:
                     for var in vs:
-                        self.explain(var, year, type_, str(vs))
+                        self.explain(var, year, type_, vs)
 
 
 if __name__ == "__main__":

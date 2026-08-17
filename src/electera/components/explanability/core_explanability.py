@@ -16,7 +16,8 @@ class ExplainCore:
 
     @staticmethod
     def _load_model(data_path, var, year, type_, vars_, model_version, fs):
-        model_path = f"{data_path}output/models/model_{year}_{type_}_{str(vars_)}_{model_version}.pkl"
+        vars_str = "_".join(vars_)
+        model_path = f"{data_path}output/models/model_{year}_{type_}_{vars_str}_{model_version}.pkl"
         model = DataLoader.load_pickle(file_path=model_path, fs=fs)
         n_models = (
             len(model.models[var].best_models)
