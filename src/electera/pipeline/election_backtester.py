@@ -35,7 +35,7 @@ from sklearn.metrics import mean_squared_error
 
 import electera.components.mlflow.mlflow_utils as mlf_utils
 from assets.delta_pred_features import (
-    BASE_FEATURES,
+    # BASE_FEATURES,
     # CHAMPION_FEATURES,
     CHAMPION_FEATURES_EXTENDED,
 )
@@ -97,17 +97,17 @@ MODEL_ARGS = {
         "method": "xgboost",
         "objective_metric": mean_squared_error,
         "weighting": "sqrt",
-        "features": BASE_FEATURES,
-        "n_splits_inner": 2,
-        "n_splits_outer": 1,
-        "n_trials": 1,
-        "poll_adj": True,
+        "features": None,
+        "n_splits_inner": 3,
+        "n_splits_outer": 3,
+        "n_trials": 3,
+        "poll_adj": False,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
-        "features": BASE_FEATURES,
+        "features": None,
         "n_splits_inner": 2,
         "n_splits_outer": 10,
         "n_trials": 2,

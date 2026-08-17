@@ -1,0 +1,432 @@
+metadata:
+  name: electera-mjvfh
+  generateName: electera-
+  namespace: user-arthurmanceau
+  uid: 63a63441-1726-433a-99a8-cd70cc49b814
+  resourceVersion: "4180787410"
+  generation: 11
+  creationTimestamp: "2026-08-17T08:40:46Z"
+  labels:
+    app: electera
+    workflows.argoproj.io/creator: serviceaccount-user-arthurmanceau-argo-workflows-481935-server
+  managedFields:
+    - manager: argo
+      operation: Update
+      apiVersion: argoproj.io/v1alpha1
+      time: "2026-08-17T12:36:50Z"
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            ".": {}
+            f:app: {}
+            f:workflows.argoproj.io/creator: {}
+        f:spec: {}
+spec:
+  templates:
+    - name: main
+      inputs: {}
+      outputs: {}
+      metadata: {}
+      steps:
+        - - name: build-matrix
+            template: build-matrix
+            arguments: {}
+        - - name: train-explain
+            template: train-explain
+            arguments:
+              parameters:
+                - name: type
+                  value: "{{item.type}}"
+                - name: year
+                  value: "{{item.year}}"
+                - name: trend_csv
+                  value: "{{item.trend_csv}}"
+                - name: combo_id
+                  value: "{{item.combo_id}}"
+            withParam: "{{steps.build-matrix.outputs.result}}"
+    - name: build-matrix
+      inputs: {}
+      outputs: {}
+      metadata: {}
+      script:
+        name: ""
+        image: "{{workflow.parameters.image}}"
+        command:
+          - uv
+          - run
+          - --no-sync
+          - python
+        workingDir: "{{workflow.parameters.workdir}}"
+        resources: {}
+        imagePullPolicy: Always
+        source: >
+          import json
+
+          k_type = json.loads(r'''{{workflow.parameters.k_type}}''')
+
+          k_year = json.loads(r'''{{workflow.parameters.k_year}}''')
+
+          trends = json.loads(r'''{{workflow.parameters.political_trends}}''')
+
+          combos = []
+
+          for t in k_type:
+              for y in k_year.get(t, []):
+                  for i, trend_set in enumerate(trends):
+                      combos.append({
+                          "type": t,                        # e.g. leg          (no quotes)
+                          "year": str(y),                   # e.g. 2022         (no quotes)
+                          "trend_csv": ",".join(trend_set), # e.g. taupar,tauD  (no quotes)
+                          "combo_id": f"{t}-{y}-t{i}",
+                      })
+          print(json.dumps(combos))
+    - name: train-explain
+      inputs:
+        parameters:
+          - name: type
+          - name: year
+          - name: trend_csv
+          - name: combo_id
+      outputs: {}
+      metadata: {}
+      dag:
+        tasks:
+          - name: backtest
+            template: backtest
+            arguments:
+              parameters:
+                - name: type
+                  value: "{{inputs.parameters.type}}"
+                - name: year
+                  value: "{{inputs.parameters.year}}"
+                - name: trend_csv
+                  value: "{{inputs.parameters.trend_csv}}"
+                - name: combo_id
+                  value: "{{inputs.parameters.combo_id}}"
+          - name: explain
+            template: explain
+            arguments:
+              parameters:
+                - name: type
+                  value: "{{inputs.parameters.type}}"
+                - name: year
+                  value: "{{inputs.parameters.year}}"
+                - name: trend_csv
+                  value: "{{inputs.parameters.trend_csv}}"
+                - name: combo_id
+                  value: "{{inputs.parameters.combo_id}}"
+            dependencies:
+              - backtest
+    - name: backtest
+      inputs:
+        parameters:
+          - name: type
+          - name: year
+          - name: trend_csv
+          - name: combo_id
+      outputs: {}
+      metadata:
+        labels:
+          app: electera
+          combo: "{{inputs.parameters.combo_id}}"
+          stage: backtest
+      container:
+        name: ""
+        image: "{{workflow.parameters.image}}"
+        command:
+          - sh
+          - -c
+        args:
+          - >
+            set -eu
+
+            # Write the [default] AWS/MinIO profile from the workflow params
+
+            mkdir -p "$HOME/.aws"
+
+            {
+              echo "[default]"
+              echo "aws_access_key_id=$AWS_ACCESS_KEY_ID"
+              echo "aws_secret_access_key=$AWS_SECRET_ACCESS_KEY"
+              [ -n "$AWS_SESSION_TOKEN" ] && echo "aws_session_token=$AWS_SESSION_TOKEN"
+            } > "$HOME/.aws/credentials"
+
+            { echo "[default]"; echo "region=$AWS_DEFAULT_REGION"; echo
+            "output=json"; } > "$HOME/.aws/config"
+
+
+            # Rebuild JSON args in-shell (Argo escapes quotes inside withParam
+            item values)
+
+            K_TYPE_JSON="[\"$TYPE\"]"                 # ["leg"]
+
+            K_YEAR_JSON="{\"$TYPE\": [$YEAR]}"        # {"leg": [2022]}
+
+            TRENDS_JSON="[["
+
+            IFS=,; first=1
+
+            for tok in $TREND_CSV; do
+              if [ "$first" = 1 ]; then first=0; else TRENDS_JSON="$TRENDS_JSON,"; fi
+              TRENDS_JSON="$TRENDS_JSON\"$tok\""
+            done
+
+            unset IFS
+
+            TRENDS_JSON="$TRENDS_JSON]]"             #
+            [["taupar","tauD","tauG","tauCGCCD"]]
+
+            echo "==> k_type=$K_TYPE_JSON k_year=$K_YEAR_JSON
+            trends=$TRENDS_JSON"
+
+
+            uv run --no-sync python -m "$ENTRYPOINT_MODULE" backtest \
+              --data-path "$DATA_PATH" \
+              --dataset-path "$DATASET_PATH" \
+              --models "$MODELS" \
+              --k-type "$K_TYPE_JSON" \
+              --k-year "$K_YEAR_JSON" \
+              --political-trends "$TRENDS_JSON" \
+              --predict-delta "$PREDICT_DELTA" \
+              --predict-percentile "$PREDICT_PERCENTILE" \
+              --organize-vote "$ORGANIZE_VOTE" \
+              --use-mlflow "$USE_MLFLOW" \
+              --version "$VERSION" \
+              ${MLFLOW_EXPERIMENT_NAME:+--mlflow-experiment "$MLFLOW_EXPERIMENT_NAME"}
+        workingDir: "{{workflow.parameters.workdir}}"
+        env:
+          - name: ENTRYPOINT_MODULE
+            value: "{{workflow.parameters.entrypoint_module}}"
+          - name: TYPE
+            value: "{{inputs.parameters.type}}"
+          - name: YEAR
+            value: "{{inputs.parameters.year}}"
+          - name: TREND_CSV
+            value: "{{inputs.parameters.trend_csv}}"
+          - name: COMBO_ID
+            value: "{{inputs.parameters.combo_id}}"
+          - name: DATA_PATH
+            value: "{{workflow.parameters.data_path}}"
+          - name: DATASET_PATH
+            value: "{{workflow.parameters.dataset_path}}"
+          - name: MODELS
+            value: "{{workflow.parameters.models}}"
+          - name: PREDICT_DELTA
+            value: "{{workflow.parameters.predict_delta}}"
+          - name: PREDICT_PERCENTILE
+            value: "{{workflow.parameters.predict_percentile}}"
+          - name: ORGANIZE_VOTE
+            value: "{{workflow.parameters.organize_vote}}"
+          - name: USE_MLFLOW
+            value: "{{workflow.parameters.use_mlflow}}"
+          - name: VERSION
+            value: "{{workflow.parameters.version}}"
+          - name: MLFLOW_TRACKING_URI
+            value: "{{workflow.parameters.mlflow_tracking_uri}}"
+          - name: MLFLOW_EXPERIMENT_NAME
+            value: "{{workflow.parameters.mlflow_experiment}}"
+          - name: MLFLOW_TRACKING_USERNAME
+            value: "{{workflow.parameters.mlflow_username}}"
+          - name: MLFLOW_TRACKING_PASSWORD
+            value: "{{workflow.parameters.mlflow_password}}"
+          - name: AWS_DEFAULT_REGION
+            value: us-east-1
+          - name: AWS_S3_ENDPOINT
+            value: "{{workflow.parameters.aws_s3_endpoint}}"
+          - name: AWS_ENDPOINT_URL
+            value: https://{{workflow.parameters.aws_s3_endpoint}}
+          - name: AWS_ACCESS_KEY_ID
+            value: "{{workflow.parameters.aws_access_key_id}}"
+          - name: AWS_SECRET_ACCESS_KEY
+            value: "{{workflow.parameters.aws_secret_access_key}}"
+          - name: AWS_SESSION_TOKEN
+            value: "{{workflow.parameters.aws_session_token}}"
+        resources:
+          limits:
+            cpu: "8"
+            memory: 96Gi
+          requests:
+            cpu: "4"
+            memory: 32Gi
+        imagePullPolicy: Always
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnError
+    - name: explain
+      inputs:
+        parameters:
+          - name: type
+          - name: year
+          - name: trend_csv
+          - name: combo_id
+      outputs: {}
+      metadata:
+        labels:
+          app: electera
+          combo: "{{inputs.parameters.combo_id}}"
+          stage: explain
+      container:
+        name: ""
+        image: "{{workflow.parameters.image}}"
+        command:
+          - sh
+          - -c
+        args:
+          - >
+            set -eu
+
+            # Write the [default] AWS/MinIO profile from the workflow params
+
+            mkdir -p "$HOME/.aws"
+
+            {
+              echo "[default]"
+              echo "aws_access_key_id=$AWS_ACCESS_KEY_ID"
+              echo "aws_secret_access_key=$AWS_SECRET_ACCESS_KEY"
+              [ -n "$AWS_SESSION_TOKEN" ] && echo "aws_session_token=$AWS_SESSION_TOKEN"
+            } > "$HOME/.aws/credentials"
+
+            { echo "[default]"; echo "region=$AWS_DEFAULT_REGION"; echo
+            "output=json"; } > "$HOME/.aws/config"
+
+
+            # Rebuild JSON args in-shell (Argo escapes quotes inside withParam
+            item values)
+
+            K_TYPE_JSON="[\"$TYPE\"]"
+
+            K_YEAR_JSON="{\"$TYPE\": [$YEAR]}"
+
+            TRENDS_JSON="[["
+
+            IFS=,; first=1
+
+            for tok in $TREND_CSV; do
+              if [ "$first" = 1 ]; then first=0; else TRENDS_JSON="$TRENDS_JSON,"; fi
+              TRENDS_JSON="$TRENDS_JSON\"$tok\""
+            done
+
+            unset IFS
+
+            TRENDS_JSON="$TRENDS_JSON]]"
+
+            echo "==> types=$K_TYPE_JSON years=$K_YEAR_JSON vars=$TRENDS_JSON"
+
+
+            uv run --no-sync python -m "$ENTRYPOINT_MODULE" explain \
+              --types "$K_TYPE_JSON" \
+              --years "$K_YEAR_JSON" \
+              --vars "$TRENDS_JSON" \
+              --data-path "$DATA_PATH" \
+              --model-version "$VERSION" \
+              ${EXPLAIN_STEPS:+--steps "$EXPLAIN_STEPS"}
+        workingDir: "{{workflow.parameters.workdir}}"
+        env:
+          - name: ENTRYPOINT_MODULE
+            value: "{{workflow.parameters.entrypoint_module}}"
+          - name: TYPE
+            value: "{{inputs.parameters.type}}"
+          - name: YEAR
+            value: "{{inputs.parameters.year}}"
+          - name: TREND_CSV
+            value: "{{inputs.parameters.trend_csv}}"
+          - name: COMBO_ID
+            value: "{{inputs.parameters.combo_id}}"
+          - name: DATA_PATH
+            value: "{{workflow.parameters.data_path}}"
+          - name: VERSION
+            value: "{{workflow.parameters.version}}"
+          - name: EXPLAIN_STEPS
+            value: "{{workflow.parameters.explain_steps}}"
+          - name: MLFLOW_TRACKING_URI
+            value: "{{workflow.parameters.mlflow_tracking_uri}}"
+          - name: MLFLOW_EXPERIMENT_NAME
+            value: "{{workflow.parameters.mlflow_experiment}}"
+          - name: MLFLOW_TRACKING_USERNAME
+            value: "{{workflow.parameters.mlflow_username}}"
+          - name: MLFLOW_TRACKING_PASSWORD
+            value: "{{workflow.parameters.mlflow_password}}"
+          - name: AWS_DEFAULT_REGION
+            value: us-east-1
+          - name: AWS_S3_ENDPOINT
+            value: "{{workflow.parameters.aws_s3_endpoint}}"
+          - name: AWS_ENDPOINT_URL
+            value: https://{{workflow.parameters.aws_s3_endpoint}}
+          - name: AWS_ACCESS_KEY_ID
+            value: "{{workflow.parameters.aws_access_key_id}}"
+          - name: AWS_SECRET_ACCESS_KEY
+            value: "{{workflow.parameters.aws_secret_access_key}}"
+          - name: AWS_SESSION_TOKEN
+            value: "{{workflow.parameters.aws_session_token}}"
+        resources:
+          limits:
+            cpu: "8"
+            memory: 96Gi
+          requests:
+            cpu: "4"
+            memory: 32Gi
+        imagePullPolicy: Always
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnError
+  entrypoint: main
+  arguments:
+    parameters:
+      - name: image
+        value: arthurmanceau/electera:latest
+      - name: entrypoint_module
+        value: electera.cli
+      - name: workdir
+        value: /app
+      - name: k_type
+        value: '["leg", "pres"]'
+      - name: k_year
+        value: >-
+          {"leg": [1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012,
+          2017, 2022, 2024],
+           "pres": [2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]}
+      - name: political_trends
+        value: '[["taupar", "tauD", "tauG", "tauCGCCD"], ["taupar", "tauTD", "tauTG"]]'
+      - name: data_path
+        value: s3://arthurmanceau/election_modeling_uhcp/data/
+      - name: dataset_path
+        value: derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/
+      - name: models
+        value: '["boosting"]'
+      - name: predict_delta
+        value: "false"
+      - name: predict_percentile
+        value: "false"
+      - name: organize_vote
+        value: "true"
+      - name: use_mlflow
+        value: "true"
+      - name: version
+        value: 4.0.0
+      - name: explain_steps
+        value: ""
+      - name: mlflow_tracking_uri
+        value: https://user-arthurmanceau-mlflow.user.lab.sspcloud.fr/
+      - name: mlflow_username
+        value: user-arthurmanceau
+      - name: mlflow_password
+        value: ao6z0ade4o5xt0zuownr
+      - name: mlflow_experiment
+        value: electera
+      - name: aws_s3_endpoint
+        value: minio.lab.sspcloud.fr
+      - name: aws_access_key_id
+        value: ""
+      - name: aws_secret_access_key
+        value: ""
+      - name: aws_session_token
+        value: ""
+  serviceAccountName: workflow
+  parallelism: 2
+  ttlStrategy:
+    secondsAfterCompletion: 86400
+  podGC:
+    strategy: OnPodCompletion
+    deleteDelayDuration: 30s
