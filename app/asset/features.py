@@ -6,6 +6,23 @@ FEATURE_AUG = {
 
 
 FEATURE_DICT = {
+    "lat": {"description": "Latitude de la commune"},
+    "long": {"description": "Longitude de la commune"},
+    "distanceparis": {"description": "Distance entre Paris et la commmune (en km)"},
+    "distancelyon": {"description": "Distance entre Lyon et la commmune (en km)"},
+    "distancemarseille": {
+        "description": "Distance entre Marseille et la commmune (en km)"
+    },
+    "capitalimmobiliercommunes/prixbien": {
+        "description": "Prix moyen des logements en euros courants"
+    },
+    "revcommunes/revratiofoy": {
+        "description": "Revenu moyen par foyer du département (exprimé en ratio du revenu moyen par foyer de France métropolitaine)"
+    },
+    "inscrits": {
+        "description": "Nombre d'inscrit sur les listes electorales dans la commune lors de cette élection"
+    },
+    "num": {"description": "Numero du département de la commune"},
     # =========================================================================
     # H1.1 Population par commune et agglomération (1780-2022)
     # =========================================================================

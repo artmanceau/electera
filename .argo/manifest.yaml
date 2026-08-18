@@ -412,7 +412,7 @@ spec:
       - name: mlflow_username
         value: user-arthurmanceau
       - name: mlflow_password
-        value: ao6z0ade4o5xt0zuownr
+        value: ""
       - name: mlflow_experiment
         value: electera
       - name: aws_s3_endpoint

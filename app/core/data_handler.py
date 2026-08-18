@@ -147,7 +147,7 @@ class AppData:
             trends = [f"tau{trend}" for trend in trends]
 
         element = DataLoader.load_dataset(
-            f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{trends}_{self.version}.parquet",
+            f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{'_'.join(trends)}_{self.version}.parquet",
             fs=get_fs().fs,
             formate="parquet",
             columns=columns,
