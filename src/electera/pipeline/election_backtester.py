@@ -96,11 +96,11 @@ MODEL_ARGS = {
     "meta_boosting": {
         "method": "xgboost",
         "objective_metric": mean_squared_error,
-        "weighting": "sqrt",
+        "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 3,
-        "n_splits_outer": 3,
-        "n_trials": 3,
+        "n_splits_inner": 5,
+        "n_splits_outer": 5,
+        "n_trials": 5,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {
