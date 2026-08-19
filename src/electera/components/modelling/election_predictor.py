@@ -45,7 +45,7 @@ class ElectionPredictor:
         for trend in self.trends:
             x = prediction_fn(
                 self.models[trend],
-                X,
+                X[self.features[trend]],
                 predict_delta,
                 infer_multiple,
             )

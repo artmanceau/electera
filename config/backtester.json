@@ -9,6 +9,6 @@
     "predict_percentile": false,
     "organize_vote": true,
     "use_mlflow": true,
-    "models" : ["meta_boosting"],
-    "version" : "4.1.1"
+    "models" : ["boosting"],
+    "version" : "4.test"
 }

@@ -293,6 +293,7 @@ class BackTester:
             .filter(pl.col("election_type") == self.k_type_full)
             .to_pandas()
         )
+
         X_pred = self.election_predictor.predict_votes(
             data_election,
             self.config.predict_delta,
