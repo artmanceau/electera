@@ -1,8 +1,8 @@
 {
-    "model_version": "4.2.0",
+    "model_version": "4.4.0",
     "tau": true,
-    "years_to_display": {"leg": [2022, 1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2024], "pres":[2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]},
+    "years_to_display": {"leg": [2022, 1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2024, 2027], "pres":[2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]},
     "types_to_display":["pres", "leg"],
-    "political_divisions_to_dislay" : [["TG", "TD", "par"]],
+    "political_divisions_to_dislay" : [["C", "CG", "CD", "D", "G", "par"], ["TG", "TD", "par"]],
     "data_path":"s3://arthurmanceau/election_modeling_uhcp/data"
 }

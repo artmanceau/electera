@@ -98,9 +98,9 @@ MODEL_ARGS = {
         "objective_metric": mean_squared_error,
         "weighting": "proportional",
         "features": None,
-        "n_splits_inner": 5,
-        "n_splits_outer": 5,
-        "n_trials": 5,
+        "n_splits_inner": 10,
+        "n_splits_outer": 10,
+        "n_trials": 10,
         "poll_adj": False,
     },
     "meta_boosting_multiple": {

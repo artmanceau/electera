@@ -50,7 +50,11 @@ class Explainer:
         """Generate and save feature importance plots using multiple methods."""
         logger.info("Generating feature importance plots...")
 
-        features = self.model.models[self.var_c].features
+        features = (
+            self.model.models[self.var_c].features
+            if self.model.models[self.var_c].features is not None
+            else self.model.features[self.var_c]
+        )
         models = self.model.models[self.var_c].best_models
 
         # ------------------------------------------------------------------
@@ -179,7 +183,12 @@ class Explainer:
         """Compute the average SHAP values and base value across the ensemble."""
         logger.info("Generating SHAP analysis...")
 
-        X_features = X[self.model.models[self.var_c].features]
+        features = (
+            self.model.models[self.var_c].features
+            if self.model.models[self.var_c].features is not None
+            else self.model.features[self.var_c]
+        )
+        X_features = X[features]
 
         shap_values_per_model = []
         base_values = []
@@ -247,7 +256,12 @@ class Explainer:
         logger.info(
             f"Creating comprehensive explanation plots for {len(X.columns)} features"
         )
-        num_features = len(self.model.models[self.var_c].features)
+        features = (
+            self.model.models[self.var_c].features
+            if self.model.models[self.var_c].features is not None
+            else self.model.features[self.var_c]
+        )
+        num_features = len(features)
         num_batches = (
             num_features + batch_size - 1
         ) // batch_size  # Calculate the number of batches
@@ -255,7 +269,7 @@ class Explainer:
         for batch_idx in range(num_batches):
             start_idx = batch_idx * batch_size
             end_idx = min(start_idx + batch_size, num_features)
-            batch_features = self.model.models[self.var_c].features[start_idx:end_idx]
+            batch_features = features[start_idx:end_idx]
 
             logger.debug(
                 f"\nProcessing batch {batch_idx + 1}/{num_batches} \
@@ -276,9 +290,7 @@ class Explainer:
                 try:
                     PartialDependenceDisplay.from_estimator(
                         estimator=self.model.models[self.var_c].best_models[k],
-                        X=X[self.model.models[self.var_c].features].dropna(
-                            subset=[feature]
-                        ),
+                        X=X[features].dropna(subset=[feature]),
                         features=[feature],
                         grid_resolution=50,
                         kind="both",
@@ -319,9 +331,7 @@ class Explainer:
                 # 3. Accumulated Local Effect (ALE)
                 try:
                     ale(
-                        X=X[self.model.models[self.var_c].features].dropna(
-                            subset=[feature]
-                        ),
+                        X=X[features].dropna(subset=[feature]),
                         model=self.model.models[self.var_c].best_models[k],
                         feature=[feature],
                         grid_size=50,
