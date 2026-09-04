@@ -134,6 +134,7 @@ class MetaBooster:
             self.feature_selection(X, y, method=feature_selection_method)
 
         X = self._check_feature_consistency(X, self.features)
+        self.features = X.columns.tolist()
         print(list(X.columns)[0])
 
         (
@@ -319,6 +320,9 @@ class MetaBooster:
         for param in best_params_list_outer:
             boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
             boosting_model.fit(X, y, sample_weight=weights)
+            boosting_model.feature_names = self.features
+            if self.method == "xgboost":
+                boosting_model.get_booster().feature_names = self.features
             best_models.append(boosting_model)
 
         return best_models, best_params_list_outer, best_test_scores_list_outer

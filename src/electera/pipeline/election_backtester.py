@@ -31,7 +31,7 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 import electera.components.mlflow.mlflow_utils as mlf_utils
 from assets.delta_pred_features import (
@@ -95,7 +95,7 @@ MODEL_ARGS = {
     },
     "meta_boosting": {
         "method": "xgboost",
-        "objective_metric": mean_squared_error,
+        "objective_metric": mean_absolute_error,
         "weighting": "proportional",
         "features": None,
         "n_splits_inner": 10,

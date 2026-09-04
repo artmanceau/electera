@@ -1,14 +1,14 @@
 {
-    "political_trends": [["taupar", "tauTD", "tauTG"], ["taupar", "tauD", "tauG", "tauCGCCD"]],
+    "political_trends": [["taupar", "tauTD", "tauTG"], ["taupar", "tauD", "tauG", "tauCGCCD"], ["taupar", "tauD", "tauG", "tauCD", "tauC", "tauCG"]],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "dataset_path": "derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/",
     "random_seed": 42,
-    "k_year":  {"leg": [2022, 1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2024], "pres":[2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]},
+    "k_year":  {"leg": [2022, 1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2024, 2027], "pres":[2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]},
     "k_type": ["leg", "pres"],
     "predict_delta": false,
     "predict_percentile": false,
     "organize_vote": true,
     "use_mlflow": true,
-    "models" : ["boosting"],
-    "version" : "4.test"
+    "models" : ["meta_boosting"],
+    "version" : "4.6.0"
 }
