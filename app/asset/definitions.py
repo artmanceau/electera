@@ -30,7 +30,13 @@ candidats_2022_mapping = {
         "Philippe Poutou",
         "Nathalie Arthaud",
     ],
-    "CGCCD": ["Anne Hidalgo", "Yannick Jadot", "Emmanuel Macron", "Valérie Pécresse", "Nicolas Dupont-Aignan"],
+    "CGCCD": [
+        "Anne Hidalgo",
+        "Yannick Jadot",
+        "Emmanuel Macron",
+        "Valérie Pécresse",
+        "Nicolas Dupont-Aignan",
+    ],
     "CG": ["Anne Hidalgo", "Yannick Jadot"],
     "GCG": [
         "Anne Hidalgo",
@@ -79,7 +85,7 @@ trad = {
     "C": "pour le centre",
     "D": "à droite",
     "CG": "pour le centre-gauche",
-    "CGCCD": 'pour le bloc central (centre-gauche, centre et centre-droite)',
+    "CGCCD": "pour le bloc central (centre-gauche, centre et centre-droite)",
     "tauTD": "à gauche (tout les partis)",
     "tauTG": "à droite (tout les partis)",
     "tauGCG": "à gauche et au centre-gauche",
@@ -89,8 +95,8 @@ trad = {
     "tauC": "pour le centre",
     "tauD": "à droite",
     "tauCG": "pour le centre-gauche",
-    "tauCGCCD": 'pour le bloc central (centre-gauche, centre et centre-droite)',
-    "par": "participation"
+    "tauCGCCD": "pour le bloc central (centre-gauche, centre et centre-droite)",
+    "par": "participation",
 }
 
 
@@ -121,7 +127,9 @@ display_config_converter = {
         str(
             ["G", "D", "CG", "CD", "C", "par"]
         ): "division en 5 blocs : gauche / centre gauche / centre / cente droite / droite",
-        str(["CGCCD", "D", "G", "par"]): "division extrême gauche / centre-gauche, centre et centre-droite / extrême droite"
+        str(
+            ["CGCCD", "D", "G", "par"]
+        ): "division extrême gauche / centre-gauche, centre et centre-droite / extrême droite",
     },
 }
 

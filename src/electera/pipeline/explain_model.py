@@ -165,7 +165,7 @@ class Explainer:
 
         global_df.to_parquet(
             self.output_dir
-            + f"feature_importance_{self.vars_}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
+            + f"feature_importance_{self.vars}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
         )
 
@@ -224,7 +224,7 @@ class Explainer:
 
         shap_values_aug.to_parquet(
             self.output_dir
-            + f"shap_values_{self.vars_}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
+            + f"shap_values_{self.vars}_{self.var_c}_{self.year}_{self.type_}_{self.model_version}.parquet",
             index=False,
         )
 
@@ -413,7 +413,7 @@ class Explainer:
         else:
             logger.info("Model does not support tree visualization.")
 
-    def explain(self, var, year, type_, vars_):
+    def explain(self, var, year, type_, vs):
         """Run the explainability pipeline.
         The pipeline consists of multiple explanability tools that can be selected in the config.
 
@@ -437,21 +437,22 @@ class Explainer:
         self.t = 1 if self.type_ == "pres" else 0
         self.var = var
         self.var_c = self.var.replace("tau", "")
+        self.vars = vs
         self.year = year
-        self.vars_ = vars_
         logger.info(
-            f"Computing explain model for election: {self.year}|{self.type_} and variable: {self.var} ({self.vars_})"
+            f"Computing explain model for election: {self.year}|{self.type_} and variable: {self.var} ({self.vars})"
         )
 
         ec = ExplainCore(self.var, self.year, self.t)
 
         # 0. Get model
+        vars_copy = vs
         self.model, self.n_models = ec._load_model(
             data_path=self.data_path,
             var=self.var_c,
             year=self.year,
             type_=self.type_,
-            vars_=self.vars_,
+            vars_=vars_copy,
             model_version=self.model_version,
             fs=None,
         )
@@ -510,6 +511,7 @@ class Explainer:
         for type_ in types:
             for year in years[type_]:
                 for vs in vars_:
+                    vs.sort()
                     for var in vs:
                         self.explain(var, year, type_, vs)
 
