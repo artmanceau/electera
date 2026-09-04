@@ -1,8 +1,8 @@
 {
-    "model_version": "4.3.2",
-    "years": {"leg": [1978, 2022, 1973, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2024], "pres":[2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]},
+    "model_version": "4.5.0",
+    "years": {"leg": [1973, 1978, 1981, 1986, 1988, 1993, 1997, 2002, 2007, 2012, 2017, 2022, 2024], "pres": [2022, 1995, 1974, 1981, 1988, 2002, 2007, 2012, 2017, 2027]},
     "types": ["leg", "pres"],
-    "vars_": [["tauTD", "tauTG", "taupar"], ["tauD", "tauG", "tauC", "tauCG", "tauCD", "taupar"]],
+    "vars_": [["taupar", "tauD", "tauG", "tauCGCCD"], ["taupar", "tauTD", "tauTG"]],
     "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
     "steps": ["feature_importance", "shap_values"]
 }
