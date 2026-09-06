@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: electera-api
+  labels:
+    app: electera-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: electera-api
+  template:
+    metadata:
+      labels:
+        app: electera-api
+    spec:
+      containers:
+        - name: electera-api
+          image: arthurmanceau/electera-api:latest
+          ports:
+            - containerPort: 8000

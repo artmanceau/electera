@@ -166,7 +166,7 @@ class AppData:
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
-        use_api: bool = True,
+        use_api: bool = False,
     ):
         if use_api:
             url = "http://localhost:8000/data/sample"
