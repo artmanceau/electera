@@ -128,12 +128,18 @@ class DataUtils:
         if fs is None:
             lf = pl.scan_parquet(file_path)
         else:
+            # Strip s3:// prefix if filesystem is provided to avoid pyarrow.lib.ArrowInvalid
+            path = (
+                file_path.replace("s3://", "")
+                if file_path.startswith("s3://")
+                else file_path
+            )
             if hive_partitioning:
                 dset = ds.dataset(
-                    file_path, filesystem=fs, format="parquet", partitioning="hive"
+                    path, filesystem=fs, format="parquet", partitioning="hive"
                 )
             else:
-                dset = ds.dataset(file_path, filesystem=fs, format="parquet")
+                dset = ds.dataset(path, filesystem=fs, format="parquet")
             lf = pl.scan_pyarrow_dataset(dset)
             if filters:
                 exprs = convert_filters(filters)

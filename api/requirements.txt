@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pandas
+polars
+pyarrow
+s3fs
+loguru
+os
+pathlib

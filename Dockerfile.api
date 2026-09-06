@@ -1,0 +1,22 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install uv
+RUN pip install uv
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies
+RUN uv sync --frozen
+
+# Copy the code required by the API
+COPY src ./src
+COPY api ./api
+
+# API listens on port 8000
+EXPOSE 8000
+
+# Start FastAPI
+CMD ["./api/run.sh"]

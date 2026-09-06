@@ -1,7 +1,9 @@
 from typing import List, Literal, Optional, Tuple, Union
 import s3fs
+import requests
 from loguru import logger
 import pandas as pd
+
 import polars as pl
 from electera.components.data_processing.data_loader import DataLoader
 from concurrent.futures import ThreadPoolExecutor
@@ -164,15 +166,36 @@ class AppData:
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
+        use_api: bool = True,
     ):
-        element = DataLoader.load_dataset(
-            f"{self.data_path}/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260623_174327.parquet",
-            fs=get_fs().fs,
-            formate="parquet",
-            columns=columns,
-            filters=filters,
-            engine="polars-pyarrow",
-        )
-        logger.info(f"{asset_name} loaded with success!")
+        if use_api:
+            url = "http://localhost:8000/data/sample"
+            payload = {
+                "columns": list(columns) if isinstance(columns, set) else columns,
+                "filters": filters,
+                "asset_name": asset_name if asset_name is not None else "data",
+            }
+            try:
+                response = requests.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                element = pd.DataFrame(data)
+                logger.info(f"{asset_name} loaded with success from API!")
+            except Exception as e:
+                logger.error(f"Failed to load data from API: {e}")
+                raise e
+        else:
+            element = DataLoader.load_dataset(
+                f"{self.data_path}/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/",
+                fs=get_fs().fs,
+                formate="parquet",
+                columns=columns,
+                filters=filters,
+                engine="polars-pyarrow",
+                hive_partitioning=True,
+            )
+            logger.info(f"{asset_name} loaded with success!")
+            element = _convert_to_pandas(element)
+
         asset_name = asset_name if asset_name is not None else "data"
-        self.container[asset_name] = _convert_to_pandas(element)
+        self.container[asset_name] = element
