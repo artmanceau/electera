@@ -5,5 +5,3 @@ polars
 pyarrow
 s3fs
 loguru
-os
-pathlib
