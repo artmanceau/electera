@@ -12,7 +12,8 @@ from pathlib import Path
 API_DIR = Path(__file__).resolve().parent
 ENV_FILE = API_DIR / ".env"
 
-load_dotenv(ENV_FILE, override=True)
+load_dotenv(ENV_FILE, override=False)
+S3_ENDPOINT = os.environ.get("S3_ENDPOINT_URL", "https://minio.lab.sspcloud.fr")
 
 app = FastAPI(title="Electera Data API")
 
@@ -35,7 +36,7 @@ async def load_data_sample(request: DataRequest):
         df = DataLoader.load_dataset(
             file_path=SAMPLE_DATA_PATH,
             fs=s3fs.S3FileSystem(
-                client_kwargs={"endpoint_url": os.environ["CLIENT_KWARGS"]},
+                client_kwargs={"endpoint_url": S3_ENDPOINT},
                 key=os.environ["AWS_ACCESS_KEY_ID"],
                 secret=os.environ["AWS_SECRET_ACCESS_KEY"],
             ),
