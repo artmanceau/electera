@@ -113,6 +113,7 @@ type_trad = {"pres": "présidentielles", "leg": "leglisatives"}
 
 
 client_kwargs = "https://" + "minio.lab.sspcloud.fr"
+API_URL = "https://api-electera-test.lab.sspcloud.fr"
 
 
 display_config_converter = {

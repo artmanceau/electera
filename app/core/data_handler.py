@@ -5,6 +5,7 @@ from loguru import logger
 import pandas as pd
 
 import polars as pl
+from asset.definitions import API_URL
 from electera.components.data_processing.data_loader import DataLoader
 from concurrent.futures import ThreadPoolExecutor
 
@@ -73,6 +74,135 @@ class AppData:
         commmunes_list = pd.read_csv("app/asset/communes2022.csv")
         self.container["communes_list"] = commmunes_list
 
+    def _make_api_request(self, endpoint: str, payload: dict):
+        url = f"{API_URL}{endpoint}"
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def _load_result_s3(self, asset, year, election_type, trends, columns, filters):
+        file_path = f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{'_'.join(trends)}_{self.version}.parquet"
+        element = DataLoader.load_dataset(
+            file_path,
+            fs=get_fs().fs,
+            formate="parquet",
+            columns=columns,
+            filters=filters,
+            engine="polars-pyarrow",
+        )
+        return _convert_to_pandas(element)
+
+    def _load_explain_s3(self, asset, trends, year, election_type, columns, filters):
+        self.container[asset] = {}
+        trends_ = [f"tau{trend}" for trend in trends] if self.tau else trends
+        fs = get_fs().fs
+        with ThreadPoolExecutor(max_workers=len(trends)) as executor:
+            futures = [
+                executor.submit(
+                    self._load_trend,
+                    fs,
+                    self.version,
+                    asset,
+                    trend,
+                    trends_,
+                    year,
+                    election_type,
+                    columns,
+                    filters,
+                )
+                for trend in trends
+            ]
+            for future in futures:
+                trend, data = future.result()
+                self.container[asset][trend] = data
+        return self.container[asset]
+
+    def _load_data_sample_s3(self, columns, filters):
+        element = DataLoader.load_dataset(
+            f"{self.data_path}/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/",
+            fs=get_fs().fs,
+            formate="parquet",
+            columns=columns,
+            filters=filters,
+            engine="polars-pyarrow",
+            hive_partitioning=True,
+        )
+        return _convert_to_pandas(element)
+
+    def _build_pres_table_s3(
+        self, df: pd.DataFrame, years: list, parties: list
+    ) -> pd.DataFrame:
+        result_cols = {}
+        for year in years:
+            d = df.loc[df["annee"] == year].copy()
+            if d.empty:
+                continue
+            pred = {"pvotepar": d["pvotepar_pred"].sum()}
+            true = {"pvotepar": d["pvotepar_true"].sum()}
+            for p in parties:
+                pred[f"pvote{p}"] = d[f"pvote{p}_pred"].sum()
+                true[f"pvote{p}"] = d[f"pvote{p}_true"].sum()
+            result_cols[f"{year}_pres_pred"] = pd.Series(pred)
+            result_cols[f"{year}_pres_true"] = pd.Series(true)
+        return pd.DataFrame(result_cols)
+
+    def _load_results_over_time_s3(
+        self, years, asset, election_type, trends, columns, filters, codecommune
+    ):
+        results = []
+        for year in years:
+            try:
+                res = self._load_result_s3(
+                    asset, year, election_type, trends, columns, filters
+                )
+                if "annee" not in res.columns:
+                    res = res.copy()
+                    res["annee"] = year
+                results.append(res)
+            except FileNotFoundError:
+                continue
+        return pd.concat(results, axis=0 if codecommune else 1) if results else None
+
+    def load_results_backtest(
+        self,
+        years: List[int],
+        asset: str,
+        election_type: str,
+        trends: List[str],
+        columns: Optional[List] = None,
+        filters: Optional[List[Tuple]] = None,
+        codecommune: Optional[str] = None,
+    ):
+        try:
+            payload = {
+                "years": years,
+                "asset": asset,
+                "election_type": election_type,
+                "trends": trends,
+                "columns": columns,
+                "filters": filters,
+            }
+            data = self._make_api_request("/data/results/backtest", payload)
+            element = pd.DataFrame(data)
+            logger.info("Backtest results loaded with success from API!")
+        except Exception as e:
+            logger.warning(
+                f"Failed to load backtest from API: {e}. Falling back to S3."
+            )
+            # Fallback: Load over time and then aggregate if not in commune mode
+            df_over_time = self._load_results_over_time_s3(
+                years, asset, election_type, trends, columns, filters, codecommune
+            )
+            if df_over_time is None:
+                element = None
+            elif codecommune:
+                element = df_over_time
+            else:
+                element = self._build_pres_table_s3(df_over_time, years, trends)
+            logger.info("Backtest results loaded with success from S3!")
+
+        self.container["backtest_results"] = element
+
     def _load_trend(
         self,
         fs,
@@ -107,33 +237,24 @@ class AppData:
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
     ):
-        self.container[asset] = {}
-
-        trends_ = [f"tau{trend}" for trend in trends] if self.tau else trends
-
-        fs = get_fs().fs
-
-        with ThreadPoolExecutor(max_workers=len(trends)) as executor:
-            futures = [
-                executor.submit(
-                    self._load_trend,
-                    fs,
-                    self.version,
-                    asset,
-                    trend,
-                    trends_,
-                    year,
-                    election_type,
-                    columns,
-                    filters,
-                )
-                for trend in trends
-            ]
-            for future in futures:
-                trend, data = future.result()
-                self.container[asset][trend] = data
-
-        logger.info(f"{asset} loaded with success!")
+        try:
+            payload = {
+                "asset": asset,
+                "trends": trends,
+                "year": year,
+                "election_type": election_type,
+                "columns": columns,
+                "filters": filters,
+            }
+            data = self._make_api_request("/data/explain", payload)
+            # The API returns a dict of lists (JSON), we need to convert them to DataFrames
+            processed_data = {trend: pd.DataFrame(df) for trend, df in data.items()}
+            self.container[asset] = processed_data
+            logger.info(f"{asset} loaded with success from API!")
+        except Exception as e:
+            logger.warning(f"Failed to load {asset} from API: {e}. Falling back to S3.")
+            self._load_explain_s3(asset, trends, year, election_type, columns, filters)
+            logger.info(f"{asset} loaded with success from S3!")
 
     def load_result(
         self,
@@ -148,54 +269,57 @@ class AppData:
         if self.tau:
             trends = [f"tau{trend}" for trend in trends]
 
-        element = DataLoader.load_dataset(
-            f"{self.data_path}/output/results/{asset}_{year}_{election_type}_{'_'.join(trends)}_{self.version}.parquet",
-            fs=get_fs().fs,
-            formate="parquet",
-            columns=columns,
-            filters=filters,
-            engine="polars-pyarrow",
-        )
-        logger.info(f"{asset} loaded with success!")
+        try:
+            payload = {
+                "asset": asset,
+                "year": year,
+                "election_type": election_type,
+                "trends": trends,
+                "columns": columns,
+                "filters": filters,
+            }
+            data = self._make_api_request("/data/results", payload)
+            element = pd.DataFrame(data)
+            logger.info(f"{asset} loaded with success from API!")
+        except Exception as e:
+            logger.warning(f"Failed to load {asset} from API: {e}. Falling back to S3.")
+            element = self._load_result_s3(
+                asset, year, election_type, trends, columns, filters
+            )
+            logger.info(f"{asset} loaded with success from S3!")
 
         asset_name = asset_name if asset_name is not None else asset
-        self.container[asset_name] = _convert_to_pandas(element)
+        self.container[asset_name] = element
 
     def load_data_sample(
         self,
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
         asset_name: Optional[str] | None = None,
-        use_api: bool = False,
+        use_api: bool = True,
     ):
         if use_api:
-            url = "http://localhost:8000/data/sample"
-            payload = {
-                "columns": list(columns) if isinstance(columns, set) else columns,
-                "filters": filters,
-                "asset_name": asset_name if asset_name is not None else "data",
-            }
             try:
+                url = API_URL + "/data/sample"
+                payload = {
+                    "columns": list(columns) if isinstance(columns, set) else columns,
+                    "filters": filters,
+                    "asset_name": asset_name if asset_name is not None else "data",
+                }
                 response = requests.post(url, json=payload)
                 response.raise_for_status()
                 data = response.json()
                 element = pd.DataFrame(data)
                 logger.info(f"{asset_name} loaded with success from API!")
             except Exception as e:
-                logger.error(f"Failed to load data from API: {e}")
-                raise e
+                logger.warning(
+                    f"Failed to load {asset_name} from API: {e}. Falling back to S3."
+                )
+                element = self._load_data_sample_s3(columns, filters)
+                logger.info(f"{asset_name} loaded with success from S3!")
         else:
-            element = DataLoader.load_dataset(
-                f"{self.data_path}/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/",
-                fs=get_fs().fs,
-                formate="parquet",
-                columns=columns,
-                filters=filters,
-                engine="polars-pyarrow",
-                hive_partitioning=True,
-            )
-            logger.info(f"{asset_name} loaded with success!")
-            element = _convert_to_pandas(element)
+            element = self._load_data_sample_s3(columns, filters)
+            logger.info(f"{asset_name} loaded with success from S3!")
 
         asset_name = asset_name if asset_name is not None else "data"
         self.container[asset_name] = element
