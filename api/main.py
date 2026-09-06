@@ -21,8 +21,11 @@ app = FastAPI(title="Electera Data API")
 
 
 def get_s3_fs():
+    client_kwargs = {}
+    if S3_ENDPOINT:
+        client_kwargs["endpoint_url"] = S3_ENDPOINT
     return s3fs.S3FileSystem(
-        client_kwargs={"endpoint_url": S3_ENDPOINT},
+        client_kwargs=client_kwargs,
         key=os.environ["AWS_ACCESS_KEY_ID"],
         secret=os.environ["AWS_SECRET_ACCESS_KEY"],
     )
@@ -105,7 +108,7 @@ async def load_explain(request: ExplainRequest):
     try:
         results = {}
         trends_processed = [f"tau{t}" for t in request.trends]
-        trends_combined = "_".join(trends_processed)
+        trends_combined = str(trends_processed)
 
         for trend in request.trends:
             trend_processed = f"tau{trend}"
@@ -123,48 +126,6 @@ async def load_explain(request: ExplainRequest):
         return results
     except Exception as e:
         logger.error(f"Error loading explain: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/data/results/backtest")
-async def load_results_backtest(request: BacktestRequest):
-    try:
-        all_results = {}
-        for year in request.years:
-            file_path = f"{DATA_PATH}/output/results/{request.asset}_{year}_{request.election_type}_{'_'.join(request.trends)}_{MODEL_VERSION}.parquet"
-            df_pl = DataLoader.load_dataset(
-                file_path,
-                fs=get_s3_fs(),
-                formate="parquet",
-                columns=request.columns,
-                filters=request.filters,
-                engine="polars-pyarrow",
-            )
-            df = df_pl.to_pandas()
-
-            # Aggregation logic similar to build_pres_table
-            # Note: The a-priori assume "pres" as the fixed type for aggregation in build_pres_table
-            # but we should use request.election_type or a reasonable default.
-            # Original build_pres_table used "pres" in result_cols keys.
-
-            pred = {"pvotepar": df["pvotepar_pred"].sum()}
-            true = {"pvotepar": df["pvotepar_true"].sum()}
-
-            for p in request.trends:
-                pred[f"pvote{p}"] = df[f"pvote{p}_pred"].sum()
-                true[f"pvote{p}"] = df[f"pvote{p}_true"].sum()
-
-            all_results[f"{year}_{request.election_type}_pred"] = pred
-            all_results[f"{year}_{request.election_type}_true"] = true
-
-        # Return as a list of dicts (like a DataFrame.to_dicts())
-        # The expected output of build_pres_table is a DataFrame where each column is a year_type_pred/true
-        # And indices are the metrics (pvotepar, pvoteX).
-        # To match this, we can return it as a list containing one dict.
-        return [all_results]
-
-    except Exception as e:
-        logger.error(f"Error loading backtest: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

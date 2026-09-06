@@ -21,8 +21,11 @@ class FileSystem:
 
     def __init__(self, client_kwargs, key, secret):
         if not hasattr(self, "initialized"):
+            s3_kwargs = {}
+            if client_kwargs:
+                s3_kwargs["endpoint_url"] = client_kwargs
             self.fs = s3fs.S3FileSystem(
-                client_kwargs={"endpoint_url": client_kwargs},
+                client_kwargs=s3_kwargs,
                 key=key,
                 secret=secret,
             )
@@ -173,12 +176,17 @@ class AppData:
         filters: Optional[List[Tuple]] = None,
         codecommune: Optional[str] = None,
     ):
+        # Filename trends include 'par' and 'tau' prefix if active
+        filename_trends = [f"tau{t}" for t in trends] if self.tau else trends
+        # Lookup trends exclude 'par' as it's handled separately via 'pvotepar'
+        lookup_trends = [t for t in filename_trends if t not in ["par", "taupar"]]
+
         try:
             payload = {
                 "years": years,
                 "asset": asset,
                 "election_type": election_type,
-                "trends": trends,
+                "trends": filename_trends,
                 "columns": columns,
                 "filters": filters,
             }
@@ -191,15 +199,25 @@ class AppData:
             )
             # Fallback: Load over time and then aggregate if not in commune mode
             df_over_time = self._load_results_over_time_s3(
-                years, asset, election_type, trends, columns, filters, codecommune
+                years,
+                asset,
+                election_type,
+                filename_trends,
+                columns,
+                filters,
+                codecommune,
             )
             if df_over_time is None:
                 element = None
             elif codecommune:
                 element = df_over_time
             else:
-                element = self._build_pres_table_s3(df_over_time, years, trends)
-            logger.info("Backtest results loaded with success from S3!")
+                element = self._build_pres_table_s3(df_over_time, years, lookup_trends)
+
+            if element is not None:
+                logger.info("Backtest results loaded with success from S3!")
+            else:
+                logger.warning("Backtest results not found on S3!")
 
         self.container["backtest_results"] = element
 
