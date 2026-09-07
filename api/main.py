@@ -6,16 +6,10 @@ from loguru import logger
 from electera.components.data_processing.data_loader import DataLoader
 import os
 import s3fs
-from dotenv import load_dotenv
-from pathlib import Path
 
-API_DIR = Path(__file__).resolve().parent
-ENV_FILE = API_DIR / ".env"
 
-load_dotenv(ENV_FILE, override=False)
-S3_ENDPOINT = os.environ.get("S3_ENDPOINT_URL", "https://minio.lab.sspcloud.fr")
-DATA_PATH = "s3://arthurmanceau/election_modeling_uhcp/data"
-MODEL_VERSION = "4.5.0"
+S3_ENDPOINT = "https://minio.lab.sspcloud.fr"
+
 
 app = FastAPI(title="Electera Data API")
 
@@ -35,6 +29,7 @@ class DataRequest(BaseModel):
     columns: Optional[List[str]] = None
     filters: Optional[List[Tuple[str, str, Any]]] = None
     asset_name: Optional[str] = "data"
+    sample_data_path: str
 
 
 class ResultsRequest(BaseModel):
@@ -42,6 +37,8 @@ class ResultsRequest(BaseModel):
     year: int
     election_type: str
     trends: List[str]
+    data_path: str
+    model_version: str
     columns: Optional[List[str]] = None
     filters: Optional[List[Tuple[str, str, Any]]] = None
 
@@ -60,19 +57,17 @@ class ExplainRequest(BaseModel):
     trends: List[str]
     year: int
     election_type: str
+    data_path: str
+    model_version: str
     columns: Optional[List[str]] = None
     filters: Optional[List[Tuple[str, str, Any]]] = None
-
-
-# Hardcoded path to the sample data as found in data_handler.py
-SAMPLE_DATA_PATH = "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/"
 
 
 @app.post("/data/sample")
 async def load_data_sample(request: DataRequest):
     try:
         df = DataLoader.load_dataset(
-            file_path=SAMPLE_DATA_PATH,
+            file_path=request.sample_data_path,
             fs=get_s3_fs(),
             columns=request.columns,
             filters=request.filters,
@@ -88,7 +83,7 @@ async def load_data_sample(request: DataRequest):
 @app.post("/data/results")
 async def load_results(request: ResultsRequest):
     try:
-        file_path = f"{DATA_PATH}/output/results/{request.asset}_{request.year}_{request.election_type}_{'_'.join(request.trends)}_{MODEL_VERSION}.parquet"
+        file_path = f"{request.data_path}/output/results/{request.asset}_{request.year}_{request.election_type}_{'_'.join(request.trends)}_{request.model_version}.parquet"
         df = DataLoader.load_dataset(
             file_path,
             fs=get_s3_fs(),
@@ -111,7 +106,7 @@ async def load_explain(request: ExplainRequest):
         trends_combined = str(trends_processed)
 
         for trend in request.trends:
-            file_path = f"{DATA_PATH}/output/explain/{request.asset}_{trends_combined}_{trend}_{request.year}_{request.election_type}_{MODEL_VERSION}.parquet"
+            file_path = f"{request.data_path}/output/explain/{request.asset}_{trends_combined}_{trend}_{request.year}_{request.election_type}_{request.model_version}.parquet"
             df = DataLoader.load_dataset(
                 file_path,
                 fs=get_s3_fs(),

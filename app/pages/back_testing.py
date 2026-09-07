@@ -91,9 +91,10 @@ def load_communes_list():
     st.session_state["data"].load_communes_list()
 
 
-def build_pres_table(df: pd.DataFrame, years: list, parties: list) -> pd.DataFrame:
+def build_pres_table(
+    df: pd.DataFrame, election_type: str, years: list, parties: list
+) -> pd.DataFrame:
     result_cols = {}
-
     for year in years:
         d = df.loc[df["annee"] == year].copy()
         if d.empty:
@@ -111,8 +112,8 @@ def build_pres_table(df: pd.DataFrame, years: list, parties: list) -> pd.DataFra
             pred[f"pvote{p}"] = d[f"pvote{p}_pred"].sum()
             true[f"pvote{p}"] = d[f"pvote{p}_true"].sum()
 
-        result_cols[f"{year}_pres_pred"] = pd.Series(pred)
-        result_cols[f"{year}_pres_true"] = pd.Series(true)
+        result_cols[f"{year}_{election_type}_pred"] = pd.Series(pred)
+        result_cols[f"{year}_{election_type}_true"] = pd.Series(true)
 
     return pd.DataFrame(result_cols)
 
@@ -143,10 +144,10 @@ if mode_choice == "Commune":
         st.write(
             f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
         )
-
     data = load_results_over_time()
     temporal_data = build_pres_table(
         data,
+        election_type=st.session_state["state"].get_type(),
         years=st.session_state["state"].get_years(),
         parties=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
     )
