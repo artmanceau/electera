@@ -111,8 +111,7 @@ async def load_explain(request: ExplainRequest):
         trends_combined = str(trends_processed)
 
         for trend in request.trends:
-            trend_processed = f"tau{trend}"
-            file_path = f"{DATA_PATH}/output/explain/{request.asset}_{trends_combined}_{trend_processed}_{request.year}_{request.election_type}_{MODEL_VERSION}.parquet"
+            file_path = f"{DATA_PATH}/output/explain/{request.asset}_{trends_combined}_{trend}_{request.year}_{request.election_type}_{MODEL_VERSION}.parquet"
             df = DataLoader.load_dataset(
                 file_path,
                 fs=get_s3_fs(),
