@@ -67,10 +67,11 @@ def _convert_to_pandas(X: Union[pl.DataFrame, pd.DataFrame]):
 
 
 class AppData:
-    def __init__(self, data_path, version, tau):
+    def __init__(self, data_path, version, tau, sample_data_path):
         self.tau = tau
         self.data_path = data_path
         self.version = version
+        self.sample_data_path = sample_data_path
         self.container = {}
 
     def load_communes_list(self):
@@ -122,7 +123,7 @@ class AppData:
 
     def _load_data_sample_s3(self, columns, filters):
         element = DataLoader.load_dataset(
-            f"{self.data_path}/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/",
+            self.sample_data_path,
             fs=get_fs().fs,
             formate="parquet",
             columns=columns,
@@ -174,6 +175,8 @@ class AppData:
                 "election_type": election_type,
                 "columns": columns,
                 "filters": filters,
+                "data_path": self.data_path,
+                "model_version": self.version,
             }
             data = self._make_api_request("/data/explain", payload)
             # The API returns a dict of lists (JSON), we need to convert them to DataFrames
@@ -206,6 +209,8 @@ class AppData:
                 "trends": trends,
                 "columns": columns,
                 "filters": filters,
+                "data_path": self.data_path,
+                "model_version": self.version,
             }
             data = self._make_api_request("/data/results", payload)
             element = pd.DataFrame(data)
@@ -234,6 +239,7 @@ class AppData:
                     "columns": list(columns) if isinstance(columns, set) else columns,
                     "filters": filters,
                     "asset_name": asset_name if asset_name is not None else "data",
+                    "sample_data_path": self.sample_data_path,
                 }
                 response = requests.post(url, json=payload)
                 response.raise_for_status()

@@ -301,6 +301,7 @@ class AppConfig(BaseModel):
     types_to_display: List[str]
     political_divisions_to_dislay: List[List[str]]
     data_path: str
+    sample_data_path: str
 
 
 class CFSelectorParams(BaseModel):

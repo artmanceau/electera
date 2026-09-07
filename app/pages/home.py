@@ -31,6 +31,7 @@ def instantiate_session_state():
         st.session_state["config"].data_path,
         st.session_state["config"].model_version,
         st.session_state["config"].tau,
+        st.session_state["config"].sample_data_path,
     )
     st.session_state["state"] = SessionHandler()
 
