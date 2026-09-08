@@ -175,7 +175,10 @@ if st.button("Compute shap values"):
 
     load_data(features=features, sampled_communes_codes=sampled_communes_codes)
 
-if st.session_state.show_shap_values:
+if (
+    st.session_state.show_shap_values
+    and st.session_state["data"].container["data_sample_all"] is not None
+):
     show_shap_values(
         shap_df=st.session_state["data"].container["shap_values"],
         data_sample=st.session_state["data"].container["data_sample_all"],
