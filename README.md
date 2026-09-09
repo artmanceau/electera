@@ -2,10 +2,12 @@
 
 Ce projet de recherche propose une double approche pour comprendre et modéliser les comportements électoraux en France.
 
+Les résultats sont disponibles sur le site : https://electera.streamlit.app/
+
 ## Installation
 
 ```bash
-git clone https://<your-username>@github.com/artmanceau/electera.git
+git clone https://github.com/artmanceau/electera.git
 ```
 ```bash
 cd electera
@@ -26,55 +28,42 @@ source .venv/bin/activate # Activate
 uv pip install -e .
 ```
 
-Several pipeline are available, to run the project end-to-end:
+Le projet peut être reproduit end-to-end en executant les pipelines suivantes:
 
 ### Pipelines
 
 #### 1. Download data
 ```bash
+# Download data from  https://www.unehistoireduconflitpolitique.fr/telecharger.html
 uv run python -m electera.pipeline.download_data
 ```
-Will fetch data from https://www.unehistoireduconflitpolitique.fr/telecharger.html and store it to a specified location (local or S3)
 
 #### 2. Process data
 ```bash
+# Run data processing
 uv run python -m electera.pipeline.data_processing_pl
 ```
-Will run data processing and store it to a specified location (local or S3)
 
 #### 3. Train models
 ```bash
+# To train models on only one election. Use MLFlows to observe models.
 uv run python -m electera.pipeline.train_models
 ```
-Several models are implemented. Models tracking can be done with MLFlow.
 
-#### 4. Generate explanations
+
+#### 4.  Election backtester
 ```bash
+# Perform a back-test over all the elections (using previous elections to predict the next one). Use MLFlows to observe models.
+# Back-testing can be performed in argo workflows.
 uv run python -m electera.pipeline.election_backtester
 ```
-Perform a back-testing with the selected model. Training on previous (and previous previous) election (of the same type) to predict the next one.
-Results are stored in a specified location (local or S3)
 
-#### 5. Election backtester
+
+#### 5.Generate explanations
 ```bash
+# Run explainability on the trained models.
 uv run python -m electera.pipeline.explain_model
 ```
-Contains several explanability features for the model trained during the back-testing
-
-#### 6. polling data
-```bash
-uv run python -m electera.pipeline.poll_data_extract
-```
-Extract polling data for the elections (from Wikipedia)
-
-
-### Application
-Application pour visualiser les performances du modèle
-```bash
-streamlit run app/app.py
-```
-
-Application déployée en ligne : https://electera-fnefwttermgjettzdiwaxd.streamlit.app/
 
 ## Modèle mathématique [2]
 
