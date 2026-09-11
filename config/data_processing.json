@@ -11,7 +11,7 @@
         "pvoteGCG",
         "pvoteDCD"
     ],
-    "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
+    "data_path": "data/",
     "first_election_only": false,
     "first_election_target_year": 2020,
     "first_election_target_type": "municipales",

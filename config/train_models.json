@@ -1,5 +1,6 @@
-{   "vote_variable": ["par", "TD", "D", "G"],
-    "dataset_path": "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260617_203623.parquet",
+{
+    "vote_variable": ["par", "TD", "D", "G"],
+    "dataset_path": "data/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet",
     "predict_delta": false,
     "predict_perc": false,
     "use_MLFlow": true,

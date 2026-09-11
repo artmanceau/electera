@@ -1,5 +1,5 @@
 {
-    "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
+    "data_path": "data/",
     "year_inf": 1800,
     "year_sup": 2027,
     "elections_type": [

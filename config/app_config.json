@@ -4,6 +4,6 @@
     "years_to_display": {"leg": [2024, 2022, 2017, 2012, 2007, 2002, 1997, 1993, 1988, 1986, 1981, 1978, 1973], "pres":[2027, 2022, 2017, 2012, 2007, 2002, 1995, 1988, 1981, 1974]},
     "types_to_display":["pres", "leg"],
     "political_divisions_to_dislay" : [["CGCCD", "D", "G", "par"], ["TG", "TD", "par"], ["G", "D", "CG", "CD", "C", "par"]],
-    "data_path":"s3://arthurmanceau/election_modeling_uhcp/data",
-    "sample_data_path":"s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet/"
+    "data_path":"data",
+    "sample_data_path":"data/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet"
 }
