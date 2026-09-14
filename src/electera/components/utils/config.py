@@ -60,6 +60,10 @@ class BackTesterConfig(BaseModel):
         default="ElectionBacktests", description="Name of the MLFlow experiment"
     )
 
+    mlflow_tracking_uri: Optional[str] = Field(
+        default=None, description="MLFlow tracking URI"
+    )
+
     @validator("political_trends")
     def validate_political_trends(cls, v):
         """Validate that political_trends contains only allowed combinations."""
