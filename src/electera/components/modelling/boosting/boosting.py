@@ -182,6 +182,11 @@ class BoostingModel:
                 self.features_selected = self.X_train.columns.to_list()
 
             X_test_boosting = X_test[self.features_selected].copy(deep=True)
+            if hasattr(self.model, "get_booster"):
+                try:
+                    self.model.get_booster().set_param({"device": "cpu"})
+                except Exception:
+                    pass
             return self.model.predict(X_test_boosting)
 
     def parameter_search(

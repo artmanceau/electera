@@ -22,6 +22,17 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 USE_MP = False
 
+
+def _safe_predict(model, X):
+    """Safely call model.predict on CPU data to avoid mismatched device warnings when booster was trained on GPU."""
+    if hasattr(model, "get_booster"):
+        try:
+            model.get_booster().set_param({"device": "cpu"})
+        except Exception:
+            pass
+    return model.predict(X)
+
+
 BOOSTING_ALG = {"xgboost": XGBRegressor, "catboost": CatBoostRegressor}
 
 BOOSTING_PARAM = {
@@ -193,7 +204,7 @@ class MetaBooster:
             n_models = len(self.best_models)
             for k in range(n_models):
                 model = self.best_models[k]
-                preds += model.predict(X)
+                preds += _safe_predict(model, X)
             preds /= n_models
 
             if with_adjustment & self.poll_adj & (self.adjustment_model is not None):
@@ -373,7 +384,7 @@ class MetaBooster:
             boosting_model.fit(X_train, y_train, sample_weight=weights_train)
 
             # Evaluate model on validation set
-            y_pred = boosting_model.predict(X_val)
+            y_pred = _safe_predict(boosting_model, X_val)
             val_score = self.objective_metric(
                 np.asarray(y_val).flatten(), np.asarray(y_pred).flatten()
             )
@@ -436,7 +447,7 @@ class MetaBooster:
                 y_train_outer,
                 sample_weight=weights[train_index_outer],
             )
-            y_pred = boosting_model.predict(X_test)
+            y_pred = _safe_predict(boosting_model, X_test)
             val_score = self.objective_metric(
                 np.asarray(y_test).flatten(), np.asarray(y_pred).flatten()
             )
