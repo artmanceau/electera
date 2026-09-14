@@ -1,9 +1,9 @@
 {
     "vote_variable": ["par", "TD", "D", "G"],
-    "dataset_path": "data/derived/processed/data_ppar_pvoteD_pvoteG_pvoteCG_pvoteCD_pvoteC_pvoteTD_pvoteTG_pvoteGCG_pvoteDCD_1958_presidentiel_legislative_20260202_110718.parquet",
+    "dataset_path": "derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet",
     "predict_delta": false,
     "predict_perc": false,
-    "use_MLFlow": true,
+    "use_MLFlow": false,
     "param_search_methods": ["none"],
     "feature_selection_methods": ["permutation"],
     "boosting_methods": ["xgboost"],
