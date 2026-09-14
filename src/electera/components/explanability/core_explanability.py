@@ -1,6 +1,6 @@
 from sklearn.model_selection import train_test_split
 
-from electera.components.data_processing.data_loader import DataLoader
+from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.data_split_pl import get_Xy_pl
 from electera.components.modelling.meta_booster import MetaBooster
 from electera.components.modelling.boosting.boosting import BoostingModel
@@ -15,21 +15,38 @@ class ExplainCore:
         self.t = t
 
     @staticmethod
-    def _load_model(data_path, var, year, type_, vars_, model_version, fs):
-        vars_.sort()
-        vars_str = "_".join(vars_)
-        model_path = f"{data_path}output/models/model_{year}_{type_}_{vars_str}_{model_version}.pkl"
-        model = DataLoader.load_pickle(file_path=model_path, fs=fs)
+    def _load_model(data_path, var, year, type_, vars_, model_version, fs=None):
+        vars_sorted = sorted(vars_)
+        vars_str = "_".join(vars_sorted)
+        base_name = f"model_{year}_{type_}_{vars_str}_{model_version}"
+
+        fs_obj = fs if fs else (DataUtils._create_fs() if DataUtils._detect_s3(data_path) else None)
+        candidates = [
+            f"{data_path}output/models/{base_name}.joblib",
+            f"{data_path}output/models/{base_name}.pkl",
+            f"output/models/{base_name}.joblib",
+            f"output/models/{base_name}.pkl",
+        ]
+        model_path = candidates[0]
+        for cand in candidates:
+            if DataUtils._exists(cand, fs=fs_obj):
+                model_path = cand
+                break
+
+        model = DataLoader.load_joblib(file_path=model_path, fs=fs_obj)
         n_models = (
             len(model.models[var].best_models)
             if isinstance(model.models[var], MetaBooster)
+            and hasattr(model.models[var], "best_models")
+            and model.models[var].best_models is not None
             else 1
         )
 
         # Adapt boosting to metaboosting structure
         if isinstance(model.models[var], BoostingModel):
             setattr(model.models[var], "features", model.models[var].features_selected)
-            setattr(model.models[var], "best_models", [model.models[var].model])
+            if not hasattr(model.models[var], "best_models") or model.models[var].best_models is None:
+                setattr(model.models[var], "best_models", [model.models[var].model])
 
         return model, n_models
 

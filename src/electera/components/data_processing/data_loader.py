@@ -4,8 +4,9 @@ import json
 import os
 import pickle
 import shutil
-from typing import List, Optional, Tuple, Literal
+from typing import Any, List, Optional, Tuple, Literal
 
+import joblib
 import pandas as pd
 import pyarrow.dataset as ds
 import polars as pl
@@ -326,12 +327,36 @@ class DataLoader:
                 pickle.dump(object_to_pickle, file)
 
     @staticmethod
-    def load_pickle(file_path: str, fs: Optional[object] | None = None) -> None:
+    def dump_joblib(
+        object_to_dump: object, file_path: str, compress: str = "lzma"
+    ) -> None:
+        fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
+        if fs:
+            with fs.open(file_path, "wb") as file:
+                joblib.dump(object_to_dump, file, compress=compress)
+        else:
+            os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+            joblib.dump(object_to_dump, file_path, compress=compress)
+        logger.debug(f"Object dumped with joblib (compress={compress}) to {file_path}")
+
+    @staticmethod
+    def load_joblib(file_path: str, fs: Optional[object] | None = None) -> Any:
         if not fs:
             fs = DataUtils._create_fs() if DataUtils._detect_s3(file_path) else None
         if fs:
             with fs.open(file_path, "rb") as file:
-                return pickle.load(file)
+                try:
+                    return joblib.load(file)
+                except Exception:
+                    file.seek(0)
+                    return pickle.load(file)
         else:
-            with open(file_path, "rb") as file:
-                return pickle.load(file)
+            try:
+                return joblib.load(file_path)
+            except Exception:
+                with open(file_path, "rb") as file:
+                    return pickle.load(file)
+
+    @staticmethod
+    def load_pickle(file_path: str, fs: Optional[object] | None = None) -> Any:
+        return DataLoader.load_joblib(file_path=file_path, fs=fs)
