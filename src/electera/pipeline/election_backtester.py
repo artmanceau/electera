@@ -142,9 +142,8 @@ class BackTester:
 
         # ML Flow
         if self.config.use_mlflow:
-            mlflow.set_tracking_uri(
-                "https://user-arthurmanceau-mlflow.user.lab.sspcloud.fr"
-            )
+            if getattr(self.config, "mlflow_tracking_uri", None):
+                mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
             experiment_base = getattr(
                 self.config,
                 "mlflow_experiment",
@@ -708,25 +707,26 @@ class BackTester:
                     election_code=f"{k_year}_{k_type}",
                 )
                 # Log into mlflow aggregated metrics
-                for trend in k_political_trends:
-                    synthetic_log_mlflow = (
-                        X_synthetic[
-                            X_synthetic["index"] == f"pvote{trend.replace('tau', '')}"
-                        ]
-                        .iloc[0]
-                        .to_dict()
-                    )
-                    clean_synthetic_log_mlflow = {
-                        k.split("_", 2)[-1] if k.count("_") >= 2 else k: v
-                        for k, v in synthetic_log_mlflow.items()
-                    }
+                if self.config.use_mlflow:
+                    for trend in k_political_trends:
+                        synthetic_log_mlflow = (
+                            X_synthetic[
+                                X_synthetic["index"] == f"pvote{trend.replace('tau', '')}"
+                            ]
+                            .iloc[0]
+                            .to_dict()
+                        )
+                        clean_synthetic_log_mlflow = {
+                            k.split("_", 2)[-1] if k.count("_") >= 2 else k: v
+                            for k, v in synthetic_log_mlflow.items()
+                        }
 
-                    mlf_utils._log_numeric_metrics(
-                        trend=trend,
-                        values=clean_synthetic_log_mlflow,
-                        model_name=model_name,
-                        suffix="",
-                    )
+                        mlf_utils._log_numeric_metrics(
+                            trend=trend,
+                            values=clean_synthetic_log_mlflow,
+                            model_name=model_name,
+                            suffix="",
+                        )
 
                 winner_pred = self.election_predictor.get_winner(
                     X_pred, self.k_type_full
