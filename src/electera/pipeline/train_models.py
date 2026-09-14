@@ -10,6 +10,7 @@ import re
 import shutil
 import tempfile
 from datetime import datetime
+from typing import Optional
 
 import mlflow
 import mlflow.sklearn
@@ -53,6 +54,16 @@ class ElectionModelTrainer:
         self.predictions = {}
         self.model_data = {}
         self.input_examples = {}
+
+    def _find_saved_model(
+        self, model_name: str, model_dir_path: str = "output/models/"
+    ) -> Optional[str]:
+        """Check if model exists locally in joblib or pkl format."""
+        for ext in [".joblib", ".pkl"]:
+            cand = os.path.join(model_dir_path, f"{model_name}{ext}")
+            if os.path.exists(cand):
+                return cand
+        return None
 
     def data_processing(
         self, data, var, feature_groups=["rank", "inscrits", "type", "geo"]
@@ -277,6 +288,9 @@ def run():
     # Load dataset (after running the data preprocessing pipeline)
     data = DataLoader.load_dataset(trainer.config.dataset_path, engine="polars")
 
+    model_dir_path = "output/models/"
+    os.makedirs(model_dir_path, exist_ok=True)
+
     for var in trainer.config.vote_variable:
         for feature_groups in [
             ["raw", "inscrits", "type", "geo", "annee", "previous_vote"],
@@ -295,62 +309,102 @@ def run():
 
             # Trivial model 1 : same as previous election
             if "trivial_1" in trainer.config.models:
-                bm = BenchmarkModels()
                 model_name = f"trivial_1_{var}_{feature_groups_str}"
-                y_1 = bm.train_trivial_1(trainer.y_prev, trainer.y_test)
+                saved_path = trainer._find_saved_model(model_name, model_dir_path)
+                if saved_path:
+                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
+                    model = DataLoader.load_joblib(saved_path)
+                    trainer.models[model_name] = model
+                    y_1 = trainer.y_prev.fillna(trainer.y_prev.mean())
+                else:
+                    bm = BenchmarkModels()
+                    y_1 = bm.train_trivial_1(trainer.y_prev, trainer.y_test)
+                    model = bm.get_model()
+                    trainer.models[model_name] = model
+                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+
                 trainer.results[model_name] = ModelEvaluator.evaluate(
                     trainer.y_test, y_1, model_name, extended=True
                 )
-                trainer.models[model_name] = bm.get_model()
                 trainer.predictions[model_name] = pd.concat(
                     [trainer.y_test, y_1], axis=1
                 )
 
             # Trivial model 2 : mean
             if "trivial_2" in trainer.config.models:
-                bm = BenchmarkModels()
                 model_name = f"trivial_2_{var}_{feature_groups_str}"
-                y_2 = bm.train_trivial_2(trainer.y_train, trainer.X_test)
+                saved_path = trainer._find_saved_model(model_name, model_dir_path)
+                if saved_path:
+                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
+                    model = DataLoader.load_joblib(saved_path)
+                    trainer.models[model_name] = model
+                    y_2 = pd.Series(trainer.y_train.mean(), index=trainer.X_test.index)
+                else:
+                    bm = BenchmarkModels()
+                    y_2 = bm.train_trivial_2(trainer.y_train, trainer.X_test)
+                    model = bm.get_model()
+                    trainer.models[model_name] = model
+                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+
                 trainer.results[model_name] = ModelEvaluator.evaluate(
                     trainer.y_test, y_2, model_name, extended=True
                 )
-                trainer.models[model_name] = bm.get_model()
                 trainer.predictions[model_name] = pd.concat(
                     [trainer.y_test, y_2], axis=1
                 )
 
             # Linear model 1 : Linear model
             if "linear_reg" in trainer.config.models:
-                bm = BenchmarkModels()
                 model_name = f"linear_regression_{var}_{feature_groups_str}"
-                y_3 = bm.train_linear_model(
-                    trainer.X_train,
-                    trainer.y_train,
-                    trainer.X_test,
-                    linear_model=LinearRegression,
-                )
+                saved_path = trainer._find_saved_model(model_name, model_dir_path)
+                if saved_path:
+                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
+                    model = DataLoader.load_joblib(saved_path)
+                    trainer.models[model_name] = model
+                    y_3 = model.predict(trainer.X_test)
+                else:
+                    bm = BenchmarkModels()
+                    y_3 = bm.train_linear_model(
+                        trainer.X_train,
+                        trainer.y_train,
+                        trainer.X_test,
+                        linear_model=LinearRegression,
+                    )
+                    model = bm.get_model()
+                    trainer.models[model_name] = model
+                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+
                 trainer.results[model_name] = ModelEvaluator.evaluate(
                     trainer.y_test, y_3, model_name, extended=True
                 )
-                trainer.models[model_name] = bm.get_model()
                 trainer.predictions[model_name] = pd.concat(
                     [trainer.y_test, pd.Series(y_3)], axis=1
                 )
 
             # Linear model 2 : Elastic net
             if "elastic_net" in trainer.config.models:
-                bm = BenchmarkModels()
                 model_name = f"elastic_net_{var}_{feature_groups_str}"
-                y_4 = bm.train_linear_model(
-                    trainer.X_train,
-                    trainer.y_train,
-                    trainer.X_test,
-                    linear_model=LassoCV,
-                )
+                saved_path = trainer._find_saved_model(model_name, model_dir_path)
+                if saved_path:
+                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
+                    model = DataLoader.load_joblib(saved_path)
+                    trainer.models[model_name] = model
+                    y_4 = model.predict(trainer.X_test)
+                else:
+                    bm = BenchmarkModels()
+                    y_4 = bm.train_linear_model(
+                        trainer.X_train,
+                        trainer.y_train,
+                        trainer.X_test,
+                        linear_model=LassoCV,
+                    )
+                    model = bm.get_model()
+                    trainer.models[model_name] = model
+                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+
                 trainer.results[model_name] = ModelEvaluator.evaluate(
                     trainer.y_test, y_4, model_name, extended=True
                 )
-                trainer.models[model_name] = bm.get_model()
                 trainer.predictions[model_name] = pd.concat(
                     [trainer.y_test, pd.Series(y_4)], axis=1
                 )
@@ -364,55 +418,70 @@ def run():
                         trainer.config.feature_selection_methods
                     ):  # List of feature selection methods
                         for boosting_method in trainer.config.boosting_methods:
-                            logger.info(
-                                f"Running pipeline with feature selection: {feature_selection_method}, parameters search: {param_search_method}"
-                            )
-
-                            # 0. Boosting algorithm
                             boosting_model = BoostingModel()
                             boosting_model.set_boosting_method(boosting_method)
-
-                            # 1. Feature selection
-                            boosting_model.feature_selection(
-                                feature_selection_method,
-                                trainer.config.top_n_features,
-                                X_val=trainer.X_val,
-                                y_val=trainer.y_val,
-                            )
-
-                            # 2. Grid search to tune hyperparameters
-                            boosting_model.parameter_search(
-                                param_search_method,
-                                X_val=trainer.X_val,
-                                y_val=trainer.y_val,
-                            )
-
-                            # 3. Train
-                            model, signature = boosting_model.train(
-                                X_train=trainer.X_train,
-                                y_train=trainer.y_train,
-                                X_val=trainer.X_val,
-                                y_val=trainer.y_val,
-                                weighting="log",
-                            )
-                            model_name = (
+                            std_model_name = (
                                 boosting_model.get_model_name()
                                 + f"_{var}_{feature_groups_str}"
                             )
-                            logger.info(f"Boosting model trained {model_name}...")
+                            saved_path = trainer._find_saved_model(std_model_name, model_dir_path)
+                            if saved_path:
+                                logger.info(
+                                    f"Boosting model '{std_model_name}' already exists at {saved_path}. Skipping computation."
+                                )
+                                loaded_obj = DataLoader.load_joblib(saved_path)
+                                if isinstance(loaded_obj, BoostingModel):
+                                    boosting_model = loaded_obj
+                                    model = boosting_model.model
+                                else:
+                                    model = loaded_obj
+                                    boosting_model.model = model
+                                trainer.models[std_model_name] = model
+                                preds = boosting_model.infer(trainer.X_test)
+                            else:
+                                logger.info(
+                                    f"Running pipeline with feature selection: {feature_selection_method}, parameters search: {param_search_method}"
+                                )
+                                # 1. Feature selection
+                                boosting_model.feature_selection(
+                                    feature_selection_method,
+                                    trainer.config.top_n_features,
+                                    X_val=trainer.X_val,
+                                    y_val=trainer.y_val,
+                                )
 
-                            trainer.models[model_name] = model
-                            trainer.input_examples[model_name] = signature
+                                # 2. Grid search to tune hyperparameters
+                                boosting_model.parameter_search(
+                                    param_search_method,
+                                    X_val=trainer.X_val,
+                                    y_val=trainer.y_val,
+                                )
 
-                            # 4. Evaluate
-                            preds = boosting_model.infer(trainer.X_test)
-                            trainer.results[model_name] = ModelEvaluator.evaluate(
+                                # 3. Train
+                                model, signature = boosting_model.train(
+                                    X_train=trainer.X_train,
+                                    y_train=trainer.y_train,
+                                    X_val=trainer.X_val,
+                                    y_val=trainer.y_val,
+                                    weighting="log",
+                                )
+                                logger.info(f"Boosting model trained {std_model_name}...")
+                                trainer.models[std_model_name] = model
+                                trainer.input_examples[std_model_name] = signature
+                                DataLoader.dump_joblib(
+                                    boosting_model,
+                                    os.path.join(model_dir_path, f"{std_model_name}.joblib"),
+                                    compress="lzma",
+                                )
+                                preds = boosting_model.infer(trainer.X_test)
+
+                            trainer.results[std_model_name] = ModelEvaluator.evaluate(
                                 trainer.y_test,
                                 preds,
-                                model_name,
+                                std_model_name,
                                 extended=True,
                             )
-                            trainer.predictions[model_name] = pd.concat(
+                            trainer.predictions[std_model_name] = pd.concat(
                                 [trainer.y_test, pd.Series(preds)], axis=1
                             )
 
@@ -421,23 +490,39 @@ def run():
                     feature_selection_method
                 ) in trainer.config.feature_selection_methods:
                     for method in trainer.config.boosting_methods:
-                        meta_booster = MetaBooster(
-                            method=method,
-                            objective_metric=mean_squared_error,
-                            weighting="log",
-                            features=None,
-                            n_splits_outer=3,
-                            n_splits_inner=3,
-                            n_trials=3,
-                        )
-                        meta_booster.train(
-                            trainer.X_train,
-                            trainer.y_train,
-                            use_feature_selection=(feature_selection_method != "none"),
-                            feature_selection_method=feature_selection_method,
-                        )
-                        y_pred = meta_booster.infer(trainer.X_test)
                         model_name = f"meta_booster_{method}_featselect:{feature_selection_method}_{var}_{feature_groups_str}"
+                        saved_path = trainer._find_saved_model(model_name, model_dir_path)
+                        if saved_path:
+                            logger.info(
+                                f"Meta-booster '{model_name}' already exists at {saved_path}. Skipping computation."
+                            )
+                            meta_booster = DataLoader.load_joblib(saved_path)
+                            trainer.models[model_name] = meta_booster
+                            y_pred = meta_booster.infer(trainer.X_test)
+                        else:
+                            meta_booster = MetaBooster(
+                                method=method,
+                                objective_metric=mean_squared_error,
+                                weighting="log",
+                                features=None,
+                                n_splits_outer=3,
+                                n_splits_inner=3,
+                                n_trials=3,
+                            )
+                            meta_booster.train(
+                                trainer.X_train,
+                                trainer.y_train,
+                                use_feature_selection=(feature_selection_method != "none"),
+                                feature_selection_method=feature_selection_method,
+                            )
+                            trainer.models[model_name] = meta_booster
+                            DataLoader.dump_joblib(
+                                meta_booster,
+                                os.path.join(model_dir_path, f"{model_name}.joblib"),
+                                compress="lzma",
+                            )
+                            y_pred = meta_booster.infer(trainer.X_test)
+
                         trainer.results[model_name] = ModelEvaluator.evaluate(
                             trainer.y_test,
                             y_pred,
@@ -454,25 +539,41 @@ def run():
                     feature_selection_method
                 ) in trainer.config.feature_selection_methods:
                     for method in trainer.config.boosting_methods:
-                        meta_booster_multiple = MetaBoosterMultipleElections(
-                            method=method,
-                            objective_metric=mean_squared_error,
-                            weighting="proportional",
-                            features=None,
-                            n_splits_outer=2,
-                            n_splits_inner=2,
-                            n_trials=2,
-                            ponderation=[0.7, 0.3],
-                        )
-                        meta_booster_multiple.train_multiple(
-                            election_datasets=[
-                                (trainer.X_train, trainer.y_train),
-                                (trainer.X_val, trainer.y_val),
-                            ],
-                            use_feature_selection=(feature_selection_method == "gain"),
-                        )
-                        y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
                         model_name = f"meta_booster_multiple_{method}_featselect:{feature_selection_method}_{var}_{feature_groups_str}"
+                        saved_path = trainer._find_saved_model(model_name, model_dir_path)
+                        if saved_path:
+                            logger.info(
+                                f"Meta-booster multiple '{model_name}' already exists at {saved_path}. Skipping computation."
+                            )
+                            meta_booster_multiple = DataLoader.load_joblib(saved_path)
+                            trainer.models[model_name] = meta_booster_multiple
+                            y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
+                        else:
+                            meta_booster_multiple = MetaBoosterMultipleElections(
+                                method=method,
+                                objective_metric=mean_squared_error,
+                                weighting="proportional",
+                                features=None,
+                                n_splits_outer=2,
+                                n_splits_inner=2,
+                                n_trials=2,
+                                ponderation=[0.7, 0.3],
+                            )
+                            meta_booster_multiple.train_multiple(
+                                election_datasets=[
+                                    (trainer.X_train, trainer.y_train),
+                                    (trainer.X_val, trainer.y_val),
+                                ],
+                                use_feature_selection=(feature_selection_method == "gain"),
+                            )
+                            trainer.models[model_name] = meta_booster_multiple
+                            DataLoader.dump_joblib(
+                                meta_booster_multiple,
+                                os.path.join(model_dir_path, f"{model_name}.joblib"),
+                                compress="lzma",
+                            )
+                            y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
+
                         trainer.results[model_name] = ModelEvaluator.evaluate(
                             trainer.y_test,
                             y_pred,
@@ -487,6 +588,20 @@ def run():
         comparison_df = trainer.compare_models()
         logger.success("\nModel Comparison:")
         logger.info(comparison_df.to_string(index=False))
+
+        # Save best model locally
+        if not comparison_df.empty:
+            best_row = comparison_df.sort_values("MSE").iloc[0]
+            best_model_name = best_row["Model"]
+            best_model = trainer.models.get(best_model_name)
+            if best_model is not None:
+                best_model_path = os.path.join(
+                    model_dir_path, f"best_model_{var}_{feature_groups_str}.joblib"
+                )
+                DataLoader.dump_joblib(best_model, best_model_path, compress="lzma")
+                logger.success(
+                    f"Best model for {var}_{feature_groups_str} is '{best_model_name}' (MSE: {best_row['MSE']:.4f}), saved to {best_model_path}"
+                )
 
         # MLFLOW
         if trainer.config.use_MLFlow:
