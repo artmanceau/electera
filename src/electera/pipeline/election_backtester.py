@@ -18,6 +18,7 @@ Election Backtester
 # Based on this we compute the final result and compare it with the actual results
 """
 
+import copy
 import os
 import pickle
 import tempfile
@@ -781,10 +782,15 @@ class BackTester:
         )
         for model_name in models:
             logger.info(f"Model: {model_name}")
-            model, model_args = (
-                MODELS[model_name],
-                MODEL_ARGS[model_name],
-            )
+            model = MODELS[model_name]
+            model_args = copy.deepcopy(MODEL_ARGS[model_name])
+            if model_name in ("meta_boosting", "meta_boosting_multiple"):
+                model_args["use_gpu"] = self.config.use_gpu
+            elif model_name == "boosting" and self.config.use_gpu:
+                if "parameters" not in model_args:
+                    model_args["parameters"] = {}
+                model_args["parameters"]["device"] = "cuda"
+                model_args["parameters"]["tree_method"] = "hist"
             for political_trends in k_political_trends:
                 for type_ in k_types:
                     for year in k_years[type_]:
