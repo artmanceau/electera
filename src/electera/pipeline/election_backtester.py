@@ -44,6 +44,7 @@ from electera.components.modelling.evaluation import ModelEvaluator
 from electera.components.modelling.meta_booster import (
     MetaBooster,
     MetaBoosterMultipleElections,
+    _safe_predict,
 )
 from electera.components.utils.config import BackTesterConfig
 from electera.components.utils.read_config import ConfigReader
@@ -80,6 +81,7 @@ MODEL_ARGS = {
         "n_splits_outer": 10,
         "n_trials": 10,
         "poll_adj": False,
+        "use_gpu": False,
     },
     "meta_boosting_multiple": {
         "method": "xgboost",
@@ -90,6 +92,7 @@ MODEL_ARGS = {
         "n_splits_outer": 10,
         "n_trials": 2,
         "ponderation": [0.7, 0.3],
+        "use_gpu": False,
     },
 }
 
@@ -515,10 +518,12 @@ class BackTester:
                             instance_model = BoostingModel()
                             instance_model.model = xgb_model
                             instance_model.best_models = [xgb_model]
-                            instance_model.infer = lambda X_eval, m=xgb_model: m.predict(X_eval)
+                            instance_model.infer = lambda X_eval, m=xgb_model: _safe_predict(m, X_eval)
                             if self.config.use_mlflow:
                                 mlflow.log_metrics({f"{trend}_nested_cv_mse": cv_metrics["nested_cv_mse"]})
                         else:
+                            if model_name in ("meta_boosting", "meta_boosting_multiple") and "use_gpu" not in model_args:
+                                model_args["use_gpu"] = getattr(self.config, "use_gpu", False)
                             instance_model = model(**model_args)
                             if model_name == "trivial_1":
                                 instance_model.train(self.X_train[trend], self.y_train[trend], y_prev=self.y_prev[trend])
@@ -586,7 +591,7 @@ class BackTester:
         for model_name in models:
             model = MODELS[model_name]
             model_args = copy.deepcopy(MODEL_ARGS[model_name])
-            if "use_gpu" in model_args:
+            if "use_gpu" in model_args or model_name in ("boosting", "meta_boosting", "meta_boosting_multiple"):
                 model_args["use_gpu"] = getattr(self.config, "use_gpu", False)
 
             for political_trends in k_political_trends:
