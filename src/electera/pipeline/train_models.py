@@ -10,14 +10,18 @@ import re
 import shutil
 import tempfile
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple
 
 import mlflow
 import mlflow.sklearn
+import numpy as np
+import optuna
 import pandas as pd
 from loguru import logger
 from sklearn.linear_model import LassoCV, LinearRegression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.model_selection import KFold
+import xgboost as xgb
 
 from electera.components.data_processing.data_loader import DataLoader
 from electera.components.modelling.benchmark_models import BenchmarkModels
@@ -31,24 +35,157 @@ from electera.components.modelling.meta_booster import (
 from electera.components.utils.config import TrainModelsConfig
 from electera.components.utils.read_config import ConfigReader
 
+optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+
+def optimize_inner_fold(
+    X_train_outer: np.ndarray,
+    y_train_outer: np.ndarray,
+    n_inner_splits: int = 3,
+    n_trials: int = 30,
+    use_gpu: bool = False,
+    early_stopping_rounds: int = 30,
+    max_n_estimators: int = 1500,
+) -> Dict[str, Any]:
+    """Inner CV loop: Uses Optuna to find hyperparameters minimizing MSE across inner folds."""
+    inner_cv = KFold(n_splits=n_inner_splits, shuffle=True, random_state=42)
+    device = "cuda" if use_gpu else "cpu"
+
+    def objective(trial):
+        params = {
+            "n_estimators": max_n_estimators,
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "max_depth": trial.suggest_int("max_depth", 3, 9),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "gamma": trial.suggest_float("gamma", 0.0, 5.0),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
+            "tree_method": "hist",
+            "device": device,
+            "early_stopping_rounds": early_stopping_rounds,
+            "eval_metric": "rmse",
+            "random_state": 42,
+        }
+
+        if not use_gpu:
+            params["n_jobs"] = -1
+
+        fold_losses = []
+        best_iterations = []
+
+        for in_train_idx, in_val_idx in inner_cv.split(X_train_outer, y_train_outer):
+            X_in_tr, X_in_val = X_train_outer[in_train_idx], X_train_outer[in_val_idx]
+            y_in_tr, y_in_val = y_train_outer[in_train_idx], y_train_outer[in_val_idx]
+
+            model = xgb.XGBRegressor(**params)
+            model.fit(
+                X_in_tr,
+                y_in_tr,
+                eval_set=[(X_in_val, y_in_val)],
+                verbose=False,
+            )
+
+            preds = model.predict(X_in_val)
+            fold_losses.append(mean_squared_error(y_in_val, preds))
+            best_iterations.append(model.best_iteration)
+
+        trial.set_user_attr("mean_best_n_estimators", int(np.mean(best_iterations)) + 1)
+        return float(np.mean(fold_losses))
+
+    sampler = optuna.samplers.TPESampler(seed=42)
+    study = optuna.create_study(direction="minimize", sampler=sampler)
+    study.optimize(objective, n_trials=n_trials)
+
+    best_params = study.best_params
+    best_params["n_estimators"] = study.best_trial.user_attrs["mean_best_n_estimators"]
+    return best_params
+
+
+def nested_cross_validation_xgb(
+    X: np.ndarray,
+    y: np.ndarray,
+    n_outer_splits: int = 5,
+    n_inner_splits: int = 3,
+    n_trials: int = 30,
+    use_gpu: bool = False,
+) -> Tuple[xgb.XGBRegressor, Dict[str, float]]:
+    """Executes the full nested cross-validation pipeline with optional GPU support."""
+    outer_cv = KFold(n_splits=n_outer_splits, shuffle=True, random_state=123)
+    outer_scores = []
+    device = "cuda" if use_gpu else "cpu"
+
+    logger.info(f"Nested CV Device: {device.upper()}")
+    logger.info(f"Starting Nested CV: {n_outer_splits} Outer Folds x {n_inner_splits} Inner Folds")
+
+    for outer_fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y)):
+        X_tr_out, X_te_out = X[train_idx], X[test_idx]
+        y_tr_out, y_te_out = y[train_idx], y[test_idx]
+
+        best_params = optimize_inner_fold(
+            X_tr_out,
+            y_tr_out,
+            n_inner_splits=n_inner_splits,
+            n_trials=n_trials,
+            use_gpu=use_gpu,
+        )
+
+        final_model_params = {
+            **best_params,
+            "tree_method": "hist",
+            "device": device,
+            "eval_metric": "rmse",
+            "random_state": 42,
+        }
+        if not use_gpu:
+            final_model_params["n_jobs"] = -1
+
+        final_model = xgb.XGBRegressor(**final_model_params)
+        final_model.fit(X_tr_out, y_tr_out, verbose=False)
+
+        outer_preds = final_model.predict(X_te_out)
+        mse = mean_squared_error(y_te_out, outer_preds)
+        mae = mean_absolute_error(y_te_out, outer_preds)
+        outer_scores.append({"mse": mse, "mae": mae})
+
+        logger.info(
+            f"Outer Fold {outer_fold + 1}/{n_outer_splits} | MSE: {mse:.4f} | MAE: {mae:.4f} | Trees: {best_params['n_estimators']} | Depth: {best_params['max_depth']}"
+        )
+
+    mean_mse = float(np.mean([s["mse"] for s in outer_scores]))
+    std_mse = float(np.std([s["mse"] for s in outer_scores]))
+    logger.info(f"Outer CV Generalization MSE: {mean_mse:.4f} (+/- {std_mse:.4f})")
+
+    # Fit best model on the complete outer dataset
+    best_params_full = optimize_inner_fold(
+        X,
+        y,
+        n_inner_splits=n_inner_splits,
+        n_trials=n_trials,
+        use_gpu=use_gpu,
+    )
+    final_deployment_model = xgb.XGBRegressor(
+        **best_params_full,
+        tree_method="hist",
+        device=device,
+        eval_metric="rmse",
+        random_state=42,
+    )
+    if not use_gpu:
+        final_deployment_model.set_params(n_jobs=-1)
+
+    final_deployment_model.fit(X, y, verbose=False)
+    return final_deployment_model, {"nested_mse": mean_mse, "nested_mse_std": std_mse}
+
 
 class ElectionModelTrainer:
     """Class to handle model training and evaluation pipeline"""
 
     def __init__(self):
-        """
-        Initialize the model trainer
-
-        Args:
-            X (pd.DataFrame): Feature matrix
-            y (pd.Series): Target variable
-        """
-
         self.config = ConfigReader._read_config(
             "../config/train_models.json", TrainModelsConfig
         )
-
-        # Model storage
         self.models = {}
         self.results = {}
         self.predictions = {}
@@ -58,7 +195,6 @@ class ElectionModelTrainer:
     def _find_saved_model(
         self, model_name: str, model_dir_path: str = "output/models/"
     ) -> Optional[str]:
-        """Check if model exists locally in joblib or pkl format."""
         for ext in [".joblib", ".pkl"]:
             cand = os.path.join(model_dir_path, f"{model_name}{ext}")
             if os.path.exists(cand):
@@ -68,9 +204,7 @@ class ElectionModelTrainer:
     def data_processing(
         self, data, var, feature_groups=["rank", "inscrits", "type", "geo"]
     ):
-        """Prepare training and testing data"""
         logger.info("Preparing data splits...")
-
         container_names = (
             "X_train",
             "X_val",
@@ -83,10 +217,7 @@ class ElectionModelTrainer:
             "meta_val",
             "meta_test",
         )
-
-        # Reset feature names for this run
         self.feature_names = {}
-
         values = get_Xy_pl(
             data,
             vote_variable=f"pvote{var}",
@@ -98,20 +229,14 @@ class ElectionModelTrainer:
             selected_features=None,
             split_method_way="random",
         )
-
         for name, value in zip(container_names, values):
             setattr(self, name, value)
 
         self.feature_names = self.X_train.columns.tolist()
-
-        logger.info(
-            f"Data prepared: Train {self.X_train.shape}, Test {self.X_test.shape}"
-        )
+        logger.info(f"Data prepared: Train {self.X_train.shape}, Test {self.X_test.shape}")
 
     def compare_models(self):
-        """Compare all trained models"""
         logger.info("Comparing models...")
-
         model_names = []
         mse_scores = []
         mae_scores = []
@@ -124,19 +249,12 @@ class ElectionModelTrainer:
             r2_scores.append(results["r2"])
 
         comparison_df = pd.DataFrame(
-            {
-                "Model": model_names,
-                "MSE": mse_scores,
-                "MAE": mae_scores,
-                "R²": r2_scores,
-            }
+            {"Model": model_names, "MSE": mse_scores, "MAE": mae_scores, "R²": r2_scores}
         )
         comparison_df.to_csv("data/comp_table.csv")
-
         return comparison_df
 
     def save_results(self, experiment_name=None):
-        """Save all model results and artifacts to MLflow."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if experiment_name is None:
             experiment_name = f"pipeline_train_models_{timestamp}"
@@ -146,34 +264,20 @@ class ElectionModelTrainer:
 
         for model_name, model in self.models.items():
             with mlflow.start_run(run_name=f"{model_name}_{timestamp}"):
-                # Log config
                 if hasattr(self, "config") and self.config is not None:
                     for key, value in self.config.model_dump().items():
                         mlflow.log_param(f"config_{key}", str(value)[:500])
 
-                # Log exactly this model
                 self._log_model_to_mlflow(model_name, model)
-
-                # Per-model metadata
                 mlflow.log_param("timestamp", timestamp)
                 mlflow.log_param("model_name", model_name)
                 mlflow.set_tag("experiment_type", "model_training")
-                mlflow.set_tag("framework", "scikit-learn")
-
-                run_id = mlflow.active_run().info.run_id
-                logger.info(f"Model '{model_name}' logged to MLflow run: {run_id}")
+                mlflow.set_tag("framework", "xgboost_nested_cv")
 
     def _log_model_to_mlflow(self, model_name: str, model) -> None:
-        """Log individual model with type-specific artifacts."""
         model_name_safe = re.sub(r"[:\s]", "_", model_name)
         model_results = self.results.get(model_name, {})
         model_preds = self.predictions.get(model_name, {})
-        input_example = self.input_examples.get(model_name)
-
-        # Ensure input_example is 2D
-        if input_example is not None and hasattr(input_example, "ndim"):
-            if input_example.ndim == 1:
-                input_example = input_example.reshape(1, -1)
 
         mlflow.sklearn.log_model(
             model,
@@ -186,110 +290,22 @@ class ElectionModelTrainer:
                 continue
             if isinstance(metric_value, (int, float)):
                 mlflow.log_metric(f"{metric_name}_{model_name}", float(metric_value))
-            else:
-                mlflow.log_param(
-                    f"param_{metric_name}_{model_name}", str(metric_value)[:500]
-                )
 
         artifacts_dir = tempfile.mkdtemp()
         pred_path = os.path.join(artifacts_dir, "predictions.csv")
         model_preds.to_csv(pred_path)
         mlflow.log_artifact(pred_path, artifact_path=f"{model_name_safe}/artifacts")
-
-        self._log_model_artifacts(model_name_safe, model, model_results)
-        logger.info(f"Successfully logged model: {model_name}")
-
-    def _log_model_artifacts(
-        self, model_name_safe: str, model, model_results: dict
-    ) -> None:
-        """Log type-specific artifacts (feature importance, coefficients, etc.)."""
-        artifacts_dir = tempfile.mkdtemp()
-        try:
-            if hasattr(model, "feature_importances_"):
-                importance_df = pd.DataFrame(
-                    {
-                        "feature": model.feature_names_in_,
-                        "importance": model.feature_importances_,
-                    }
-                ).sort_values("importance", ascending=False)
-                importance_path = os.path.join(artifacts_dir, "feature_importance.csv")
-                importance_df.to_csv(importance_path, index=False)
-                mlflow.log_artifact(
-                    importance_path, artifact_path=f"{model_name_safe}/artifacts"
-                )
-
-            if hasattr(model, "get_booster"):
-                try:
-                    booster = model.get_booster()
-                    for importance_type in [
-                        "weight",
-                        "gain",
-                        "cover",
-                        "total_gain",
-                        "total_cover",
-                    ]:
-                        importance_dict = booster.get_score(
-                            importance_type=importance_type
-                        )
-                        if importance_dict:
-                            total_importance = sum(importance_dict.values())
-                            importance_data = [
-                                {
-                                    "feature": feat,
-                                    "importance": score,
-                                    "importance_pct": (
-                                        (score / total_importance * 100)
-                                        if total_importance > 0
-                                        else 0
-                                    ),
-                                }
-                                for feat, score in importance_dict.items()
-                            ]
-                            importance_df = pd.DataFrame(importance_data).sort_values(
-                                "importance", ascending=False
-                            )
-                            importance_path = os.path.join(
-                                artifacts_dir,
-                                f"feature_importance_{importance_type}.csv",
-                            )
-                            importance_df.to_csv(importance_path, index=False)
-                            mlflow.log_artifact(
-                                importance_path,
-                                artifact_path=f"{model_name_safe}/artifacts",
-                            )
-                except Exception as e:
-                    logger.warning(
-                        f"Could not extract booster importances for {model_name_safe}: {e}"
-                    )
-
-            if hasattr(model, "coef_"):
-                coef_df = pd.DataFrame(
-                    {
-                        "feature": self.feature_names,
-                        "coefficient": model.coef_,
-                    }
-                ).sort_values("coefficient", key=abs, ascending=False)
-                coef_path = os.path.join(artifacts_dir, "coefficients.csv")
-                coef_df.to_csv(coef_path, index=False)
-                mlflow.log_artifact(
-                    coef_path, artifact_path=f"{model_name_safe}/artifacts"
-                )
-
-        finally:
-            shutil.rmtree(artifacts_dir, ignore_errors=True)
+        shutil.rmtree(artifacts_dir, ignore_errors=True)
 
 
 def run():
-    """Main function to run the model training pipeline"""
-
-    # Initialize trainer
     trainer = ElectionModelTrainer()
-
-    # Load dataset (after running the data preprocessing pipeline)
     data = DataLoader.load_dataset(trainer.config.dataset_path, engine="polars")
 
     model_dir_path = "output/models/"
     os.makedirs(model_dir_path, exist_ok=True)
+
+    use_gpu = getattr(trainer.config, "use_gpu", False)
 
     for var in trainer.config.vote_variable:
         for feature_groups in [
@@ -300,19 +316,15 @@ def run():
             ["rank", "inscrits", "type", "geo", "pct_change"],
         ]:
             feature_groups_str = "_".join(feature_groups)
+            logger.info(f"Running for variable: {var} | features: {feature_groups_str}")
 
-            logger.info(f"Running for variable: {var}")
-            logger.info(f"Running for features: {feature_groups_str}")
-
-            # Process data
             trainer.data_processing(data, var, feature_groups)
 
-            # Trivial model 1 : same as previous election
+            # 1. Trivial Model 1
             if "trivial_1" in trainer.config.models:
                 model_name = f"trivial_1_{var}_{feature_groups_str}"
                 saved_path = trainer._find_saved_model(model_name, model_dir_path)
                 if saved_path:
-                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
                     model = DataLoader.load_joblib(saved_path)
                     trainer.models[model_name] = model
                     y_1 = trainer.y_prev.fillna(trainer.y_prev.mean())
@@ -323,305 +335,86 @@ def run():
                     trainer.models[model_name] = model
                     DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
 
-                trainer.results[model_name] = ModelEvaluator.evaluate(
-                    trainer.y_test, y_1, model_name, extended=True
-                )
-                trainer.predictions[model_name] = pd.concat(
-                    [trainer.y_test, y_1], axis=1
-                )
+                trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_1, model_name, extended=True)
+                trainer.predictions[model_name] = pd.concat([trainer.y_test, y_1], axis=1)
 
-            # Trivial model 2 : mean
-            if "trivial_2" in trainer.config.models:
-                model_name = f"trivial_2_{var}_{feature_groups_str}"
-                saved_path = trainer._find_saved_model(model_name, model_dir_path)
-                if saved_path:
-                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
-                    model = DataLoader.load_joblib(saved_path)
-                    trainer.models[model_name] = model
-                    y_2 = pd.Series(trainer.y_train.mean(), index=trainer.X_test.index)
-                else:
-                    bm = BenchmarkModels()
-                    y_2 = bm.train_trivial_2(trainer.y_train, trainer.X_test)
-                    model = bm.get_model()
-                    trainer.models[model_name] = model
-                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
-
-                trainer.results[model_name] = ModelEvaluator.evaluate(
-                    trainer.y_test, y_2, model_name, extended=True
-                )
-                trainer.predictions[model_name] = pd.concat(
-                    [trainer.y_test, y_2], axis=1
-                )
-
-            # Linear model 1 : Linear model
+            # 2. Linear Regression
             if "linear_reg" in trainer.config.models:
                 model_name = f"linear_regression_{var}_{feature_groups_str}"
                 saved_path = trainer._find_saved_model(model_name, model_dir_path)
                 if saved_path:
-                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
                     model = DataLoader.load_joblib(saved_path)
                     trainer.models[model_name] = model
                     y_3 = model.predict(trainer.X_test)
                 else:
                     bm = BenchmarkModels()
-                    y_3 = bm.train_linear_model(
-                        trainer.X_train,
-                        trainer.y_train,
-                        trainer.X_test,
-                        linear_model=LinearRegression,
-                    )
+                    y_3 = bm.train_linear_model(trainer.X_train, trainer.y_train, trainer.X_test, linear_model=LinearRegression)
                     model = bm.get_model()
                     trainer.models[model_name] = model
                     DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
 
-                trainer.results[model_name] = ModelEvaluator.evaluate(
-                    trainer.y_test, y_3, model_name, extended=True
-                )
-                trainer.predictions[model_name] = pd.concat(
-                    [trainer.y_test, pd.Series(y_3)], axis=1
-                )
+                trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_3, model_name, extended=True)
+                trainer.predictions[model_name] = pd.concat([trainer.y_test, pd.Series(y_3)], axis=1)
 
-            # Linear model 2 : Elastic net
-            if "elastic_net" in trainer.config.models:
-                model_name = f"elastic_net_{var}_{feature_groups_str}"
+            # 3. Boosting via Nested Cross-Validation & Optuna
+            if "boosting" in trainer.config.models:
+                std_model_name = f"xgboost_nested_cv_{var}_{feature_groups_str}"
+                saved_path = trainer._find_saved_model(std_model_name, model_dir_path)
+
+                if saved_path:
+                    logger.info(f"Model '{std_model_name}' already exists. Skipping computation.")
+                    model = DataLoader.load_joblib(saved_path)
+                    trainer.models[std_model_name] = model
+                    preds = model.predict(trainer.X_test.to_numpy())
+                else:
+                    logger.info(f"Running Nested CV and Optuna optimization for {std_model_name}...")
+                    model, cv_metrics = nested_cross_validation_xgb(
+                        X=trainer.X_train.to_numpy(),
+                        y=trainer.y_train.to_numpy(),
+                        n_outer_splits=getattr(trainer.config, "n_splits_outer", 5),
+                        n_inner_splits=getattr(trainer.config, "n_splits_inner", 3),
+                        n_trials=getattr(trainer.config, "n_trials", 25),
+                        use_gpu=use_gpu,
+                    )
+                    trainer.models[std_model_name] = model
+                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{std_model_name}.joblib"), compress="lzma")
+                    preds = model.predict(trainer.X_test.to_numpy())
+
+                trainer.results[std_model_name] = ModelEvaluator.evaluate(trainer.y_test, preds, std_model_name, extended=True)
+                trainer.predictions[std_model_name] = pd.concat([trainer.y_test, pd.Series(preds, index=trainer.y_test.index)], axis=1)
+
+            # 4. Meta Boosting
+            if "meta_boosting" in trainer.config.models:
+                model_name = f"meta_booster_{var}_{feature_groups_str}"
                 saved_path = trainer._find_saved_model(model_name, model_dir_path)
                 if saved_path:
-                    logger.info(f"Model '{model_name}' already exists at {saved_path}. Skipping computation.")
-                    model = DataLoader.load_joblib(saved_path)
-                    trainer.models[model_name] = model
-                    y_4 = model.predict(trainer.X_test)
+                    meta_booster = DataLoader.load_joblib(saved_path)
+                    trainer.models[model_name] = meta_booster
+                    y_pred = meta_booster.infer(trainer.X_test)
                 else:
-                    bm = BenchmarkModels()
-                    y_4 = bm.train_linear_model(
-                        trainer.X_train,
-                        trainer.y_train,
-                        trainer.X_test,
-                        linear_model=LassoCV,
+                    meta_booster = MetaBooster(
+                        method="xgboost",
+                        objective_metric=mean_squared_error,
+                        weighting="log",
+                        n_splits_outer=3,
+                        n_splits_inner=3,
+                        n_trials=10,
+                        use_gpu=use_gpu,
                     )
-                    model = bm.get_model()
-                    trainer.models[model_name] = model
-                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+                    meta_booster.train(trainer.X_train, trainer.y_train, use_feature_selection=False)
+                    trainer.models[model_name] = meta_booster
+                    DataLoader.dump_joblib(meta_booster, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+                    y_pred = meta_booster.infer(trainer.X_test)
 
-                trainer.results[model_name] = ModelEvaluator.evaluate(
-                    trainer.y_test, y_4, model_name, extended=True
-                )
-                trainer.predictions[model_name] = pd.concat(
-                    [trainer.y_test, pd.Series(y_4)], axis=1
-                )
+                trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_pred, model_name, extended=True)
+                trainer.predictions[model_name] = pd.concat([trainer.y_test, pd.Series(y_pred)], axis=1)
 
-            if "boosting" in trainer.config.models:
-                # boosting
-                for param_search_method in (
-                    trainer.config.param_search_methods
-                ):  # List of hyperparameter tuning methods
-                    for feature_selection_method in (
-                        trainer.config.feature_selection_methods
-                    ):  # List of feature selection methods
-                        for boosting_method in trainer.config.boosting_methods:
-                            boosting_model = BoostingModel()
-                            boosting_model.set_boosting_method(boosting_method)
-                            std_model_name = (
-                                boosting_model.get_model_name()
-                                + f"_{var}_{feature_groups_str}"
-                            )
-                            saved_path = trainer._find_saved_model(std_model_name, model_dir_path)
-                            if saved_path:
-                                logger.info(
-                                    f"Boosting model '{std_model_name}' already exists at {saved_path}. Skipping computation."
-                                )
-                                loaded_obj = DataLoader.load_joblib(saved_path)
-                                if isinstance(loaded_obj, BoostingModel):
-                                    boosting_model = loaded_obj
-                                    model = boosting_model.model
-                                else:
-                                    model = loaded_obj
-                                    boosting_model.model = model
-                                trainer.models[std_model_name] = model
-                                preds = boosting_model.infer(trainer.X_test)
-                            else:
-                                logger.info(
-                                    f"Running pipeline with feature selection: {feature_selection_method}, parameters search: {param_search_method}"
-                                )
-                                # 1. Feature selection
-                                boosting_model.feature_selection(
-                                    feature_selection_method,
-                                    trainer.config.top_n_features,
-                                    X_val=trainer.X_val,
-                                    y_val=trainer.y_val,
-                                )
-
-                                # 2. Grid search to tune hyperparameters
-                                boosting_model.parameter_search(
-                                    param_search_method,
-                                    X_val=trainer.X_val,
-                                    y_val=trainer.y_val,
-                                )
-
-                                # 3. Train
-                                model, signature = boosting_model.train(
-                                    X_train=trainer.X_train,
-                                    y_train=trainer.y_train,
-                                    X_val=trainer.X_val,
-                                    y_val=trainer.y_val,
-                                    weighting="log",
-                                )
-                                logger.info(f"Boosting model trained {std_model_name}...")
-                                trainer.models[std_model_name] = model
-                                trainer.input_examples[std_model_name] = signature
-                                DataLoader.dump_joblib(
-                                    boosting_model,
-                                    os.path.join(model_dir_path, f"{std_model_name}.joblib"),
-                                    compress="lzma",
-                                )
-                                preds = boosting_model.infer(trainer.X_test)
-
-                            trainer.results[std_model_name] = ModelEvaluator.evaluate(
-                                trainer.y_test,
-                                preds,
-                                std_model_name,
-                                extended=True,
-                            )
-                            trainer.predictions[std_model_name] = pd.concat(
-                                [trainer.y_test, pd.Series(preds)], axis=1
-                            )
-
-            if "meta_boosting" in trainer.config.models:
-                for (
-                    feature_selection_method
-                ) in trainer.config.feature_selection_methods:
-                    for method in trainer.config.boosting_methods:
-                        model_name = f"meta_booster_{method}_featselect:{feature_selection_method}_{var}_{feature_groups_str}"
-                        saved_path = trainer._find_saved_model(model_name, model_dir_path)
-                        if saved_path:
-                            logger.info(
-                                f"Meta-booster '{model_name}' already exists at {saved_path}. Skipping computation."
-                            )
-                            meta_booster = DataLoader.load_joblib(saved_path)
-                            trainer.models[model_name] = meta_booster
-                            y_pred = meta_booster.infer(trainer.X_test)
-                        else:
-                            meta_booster = MetaBooster(
-                                method=method,
-                                objective_metric=mean_squared_error,
-                                weighting="log",
-                                features=None,
-                                n_splits_outer=3,
-                                n_splits_inner=3,
-                                n_trials=3,
-                            )
-                            meta_booster.train(
-                                trainer.X_train,
-                                trainer.y_train,
-                                use_feature_selection=(feature_selection_method != "none"),
-                                feature_selection_method=feature_selection_method,
-                            )
-                            trainer.models[model_name] = meta_booster
-                            DataLoader.dump_joblib(
-                                meta_booster,
-                                os.path.join(model_dir_path, f"{model_name}.joblib"),
-                                compress="lzma",
-                            )
-                            y_pred = meta_booster.infer(trainer.X_test)
-
-                        trainer.results[model_name] = ModelEvaluator.evaluate(
-                            trainer.y_test,
-                            y_pred,
-                            model_name,
-                            extended=True,
-                        )
-                        trainer.predictions[model_name] = pd.concat(
-                            [trainer.y_test, pd.Series(y_pred)], axis=1
-                        )
-
-            if "meta_boosting_multiple" in trainer.config.models:
-                # meta-boosting using average predictions over multiple elections used for training
-                for (
-                    feature_selection_method
-                ) in trainer.config.feature_selection_methods:
-                    for method in trainer.config.boosting_methods:
-                        model_name = f"meta_booster_multiple_{method}_featselect:{feature_selection_method}_{var}_{feature_groups_str}"
-                        saved_path = trainer._find_saved_model(model_name, model_dir_path)
-                        if saved_path:
-                            logger.info(
-                                f"Meta-booster multiple '{model_name}' already exists at {saved_path}. Skipping computation."
-                            )
-                            meta_booster_multiple = DataLoader.load_joblib(saved_path)
-                            trainer.models[model_name] = meta_booster_multiple
-                            y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
-                        else:
-                            meta_booster_multiple = MetaBoosterMultipleElections(
-                                method=method,
-                                objective_metric=mean_squared_error,
-                                weighting="proportional",
-                                features=None,
-                                n_splits_outer=2,
-                                n_splits_inner=2,
-                                n_trials=2,
-                                ponderation=[0.7, 0.3],
-                            )
-                            meta_booster_multiple.train_multiple(
-                                election_datasets=[
-                                    (trainer.X_train, trainer.y_train),
-                                    (trainer.X_val, trainer.y_val),
-                                ],
-                                use_feature_selection=(feature_selection_method == "gain"),
-                            )
-                            trainer.models[model_name] = meta_booster_multiple
-                            DataLoader.dump_joblib(
-                                meta_booster_multiple,
-                                os.path.join(model_dir_path, f"{model_name}.joblib"),
-                                compress="lzma",
-                            )
-                            y_pred = meta_booster_multiple.infer_multiple(trainer.X_test)
-
-                        trainer.results[model_name] = ModelEvaluator.evaluate(
-                            trainer.y_test,
-                            y_pred,
-                            model_name,
-                            extended=True,
-                        )
-                        trainer.predictions[model_name] = pd.concat(
-                            [trainer.y_test, y_pred], axis=1
-                        )
-
-        # Compare models
         comparison_df = trainer.compare_models()
         logger.success("\nModel Comparison:")
         logger.info(comparison_df.to_string(index=False))
 
-        # Save best model locally
-        if not comparison_df.empty:
-            best_row = comparison_df.sort_values("MSE").iloc[0]
-            best_model_name = best_row["Model"]
-            best_model = trainer.models.get(best_model_name)
-            if best_model is not None:
-                best_model_path = os.path.join(
-                    model_dir_path, f"best_model_{var}_{feature_groups_str}.joblib"
-                )
-                DataLoader.dump_joblib(best_model, best_model_path, compress="lzma")
-                logger.success(
-                    f"Best model for {var}_{feature_groups_str} is '{best_model_name}' (MSE: {best_row['MSE']:.4f}), saved to {best_model_path}"
-                )
-
-        # MLFLOW
         if trainer.config.use_MLFlow:
-            logger.info("Saving into MLFlow...")
-            parser = argparse.ArgumentParser(
-                description="Train election prediction models"
-            )
-            parser.add_argument(
-                "--experiment-name",
-                type=str,
-                default=None,
-                help="MLflow experiment name (default: election_modeling)",
-            )
-
-            args = parser.parse_args()
-            trainer.save_results(
-                experiment_name=args.experiment_name + f"_{var}_{feature_groups_str}"
-            )
-
-        logger.success("Model training pipeline completed!")
+            trainer.save_results()
 
     return trainer
 
