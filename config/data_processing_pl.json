@@ -1,6 +1,6 @@
 {
-    "data_path": "data/",
-    "year_inf": 1800,
+    "data_path": "s3://arthurmanceau/election_modeling_uhcp/data/",
+    "year_inf": 1950,
     "year_sup": 2027,
     "elections_type": [
         "presidentiel",

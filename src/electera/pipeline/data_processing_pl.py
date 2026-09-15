@@ -657,9 +657,21 @@ class ElectionDataProcessor:
             how="left",
         )
 
-        # Interpolate missing values linearly within each (key, feature) group
-        df = df.sort(key, "feature", "annee").with_columns(
-            pl.col("raw").interpolate().over(key, "feature"),
+        # Interpolate missing values linearly within each (key, feature) group (if less than 5 years of gap)
+        interpolated_expr = pl.col("raw").interpolate().over(key, "feature")
+        df = (
+            df.sort(key, "feature", "annee")
+            .with_columns(
+                missing_years=pl.col("raw").is_null().sum().over(key, "feature")
+            )
+            .with_columns(
+                was_interpolated=(
+                    pl.col("raw").is_null() & (pl.col("missing_years") <= 5)
+                ),
+                raw=pl.when(pl.col("missing_years") <= 5)
+                .then(interpolated_expr)
+                .otherwise(pl.col("raw")),
+            )
         )
 
         return df
@@ -1032,7 +1044,7 @@ class ElectionDataProcessor:
         features = self.find_features(dataset, meta_cols)
 
         # 1. Features with too many missing values are dropped
-        threshold = 0.8
+        threshold = 0.5
         cols_to_keep = [
             s.name
             for s in dataset.select(features)
@@ -1164,6 +1176,24 @@ class ElectionDataProcessor:
             f"All processed data saved to {self.config.data_path + 'derived/processed/'}"
         )
 
+    def _save_cache(self, X, level, cache_type="socio_economic_data"):
+        if not DataUtils._detect_s3(self.config.data_path):
+            os.makedirs("data/derived/cache/", exist_ok=True)
+        else:
+            fs = DataUtils._create_fs()
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        X.write_parquet(
+            self.config.data_path
+            + "derived/cache/"
+            + f"{cache_type}_{level}_{timestamp}",
+            use_pyarrow=True,
+            pyarrow_options={
+                "filesystem": fs,
+                "partition_cols": ["feature"],
+            },
+        )
+
 
 def main():
     """Main function to run the data processing pipeline"""
@@ -1172,6 +1202,7 @@ def main():
     logger.info("Step 1: Electoral data")
     electoral_data, election_catalogs = processor.load_electoral_data()
     election_catalog, election_code_mapping = election_catalogs
+    # processor._save_cache(electoral_data, 'communes', 'electoral_data')
 
     logger.info("Step 2: Commune data")
     commune_data = processor.load_communes_data()
@@ -1180,6 +1211,9 @@ def main():
     (socio_economic_data_communes, socio_economic_data_dep) = (
         processor.load_socio_economic_data()
     )
+    # Save cache
+    # processor._save_cache(socio_economic_data_communes, 'communes')
+    # processor._save_cache(socio_economic_data_dep, 'dep')
 
     logger.info("Building aggregated training dataset")
     agg_dataset = None
@@ -1206,8 +1240,6 @@ def main():
 
     # Save to S3
     processor.save_processed_data(agg_dataset)
-
-    return None
 
 
 if __name__ == "__main__":
