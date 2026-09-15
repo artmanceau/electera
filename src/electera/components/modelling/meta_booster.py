@@ -77,7 +77,7 @@ BOOSTING_PARAM = {
 }
 
 GPU_PARAM = {
-    "xgboost": {"device": "cuda"},
+    "xgboost": {"device": "cuda", "tree_method": "hist"},
     "catboost": {"task_type": "GPU", "devices": "0"},
 }
 
@@ -392,12 +392,15 @@ class MetaBooster:
             return val_score
 
         # Create and run the optimization process with 100 trials
+        n_optuna_jobs = 1 if use_gpu else 2
         study = optuna.create_study(
             study_name="example_xgboost_study",
             direction="minimize",
             sampler=optuna.samplers.TPESampler(),
         )
-        study.optimize(objective, n_trials=n_trials, show_progress_bar=False, n_jobs=2)
+        study.optimize(
+            objective, n_trials=n_trials, show_progress_bar=False, n_jobs=n_optuna_jobs
+        )
 
         # Retrieve the best parameter values
         best_params = study.best_params
