@@ -20,11 +20,18 @@ from electera.components.explanability.feature_importance import FeatureImportan
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-USE_GPU = False
-if USE_GPU:
-    import cupy as cp
-
 USE_MP = False
+
+
+def _safe_predict(model, X):
+    """Safely call model.predict on CPU data to avoid mismatched device warnings when booster was trained on GPU."""
+    if hasattr(model, "get_booster"):
+        try:
+            model.get_booster().set_param({"device": "cpu"})
+        except Exception:
+            pass
+    return model.predict(X)
+
 
 BOOSTING_ALG = {"xgboost": XGBRegressor, "catboost": CatBoostRegressor}
 
@@ -88,16 +95,18 @@ class MetaBooster:
         n_splits_inner=2,
         n_trials=2,
         poll_adj=False,
+        use_gpu=False,
     ):
         self.method = method
         self.boosting_method = BOOSTING_ALG[self.method]
         self.objective_metric = objective_metric
         self.weighting = weighting
-        self.n_splits_outer = n_trials
+        self.n_splits_outer = n_splits_outer
         self.n_splits_inner = n_splits_inner
         self.n_trials = n_trials
         self.features = features
         self.poll_adj = poll_adj
+        self.use_gpu = use_gpu
 
         # Container
         self.best_models = None
@@ -195,7 +204,7 @@ class MetaBooster:
             n_models = len(self.best_models)
             for k in range(n_models):
                 model = self.best_models[k]
-                preds += model.predict(X)
+                preds += _safe_predict(model, X)
             preds /= n_models
 
             if with_adjustment & self.poll_adj & (self.adjustment_model is not None):
@@ -264,7 +273,9 @@ class MetaBooster:
         weights /= np.mean(weights)
         return weights
 
-    def _instantiate_model(self, param, gpu):
+    def _instantiate_model(self, param, gpu=None):
+        if gpu is None:
+            gpu = self.use_gpu
         if gpu:
             param.update(GPU_PARAM[self.method])
 
@@ -273,10 +284,9 @@ class MetaBooster:
     def _perform_nested_cv(
         self, X, y, weights, n_splits_outer=3, n_splits_inner=3, n_trials=3
     ):
-        xp = cp if ((USE_GPU) and (self.method == "xgboost")) else np
-        X = xp.array(X)
-        y = xp.array(y)
-        weights = xp.array(weights)
+        X = np.array(X)
+        y = np.array(y)
+        weights = np.array(weights)
 
         kf_outer = KFold(n_splits=n_splits_outer, shuffle=True, random_state=42)
         kf_inner = KFold(n_splits=n_splits_inner, shuffle=True, random_state=24)
@@ -294,7 +304,7 @@ class MetaBooster:
                 weights,
                 kf_inner,
                 n_trials,
-                USE_GPU,
+                self.use_gpu,
             )
             for fold_outer, (train_index_outer, test_index_outer) in enumerate(
                 kf_outer.split(X), start=1
@@ -318,7 +328,7 @@ class MetaBooster:
         logger.debug("Training best models on the entire dataset")
         best_models = []
         for param in best_params_list_outer:
-            boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
+            boosting_model = self._instantiate_model(param=param, gpu=self.use_gpu)
             boosting_model.fit(X, y, sample_weight=weights)
             boosting_model.feature_names = self.features
             if self.method == "xgboost":
@@ -337,7 +347,7 @@ class MetaBooster:
             weights,
             kf_inner,
             n_trials,
-            USE_GPU,
+            use_gpu,
         ) = args
         return self._outer_cv(
             X,
@@ -348,7 +358,7 @@ class MetaBooster:
             n_trials,
             train_index_outer,
             test_index_outer,
-            USE_GPU,
+            use_gpu,
         )
 
     def _inner_cv(
@@ -359,30 +369,25 @@ class MetaBooster:
         n_trials,
         train_index,
         val_index,
-        USE_GPU,
+        use_gpu,
     ):
         X_train, X_val = X_train_outer[train_index], X_train_outer[val_index]
         y_train, y_val = y_train_outer[train_index], y_train_outer[val_index]
         weights_train = weights[train_index]
 
-        if (USE_GPU) and (self.method == "xgboost"):
-            y_val = y_val.get()
-
         def objective(trial):
             param = BOOSTING_PARAM[self.method](trial)
 
             # Set parameters
-            boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
+            boosting_model = self._instantiate_model(param=param, gpu=use_gpu)
             # Train
             boosting_model.fit(X_train, y_train, sample_weight=weights_train)
 
             # Evaluate model on validation set
-            y_pred = (
-                cp.array(boosting_model.predict(X_val)).get()
-                if USE_GPU
-                else boosting_model.predict(X_val)
+            y_pred = _safe_predict(boosting_model, X_val)
+            val_score = self.objective_metric(
+                np.asarray(y_val).flatten(), np.asarray(y_pred).flatten()
             )
-            val_score = self.objective_metric(y_val.flatten(), y_pred.flatten())
 
             return val_score
 
@@ -409,14 +414,11 @@ class MetaBooster:
         n_trials,
         train_index_outer,
         test_index_outer,
-        USE_GPU,
+        use_gpu,
     ):
         logger.debug(f"Fold outer {fold_outer}")
         X_train_outer, X_test = X[train_index_outer], X[test_index_outer]
         y_train_outer, y_test = y[train_index_outer], y[test_index_outer]
-
-        if (USE_GPU) and (self.method == "xgboost"):
-            y_test = y_test.get()
 
         best_params_list = []
         fold_inner = 0
@@ -431,7 +433,7 @@ class MetaBooster:
                     n_trials,
                     train_index,
                     val_index,
-                    USE_GPU,
+                    use_gpu,
                 )
             )
 
@@ -439,14 +441,16 @@ class MetaBooster:
         logger.debug(" evaluating best models from inner folds on the full inner set")
         test_scores = []
         for i, param in enumerate(best_params_list):
-            boosting_model = self._instantiate_model(param=param, gpu=USE_GPU)
+            boosting_model = self._instantiate_model(param=param, gpu=use_gpu)
             boosting_model.fit(
                 X_train_outer,
                 y_train_outer,
                 sample_weight=weights[train_index_outer],
             )
-            y_pred = boosting_model.predict(X_test)
-            val_score = self.objective_metric(y_test.flatten(), y_pred.flatten())
+            y_pred = _safe_predict(boosting_model, X_test)
+            val_score = self.objective_metric(
+                np.asarray(y_test).flatten(), np.asarray(y_pred).flatten()
+            )
             test_scores.append(val_score)
         idx_best = np.argmin(test_scores)
         logger.debug(
@@ -468,6 +472,7 @@ class MetaBoosterMultipleElections(MetaBooster):
         n_splits_inner=2,
         n_trials=2,
         ponderation=None,
+        use_gpu=False,
     ):
         super().__init__(
             method=method,
@@ -477,6 +482,7 @@ class MetaBoosterMultipleElections(MetaBooster):
             n_splits_outer=n_splits_outer,
             n_splits_inner=n_splits_inner,
             n_trials=n_trials,
+            use_gpu=use_gpu,
         )
         self.ponderation = ponderation
         self.N = len(self.ponderation)

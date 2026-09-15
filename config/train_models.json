@@ -1,8 +1,9 @@
-{   "vote_variable": ["par", "TD", "D", "G"],
-    "dataset_path": "s3://arthurmanceau/election_modeling_uhcp/data/derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260617_203623.parquet",
+{
+    "vote_variable": ["par", "TD", "D", "G"],
+    "dataset_path": "derived/processed/data_processed_presidentiel_legislative_from1800_to2027_20260707_143756.parquet",
     "predict_delta": false,
     "predict_perc": false,
-    "use_MLFlow": true,
+    "use_MLFlow": false,
     "param_search_methods": ["none"],
     "feature_selection_methods": ["permutation"],
     "boosting_methods": ["xgboost"],

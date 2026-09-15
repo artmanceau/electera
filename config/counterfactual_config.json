@@ -1,5 +1,5 @@
 {
-    "model_pkl_path" : "s3://arthurmanceau/election_modeling_uhcp/data/output/models/model_2012_leg_['voteG', 'voteD', 'voteCG', 'voteCD', 'voteC', 'par']_0.0.1..pkl",
+    "model_pkl_path" : "data/output/models/model_2012_leg_['voteG', 'voteD', 'voteCG', 'voteCD', 'voteC', 'par']_0.0.1..pkl",
     "model_id":0,
     "target_name": "pvoteG",
     "total_cfs":5,

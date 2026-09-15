@@ -39,6 +39,10 @@ class BackTesterConfig(BaseModel):
 
     use_mlflow: bool
 
+    use_gpu: bool = Field(
+        default=False, description="Whether to use GPU acceleration for supported models"
+    )
+
     models: List[
         Literal[
             "trivial_1",
@@ -54,6 +58,10 @@ class BackTesterConfig(BaseModel):
 
     mlflow_experiment: Optional[str] = Field(
         default="ElectionBacktests", description="Name of the MLFlow experiment"
+    )
+
+    mlflow_tracking_uri: Optional[str] = Field(
+        default=None, description="MLFlow tracking URI"
     )
 
     @validator("political_trends")
