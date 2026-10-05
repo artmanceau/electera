@@ -147,40 +147,41 @@ if int(st.session_state["state"].year) < 2026:
 
 st.divider()
 
-if st.button("Compute feature importance"):
-    st.session_state.show_feature_importance = True
-    load_feature_importance()
+# if st.button("Compute feature importance"):
+#     st.session_state.show_feature_importance = True
 
-if st.session_state.show_feature_importance:
-    show_feature_importance(
-        st.session_state["data"].container["feature_importance"],
-        st.session_state["state"].get_blocs(
-            as_type="code", order="political", prefix="tau"
-        ),
-    )
+load_feature_importance()
+
+# if st.session_state.show_feature_importance:
+show_feature_importance(
+    st.session_state["data"].container["feature_importance"],
+    st.session_state["state"].get_blocs(
+        as_type="code", order="political", prefix="tau"
+    ),
+)
 
 st.divider()
 
-if st.button("Compute shap values"):
-    st.session_state.show_shap_values = True
+# if st.button("Compute shap values"):
+#     st.session_state.show_shap_values = True
 
-    sampled_communes_codes = sample_communes(sample_frac=None)
+sampled_communes_codes = sample_communes(sample_frac=0.05)
 
-    load_shap_values(sampled_communes_codes)
+load_shap_values(sampled_communes_codes)
 
-    features = set()
-    for df in st.session_state["data"].container["shap_values"].values():
-        features.update(df.columns)
-    features.discard("base_value")
+features = set()
+for df in st.session_state["data"].container["shap_values"].values():
+    features.update(df.columns)
+features.discard("base_value")
 
-    load_data(features=features, sampled_communes_codes=sampled_communes_codes)
+load_data(features=features, sampled_communes_codes=sampled_communes_codes)
 
-if (
-    st.session_state.show_shap_values
-    and st.session_state["data"].container["data_sample_all"] is not None
-):
-    show_shap_values(
-        shap_df=st.session_state["data"].container["shap_values"],
-        data_sample=st.session_state["data"].container["data_sample_all"],
-        BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
-    )
+# if (
+#     st.session_state.show_shap_values
+#     and st.session_state["data"].container["data_sample_all"] is not None
+# ):
+show_shap_values(
+    shap_df=st.session_state["data"].container["shap_values"],
+    data_sample=st.session_state["data"].container["data_sample_all"],
+    BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
+)
