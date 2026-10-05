@@ -23,7 +23,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import KFold
 import xgboost as xgb
 
-from electera.components.data_processing.data_loader import DataLoader
+from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import BenchmarkModels
 from electera.components.modelling.boosting.boosting import BoostingModel
 from electera.components.modelling.data_split_pl import get_Xy_pl
@@ -195,9 +195,14 @@ class ElectionModelTrainer:
     def _find_saved_model(
         self, model_name: str, model_dir_path: str = "output/models/"
     ) -> Optional[str]:
+        fs = DataUtils._create_fs() if DataUtils._detect_s3(model_dir_path) else None
         for ext in [".joblib", ".pkl"]:
-            cand = os.path.join(model_dir_path, f"{model_name}{ext}")
-            if os.path.exists(cand):
+            cand = (
+                f"{model_dir_path.rstrip('/')}/{model_name}{ext}"
+                if DataUtils._detect_s3(model_dir_path)
+                else os.path.join(model_dir_path, f"{model_name}{ext}")
+            )
+            if DataUtils._exists(cand, fs=fs):
                 return cand
         return None
 
@@ -251,7 +256,11 @@ class ElectionModelTrainer:
         comparison_df = pd.DataFrame(
             {"Model": model_names, "MSE": mse_scores, "MAE": mae_scores, "R²": r2_scores}
         )
-        comparison_df.to_csv("data/comp_table.csv")
+        config = getattr(self, "config", None)
+        dataset_path = getattr(config, "dataset_path", "") if config else ""
+        if not DataUtils._detect_s3(dataset_path):
+            os.makedirs("data", exist_ok=True)
+            comparison_df.to_csv("data/comp_table.csv")
         return comparison_df
 
     def save_results(self, experiment_name=None):
@@ -302,8 +311,25 @@ def run():
     trainer = ElectionModelTrainer()
     data = DataLoader.load_dataset(trainer.config.dataset_path, engine="polars")
 
-    model_dir_path = "output/models/"
-    os.makedirs(model_dir_path, exist_ok=True)
+    is_s3 = DataUtils._detect_s3(trainer.config.dataset_path)
+    if is_s3:
+        s3_base = (
+            trainer.config.dataset_path.split("derived/")[0]
+            if "derived/" in trainer.config.dataset_path
+            else trainer.config.dataset_path.rsplit("/", 1)[0] + "/"
+        )
+        model_dir_path = f"{s3_base}output/models/"
+    else:
+        model_dir_path = "output/models/"
+        os.makedirs(model_dir_path, exist_ok=True)
+
+    def _save_model_file(m, m_name):
+        fpath = (
+            f"{model_dir_path}{m_name}.joblib"
+            if is_s3
+            else os.path.join(model_dir_path, f"{m_name}.joblib")
+        )
+        DataLoader.dump_joblib(m, fpath, compress="lzma")
 
     use_gpu = getattr(trainer.config, "use_gpu", False)
 
@@ -333,7 +359,7 @@ def run():
                     y_1 = bm.train_trivial_1(trainer.y_prev, trainer.y_test)
                     model = bm.get_model()
                     trainer.models[model_name] = model
-                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+                    _save_model_file(model, model_name)
 
                 trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_1, model_name, extended=True)
                 trainer.predictions[model_name] = pd.concat([trainer.y_test, y_1], axis=1)
@@ -351,7 +377,7 @@ def run():
                     y_3 = bm.train_linear_model(trainer.X_train, trainer.y_train, trainer.X_test, linear_model=LinearRegression)
                     model = bm.get_model()
                     trainer.models[model_name] = model
-                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+                    _save_model_file(model, model_name)
 
                 trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_3, model_name, extended=True)
                 trainer.predictions[model_name] = pd.concat([trainer.y_test, pd.Series(y_3)], axis=1)
@@ -377,7 +403,7 @@ def run():
                         use_gpu=use_gpu,
                     )
                     trainer.models[std_model_name] = model
-                    DataLoader.dump_joblib(model, os.path.join(model_dir_path, f"{std_model_name}.joblib"), compress="lzma")
+                    _save_model_file(model, std_model_name)
                     preds = model.predict(trainer.X_test.to_numpy())
 
                 trainer.results[std_model_name] = ModelEvaluator.evaluate(trainer.y_test, preds, std_model_name, extended=True)
@@ -403,7 +429,7 @@ def run():
                     )
                     meta_booster.train(trainer.X_train, trainer.y_train, use_feature_selection=False)
                     trainer.models[model_name] = meta_booster
-                    DataLoader.dump_joblib(meta_booster, os.path.join(model_dir_path, f"{model_name}.joblib"), compress="lzma")
+                    _save_model_file(meta_booster, model_name)
                     y_pred = meta_booster.infer(trainer.X_test)
 
                 trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_pred, model_name, extended=True)
