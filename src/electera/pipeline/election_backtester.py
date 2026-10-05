@@ -436,8 +436,9 @@ class BackTester:
             os.makedirs(result_dir_path, exist_ok=True)
             os.makedirs(model_dir_path, exist_ok=True)
         else:
-            result_dir_path = self.config.data_path + "output/results/"
-            model_dir_path = self.config.data_path + "output/models/"
+            base_s3 = self.config.data_path.rstrip("/") + "/"
+            result_dir_path = f"{base_s3}output/results/"
+            model_dir_path = f"{base_s3}output/models/"
         return result_dir_path, model_dir_path
 
     def _find_model(self, model_dir_path: str, base_name: str) -> Optional[str]:
@@ -463,6 +464,11 @@ class BackTester:
         DataLoader.write_dataset(result_synthetic, result_dir_path + f"results_synth_{k_year}_{k_type}_{vars_}_{self.config.version}.parquet")
         DataLoader.dump_joblib(model, model_dir_path + f"model_{k_year}_{k_type}_{vars_}_{self.config.version}.joblib", compress="lzma")
 
+        if DataUtils._detect_s3(result_dir_path):
+            logger.info(f"Results and models saved to S3: {result_dir_path}")
+        else:
+            logger.info(f"Results and models saved locally: {result_dir_path}")
+
     def run_backtest(self, data, k_year, k_type, k_political_trends, model, model_args, model_name):
         self.k_type_full = "presidentiel" if k_type == "pres" else "legislative"
         k_political_trends.sort()
@@ -476,7 +482,8 @@ class BackTester:
         s_path = f"{result_dir_path}results_synth_{k_year}_{k_type}_{vars_}_{self.config.version}.parquet"
         f_path = f"{result_dir_path}results_full_{k_year}_{k_type}_{vars_}_{self.config.version}.parquet"
         if full_model_path and (DataUtils._exists(s_path, fs=fs) and DataUtils._exists(f_path, fs=fs)):
-            logger.info(f"Model and results for {k_year}_{k_type}_{vars_}_{self.config.version} already exist. Skipping.")
+            loc = "on S3" if DataUtils._detect_s3(result_dir_path) else "locally"
+            logger.info(f"Model and results for {k_year}_{k_type}_{vars_}_{self.config.version} already exist ({loc}). Skipping.")
             return
 
         with mlf_utils.mlflow_tracker(enabled=self.config.use_mlflow, run_name=f"{model_name}_{k_type}_{k_year}"):

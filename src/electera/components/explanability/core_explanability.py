@@ -21,12 +21,16 @@ class ExplainCore:
         base_name = f"model_{year}_{type_}_{vars_str}_{model_version}"
 
         fs_obj = fs if fs else (DataUtils._create_fs() if DataUtils._detect_s3(data_path) else None)
+        base_dir = data_path.rstrip("/") + "/"
         candidates = [
-            f"{data_path}output/models/{base_name}.joblib",
-            f"{data_path}output/models/{base_name}.pkl",
-            f"output/models/{base_name}.joblib",
-            f"output/models/{base_name}.pkl",
+            f"{base_dir}output/models/{base_name}.joblib",
+            f"{base_dir}output/models/{base_name}.pkl",
         ]
+        if not DataUtils._detect_s3(data_path):
+            candidates.extend([
+                f"output/models/{base_name}.joblib",
+                f"output/models/{base_name}.pkl",
+            ])
         model_path = candidates[0]
         for cand in candidates:
             if DataUtils._exists(cand, fs=fs_obj):
