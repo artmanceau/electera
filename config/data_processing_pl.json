@@ -5,5 +5,7 @@
     "elections_type": [
         "presidentiel",
         "legislative"
-    ]
+    ],
+    "use_cache": true,
+    "save_cache": false
 }

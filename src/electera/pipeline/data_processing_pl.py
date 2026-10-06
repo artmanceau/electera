@@ -1182,11 +1182,8 @@ class ElectionDataProcessor:
         else:
             fs = DataUtils._create_fs()
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         X.write_parquet(
-            self.config.data_path
-            + "derived/cache/"
-            + f"{cache_type}_{level}_{timestamp}",
+            self.config.data_path + "derived/cache/" + f"{cache_type}_{level}.parquet",
             use_pyarrow=True,
             pyarrow_options={
                 "filesystem": fs,
@@ -1200,20 +1197,39 @@ def main():
     processor = ElectionDataProcessor()
 
     logger.info("Step 1: Electoral data")
-    electoral_data, election_catalogs = processor.load_electoral_data()
-    election_catalog, election_code_mapping = election_catalogs
-    # processor._save_cache(electoral_data, 'communes', 'electoral_data')
+    if processor.use_cache:
+        electoral_data = pl.scan_parquet(
+            processor.config.data_path + "derived/cache/electoral_data_communes.parquet"
+        ).collect()
+    else:
+        electoral_data, election_catalogs = processor.load_electoral_data()
+        election_catalog, election_code_mapping = election_catalogs
+
+    if processor.save_cache:
+        processor._save_cache(electoral_data, "communes", "electoral_data")
 
     logger.info("Step 2: Commune data")
     commune_data = processor.load_communes_data()
 
     logger.info("Step 3: Socio-economic data")
-    (socio_economic_data_communes, socio_economic_data_dep) = (
-        processor.load_socio_economic_data()
-    )
+    if processor.use_cache:
+        socio_economic_data_communes = pl.scan_parquet(
+            processor.config.data_path
+            + "derived/cache/socio_economic_data_communes.parquet"
+        ).collect()
+        socio_economic_data_dep = pl.scan_parquet(
+            processor.config.data_path + "derived/cache/socio_economic_data_dep.parquet"
+        ).collect()
+    else:
+        (socio_economic_data_communes, socio_economic_data_dep) = (
+            processor.load_socio_economic_data()
+        )
     # Save cache
-    # processor._save_cache(socio_economic_data_communes, 'communes')
-    # processor._save_cache(socio_economic_data_dep, 'dep')
+    if processor.save_cache:
+        processor._save_cache(
+            socio_economic_data_communes, "communes", "socio_economic_data"
+        )
+        processor._save_cache(socio_economic_data_dep, "dep", "socio_economic_data")
 
     logger.info("Building aggregated training dataset")
     agg_dataset = None

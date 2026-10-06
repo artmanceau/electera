@@ -1,0 +1,101 @@
+metadata:
+  name: electera-data-processing
+  generateName: electera-data-
+  namespace: user-arthurmanceau
+  labels:
+    app: electera
+spec:
+  entrypoint: data-processing-simple
+  arguments:
+    parameters:
+      - name: image
+        value: arthurmanceau/electera:latest
+      - name: workdir
+        value: /app
+      - name: data_path
+        value: s3://arthurmanceau/election_modeling_uhcp/data/
+      - name: year_inf
+        value: "1800"
+      - name: year_sup
+        value: "2027"
+      - name: elections_type
+        value: '["presidentiel", "legislative"]'
+      - name: aws_s3_endpoint
+        value: minio.lab.sspcloud.fr
+      - name: aws_access_key_id
+        value: ""
+      - name: aws_secret_access_key
+        value: ""
+      - name: aws_session_token
+        value: ""
+      - name: aws_default_region
+        value: us-east-1
+  templates:
+    - name: data-processing-simple
+      container:
+        image: "{{workflow.parameters.image}}"
+        command:
+          - sh
+          - -c
+        args:
+          - >
+            set -eu
+
+            # AWS setup
+            mkdir -p "$HOME/.aws"
+            {
+              echo "[default]"
+              echo "aws_access_key_id=$AWS_ACCESS_KEY_ID"
+              echo "aws_secret_access_key=$AWS_SECRET_ACCESS_KEY"
+              [ -n "$AWS_SESSION_TOKEN" ] && echo "aws_session_token=$AWS_SESSION_TOKEN"
+            } > "$HOME/.aws/credentials"
+            { echo "[default]"; echo "region=$AWS_DEFAULT_REGION"; echo "output=json"; } > "$HOME/.aws/config"
+
+            # Config injection
+            cat <<EOF > /app/config/data_processing_pl.json
+            {
+              "data_path": "$DATA_PATH",
+              "year_inf": $YEAR_INF,
+              "year_sup": $YEAR_SUP,
+              "elections_type": $ELECTIONS_TYPE
+            }
+            EOF
+
+            echo "==> Configuration injected and AWS credentials set."
+
+            uv run python -m electera.pipeline.data_processing_pl
+        workingDir: "{{workflow.parameters.workdir}}"
+        env:
+          - name: DATA_PATH
+            value: "{{workflow.parameters.data_path}}"
+          - name: YEAR_INF
+            value: "{{workflow.parameters.year_inf}}"
+          - name: YEAR_SUP
+            value: "{{workflow.parameters.year_sup}}"
+          - name: ELECTIONS_TYPE
+            value: "{{workflow.parameters.elections_type}}"
+          - name: AWS_ACCESS_KEY_ID
+            value: "{{workflow.parameters.aws_access_key_id}}"
+          - name: AWS_SECRET_ACCESS_KEY
+            value: "{{workflow.parameters.aws_secret_access_key}}"
+          - name: AWS_S3_ENDPOINT
+            value: "{{workflow.parameters.aws_s3_endpoint}}"
+          - name: AWS_SESSION_TOKEN
+            value: "{{workflow.parameters.aws_session_token}}"
+          - name: AWS_DEFAULT_REGION
+            value: "{{workflow.parameters.aws_default_region}}"
+        resources:
+          limits:
+            cpu: "8"
+            memory: 96Gi
+          requests:
+            cpu: "4"
+            memory: 32Gi
+        imagePullPolicy: Always
+  serviceAccountName: workflow
+  parallelism: 2
+  ttlStrategy:
+    secondsAfterCompletion: 86400
+  podGC:
+    strategy: OnPodCompletion
+    deleteDelayDuration: 30s

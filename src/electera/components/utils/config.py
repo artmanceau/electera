@@ -160,6 +160,8 @@ class DataProcessingConfigPl(BaseModel):
         default=["presidentiel", "legislative"],
         description="Types of elections to include in the dataset",
     )
+    use_cache: bool
+    save_cache: bool
 
 
 class DataProcessingConfig(BaseModel):
