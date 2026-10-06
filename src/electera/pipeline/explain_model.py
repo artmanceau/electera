@@ -34,14 +34,12 @@ class Explainer:
         self.steps = self.config.steps
         self.shap_values_computed = False
 
-        self.output_dir = f"{self.data_path}output/explain/"
+        self.output_dir = f"{self.data_path.rstrip('/')}/output/explain/"
         if not DataUtils._detect_s3(self.data_path):
             os.makedirs(self.output_dir, exist_ok=True)
             self.local_output_dir = self.output_dir
         else:
-            # Assume data path
-            self.local_output_dir = "output/explain/"
-            os.makedirs(self.local_output_dir, exist_ok=True)
+            self.local_output_dir = None
 
         self.n_models = None
         self.models = None
@@ -230,12 +228,12 @@ class Explainer:
 
     def plot_shap_summary(self, shap_values):
         # Summary plot
-        shap.summary_plot(shap_values, self.model.features[self.var], show=False)
-        summary_plot_path = os.path.join(self.local_output_dir, "shap_summary_plot.png")
-        plt.savefig(summary_plot_path, dpi=300, bbox_inches="tight")
-        plt.close()
-
-        logger.info(f"SHAP analysis saved to {self.local_output_dir}")
+        if self.local_output_dir:
+            shap.summary_plot(shap_values, self.model.features[self.var], show=False)
+            summary_plot_path = os.path.join(self.local_output_dir, "shap_summary_plot.png")
+            plt.savefig(summary_plot_path, dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info(f"SHAP analysis saved to {self.local_output_dir}")
 
         return shap_values
 
@@ -380,13 +378,13 @@ class Explainer:
             plt.tight_layout()
 
             # Save the batch figure
-            batch_path = os.path.join(
-                self.local_output_dir, f"feature_batch_{batch_idx + 1}.png"
-            )
-            plt.savefig(batch_path, dpi=300, bbox_inches="tight")
+            if self.local_output_dir:
+                batch_path = os.path.join(
+                    self.local_output_dir, f"feature_batch_{batch_idx + 1}.png"
+                )
+                plt.savefig(batch_path, dpi=300, bbox_inches="tight")
+                logger.debug(f"Batch {batch_idx + 1} saved to {batch_path}")
             plt.close(fig)
-
-            logger.debug(f"Batch {batch_idx + 1} saved to {batch_path}")
 
         logger.debug(f"\n{'=' * 60}\nAnalysis completed for all features!\n{'=' * 60}")
 
@@ -405,11 +403,12 @@ class Explainer:
             )
 
             # Visualize the tree
-            tree_html_path = os.path.join(
-                self.local_output_dir, "tree_visualization.html"
-            )
-            st.save_html(filename=tree_html_path)
-            logger.info(f"Tree visualization saved to {tree_html_path}")
+            if self.local_output_dir:
+                tree_html_path = os.path.join(
+                    self.local_output_dir, "tree_visualization.html"
+                )
+                st.save_html(filename=tree_html_path)
+                logger.info(f"Tree visualization saved to {tree_html_path}")
         else:
             logger.info("Model does not support tree visualization.")
 
