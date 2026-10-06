@@ -20,17 +20,23 @@ class ExplainCore:
         vars_str = "_".join(vars_sorted)
         base_name = f"model_{year}_{type_}_{vars_str}_{model_version}"
 
-        fs_obj = fs if fs else (DataUtils._create_fs() if DataUtils._detect_s3(data_path) else None)
+        fs_obj = (
+            fs
+            if fs
+            else (DataUtils._create_fs() if DataUtils._detect_s3(data_path) else None)
+        )
         base_dir = data_path.rstrip("/") + "/"
         candidates = [
             f"{base_dir}output/models/{base_name}.joblib",
             f"{base_dir}output/models/{base_name}.pkl",
         ]
         if not DataUtils._detect_s3(data_path):
-            candidates.extend([
-                f"output/models/{base_name}.joblib",
-                f"output/models/{base_name}.pkl",
-            ])
+            candidates.extend(
+                [
+                    f"output/models/{base_name}.joblib",
+                    f"output/models/{base_name}.pkl",
+                ]
+            )
         model_path = candidates[0]
         for cand in candidates:
             if DataUtils._exists(cand, fs=fs_obj):
@@ -49,7 +55,10 @@ class ExplainCore:
         # Adapt boosting to metaboosting structure
         if isinstance(model.models[var], BoostingModel):
             setattr(model.models[var], "features", model.models[var].features_selected)
-            if not hasattr(model.models[var], "best_models") or model.models[var].best_models is None:
+            if (
+                not hasattr(model.models[var], "best_models")
+                or model.models[var].best_models is None
+            ):
                 setattr(model.models[var], "best_models", [model.models[var].model])
 
         return model, n_models

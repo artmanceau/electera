@@ -30,6 +30,7 @@ class DummyEstimator:
 # Tests for DataLoader dump_joblib & load_joblib
 # ---------------------------------------------------------------------------
 
+
 def test_data_loader_dump_load_joblib_lzma(tmp_path):
     obj = {"test_key": "test_value", "numbers": [1, 2, 3]}
     file_path = str(tmp_path / "model.joblib")
@@ -60,6 +61,7 @@ def test_data_loader_load_pickle_backward_compat(tmp_path):
 # ---------------------------------------------------------------------------
 # Tests for ExplainCore._load_model
 # ---------------------------------------------------------------------------
+
 
 def test_explain_core_load_joblib_model(tmp_path):
     predictor = ElectionPredictor(trends=["a"])
@@ -110,6 +112,7 @@ def test_explain_core_load_fallback_pkl(tmp_path):
 # Tests for election_backtester caching & skipping
 # ---------------------------------------------------------------------------
 
+
 def test_backtester_find_model(tmp_path):
     config = MagicMock()
     config.data_path = f"{tmp_path}/"
@@ -155,11 +158,17 @@ def test_backtester_skips_when_full_model_and_results_exist(tmp_path):
 
     full_model_name = "model_2022_pr_taua_v1"
     predictor = ElectionPredictor(trends=["a"])
-    DataLoader.dump_joblib(predictor, str(model_dir / f"{full_model_name}.joblib"), compress="lzma")
+    DataLoader.dump_joblib(
+        predictor, str(model_dir / f"{full_model_name}.joblib"), compress="lzma"
+    )
 
     # Create dummy parquet result files in data_path output/results
-    pd.DataFrame({"pred": [1]}).to_parquet(str(res_dir / "results_synth_2022_pr_taua_v1.parquet"))
-    pd.DataFrame({"pred": [1]}).to_parquet(str(res_dir / "results_full_2022_pr_taua_v1.parquet"))
+    pd.DataFrame({"pred": [1]}).to_parquet(
+        str(res_dir / "results_synth_2022_pr_taua_v1.parquet")
+    )
+    pd.DataFrame({"pred": [1]}).to_parquet(
+        str(res_dir / "results_full_2022_pr_taua_v1.parquet")
+    )
 
     backtester.process_and_split_dataset = MagicMock()
     backtester.organize_vote = MagicMock()
@@ -194,7 +203,9 @@ def test_backtester_loads_full_model_when_results_absent(tmp_path):
     full_model_name = "model_2022_pr_taua_v1"
     predictor = ElectionPredictor(trends=["a"])
     predictor.add_model("a", DummyEstimator(value=77))
-    DataLoader.dump_joblib(predictor, str(model_dir / f"{full_model_name}.joblib"), compress="lzma")
+    DataLoader.dump_joblib(
+        predictor, str(model_dir / f"{full_model_name}.joblib"), compress="lzma"
+    )
 
     backtester.process_and_split_dataset = MagicMock()
 
@@ -229,7 +240,9 @@ def test_backtester_loads_cached_trend_model(tmp_path):
     # Save a cached trend model
     cached_model = DummyEstimator(value=99)
     trend_model_name = "best_model_boosting_2022_pr_taua_v1"
-    DataLoader.dump_joblib(cached_model, str(model_dir / f"{trend_model_name}.joblib"), compress="lzma")
+    DataLoader.dump_joblib(
+        cached_model, str(model_dir / f"{trend_model_name}.joblib"), compress="lzma"
+    )
 
     # Setup dummy data containers on backtester with >= 5 rows for sample(5)
     n_rows = 10
@@ -272,6 +285,7 @@ def test_backtester_loads_cached_trend_model(tmp_path):
 # Tests for train_models caching and best_model saving
 # ---------------------------------------------------------------------------
 
+
 def test_trainer_find_saved_model(tmp_path):
     trainer = ElectionModelTrainer.__new__(ElectionModelTrainer)
     model_dir = str(tmp_path / "models")
@@ -308,7 +322,9 @@ def test_trainer_saves_best_model(tmp_path):
     assert best_row["Model"] == "model_2"
 
     best_model_path = os.path.join(model_dir_path, "best_model_pvotea_feat1.joblib")
-    DataLoader.dump_joblib(trainer.models[best_row["Model"]], best_model_path, compress="lzma")
+    DataLoader.dump_joblib(
+        trainer.models[best_row["Model"]], best_model_path, compress="lzma"
+    )
 
     loaded_best = DataLoader.load_joblib(best_model_path)
     assert loaded_best.value == 2
@@ -327,7 +343,11 @@ def test_backtester_gpu_configuration_propagation():
 
     for model_name in config.models:
         model_args = copy.deepcopy(MODEL_ARGS[model_name])
-        if "use_gpu" in model_args or model_name in ("boosting", "meta_boosting", "meta_boosting_multiple"):
+        if "use_gpu" in model_args or model_name in (
+            "boosting",
+            "meta_boosting",
+            "meta_boosting_multiple",
+        ):
             model_args["use_gpu"] = getattr(backtester.config, "use_gpu", False)
 
         assert model_args["use_gpu"] is True
@@ -365,4 +385,3 @@ def test_trainer_s3_does_not_save_locally(tmp_path, monkeypatch):
     assert not comparison_df.empty
     # Verify no local data/ directory was created
     assert not os.path.exists("data")
-

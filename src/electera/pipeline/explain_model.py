@@ -230,7 +230,9 @@ class Explainer:
         # Summary plot
         if self.local_output_dir:
             shap.summary_plot(shap_values, self.model.features[self.var], show=False)
-            summary_plot_path = os.path.join(self.local_output_dir, "shap_summary_plot.png")
+            summary_plot_path = os.path.join(
+                self.local_output_dir, "shap_summary_plot.png"
+            )
             plt.savefig(summary_plot_path, dpi=300, bbox_inches="tight")
             plt.close()
             logger.info(f"SHAP analysis saved to {self.local_output_dir}")

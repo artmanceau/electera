@@ -4,7 +4,6 @@ Pipeline 2: Model Training and Evaluation
 This module handles model training, evaluation, and comparison for the election modeling project.
 """
 
-import argparse
 import os
 import re
 import shutil
@@ -18,19 +17,20 @@ import numpy as np
 import optuna
 import pandas as pd
 from loguru import logger
-from sklearn.linear_model import LassoCV, LinearRegression
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.linear_model import LinearRegression  # , LassoCV
+from sklearn.metrics import mean_squared_error, mean_absolute_error  # , r2_score
 from sklearn.model_selection import KFold
 import xgboost as xgb
 
 from electera.components.data_processing.data_loader import DataLoader, DataUtils
 from electera.components.modelling.benchmark_models import BenchmarkModels
-from electera.components.modelling.boosting.boosting import BoostingModel
+
+# from electera.components.modelling.boosting.boosting import BoostingModel
 from electera.components.modelling.data_split_pl import get_Xy_pl
 from electera.components.modelling.evaluation import ModelEvaluator
 from electera.components.modelling.meta_booster import (
     MetaBooster,
-    MetaBoosterMultipleElections,
+    # MetaBoosterMultipleElections,
 )
 from electera.components.utils.config import TrainModelsConfig
 from electera.components.utils.read_config import ConfigReader
@@ -117,7 +117,9 @@ def nested_cross_validation_xgb(
     device = "cuda" if use_gpu else "cpu"
 
     logger.info(f"Nested CV Device: {device.upper()}")
-    logger.info(f"Starting Nested CV: {n_outer_splits} Outer Folds x {n_inner_splits} Inner Folds")
+    logger.info(
+        f"Starting Nested CV: {n_outer_splits} Outer Folds x {n_inner_splits} Inner Folds"
+    )
 
     for outer_fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y)):
         X_tr_out, X_te_out = X[train_idx], X[test_idx]
@@ -238,7 +240,9 @@ class ElectionModelTrainer:
             setattr(self, name, value)
 
         self.feature_names = self.X_train.columns.tolist()
-        logger.info(f"Data prepared: Train {self.X_train.shape}, Test {self.X_test.shape}")
+        logger.info(
+            f"Data prepared: Train {self.X_train.shape}, Test {self.X_test.shape}"
+        )
 
     def compare_models(self):
         logger.info("Comparing models...")
@@ -254,7 +258,12 @@ class ElectionModelTrainer:
             r2_scores.append(results["r2"])
 
         comparison_df = pd.DataFrame(
-            {"Model": model_names, "MSE": mse_scores, "MAE": mae_scores, "R²": r2_scores}
+            {
+                "Model": model_names,
+                "MSE": mse_scores,
+                "MAE": mae_scores,
+                "R²": r2_scores,
+            }
         )
         config = getattr(self, "config", None)
         dataset_path = getattr(config, "dataset_path", "") if config else ""
@@ -361,8 +370,12 @@ def run():
                     trainer.models[model_name] = model
                     _save_model_file(model, model_name)
 
-                trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_1, model_name, extended=True)
-                trainer.predictions[model_name] = pd.concat([trainer.y_test, y_1], axis=1)
+                trainer.results[model_name] = ModelEvaluator.evaluate(
+                    trainer.y_test, y_1, model_name, extended=True
+                )
+                trainer.predictions[model_name] = pd.concat(
+                    [trainer.y_test, y_1], axis=1
+                )
 
             # 2. Linear Regression
             if "linear_reg" in trainer.config.models:
@@ -374,13 +387,22 @@ def run():
                     y_3 = model.predict(trainer.X_test)
                 else:
                     bm = BenchmarkModels()
-                    y_3 = bm.train_linear_model(trainer.X_train, trainer.y_train, trainer.X_test, linear_model=LinearRegression)
+                    y_3 = bm.train_linear_model(
+                        trainer.X_train,
+                        trainer.y_train,
+                        trainer.X_test,
+                        linear_model=LinearRegression,
+                    )
                     model = bm.get_model()
                     trainer.models[model_name] = model
                     _save_model_file(model, model_name)
 
-                trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_3, model_name, extended=True)
-                trainer.predictions[model_name] = pd.concat([trainer.y_test, pd.Series(y_3)], axis=1)
+                trainer.results[model_name] = ModelEvaluator.evaluate(
+                    trainer.y_test, y_3, model_name, extended=True
+                )
+                trainer.predictions[model_name] = pd.concat(
+                    [trainer.y_test, pd.Series(y_3)], axis=1
+                )
 
             # 3. Boosting via Nested Cross-Validation & Optuna
             if "boosting" in trainer.config.models:
@@ -388,12 +410,16 @@ def run():
                 saved_path = trainer._find_saved_model(std_model_name, model_dir_path)
 
                 if saved_path:
-                    logger.info(f"Model '{std_model_name}' already exists. Skipping computation.")
+                    logger.info(
+                        f"Model '{std_model_name}' already exists. Skipping computation."
+                    )
                     model = DataLoader.load_joblib(saved_path)
                     trainer.models[std_model_name] = model
                     preds = model.predict(trainer.X_test.to_numpy())
                 else:
-                    logger.info(f"Running Nested CV and Optuna optimization for {std_model_name}...")
+                    logger.info(
+                        f"Running Nested CV and Optuna optimization for {std_model_name}..."
+                    )
                     model, cv_metrics = nested_cross_validation_xgb(
                         X=trainer.X_train.to_numpy(),
                         y=trainer.y_train.to_numpy(),
@@ -406,8 +432,13 @@ def run():
                     _save_model_file(model, std_model_name)
                     preds = model.predict(trainer.X_test.to_numpy())
 
-                trainer.results[std_model_name] = ModelEvaluator.evaluate(trainer.y_test, preds, std_model_name, extended=True)
-                trainer.predictions[std_model_name] = pd.concat([trainer.y_test, pd.Series(preds, index=trainer.y_test.index)], axis=1)
+                trainer.results[std_model_name] = ModelEvaluator.evaluate(
+                    trainer.y_test, preds, std_model_name, extended=True
+                )
+                trainer.predictions[std_model_name] = pd.concat(
+                    [trainer.y_test, pd.Series(preds, index=trainer.y_test.index)],
+                    axis=1,
+                )
 
             # 4. Meta Boosting
             if "meta_boosting" in trainer.config.models:
@@ -427,13 +458,19 @@ def run():
                         n_trials=10,
                         use_gpu=use_gpu,
                     )
-                    meta_booster.train(trainer.X_train, trainer.y_train, use_feature_selection=False)
+                    meta_booster.train(
+                        trainer.X_train, trainer.y_train, use_feature_selection=False
+                    )
                     trainer.models[model_name] = meta_booster
                     _save_model_file(meta_booster, model_name)
                     y_pred = meta_booster.infer(trainer.X_test)
 
-                trainer.results[model_name] = ModelEvaluator.evaluate(trainer.y_test, y_pred, model_name, extended=True)
-                trainer.predictions[model_name] = pd.concat([trainer.y_test, pd.Series(y_pred)], axis=1)
+                trainer.results[model_name] = ModelEvaluator.evaluate(
+                    trainer.y_test, y_pred, model_name, extended=True
+                )
+                trainer.predictions[model_name] = pd.concat(
+                    [trainer.y_test, pd.Series(y_pred)], axis=1
+                )
 
         comparison_df = trainer.compare_models()
         logger.success("\nModel Comparison:")

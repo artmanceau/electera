@@ -40,7 +40,8 @@ class BackTesterConfig(BaseModel):
     use_mlflow: bool
 
     use_gpu: bool = Field(
-        default=False, description="Whether to use GPU acceleration for supported models"
+        default=False,
+        description="Whether to use GPU acceleration for supported models",
     )
 
     models: List[

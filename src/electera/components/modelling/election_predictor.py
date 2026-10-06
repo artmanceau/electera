@@ -260,13 +260,20 @@ class ElectionPredictor:
         local_circo_path = Path("config/mappings/circo_mapping.csv")
         s3_circo_path = "s3://arthurmanceau/election_modeling_uhcp/data/raw/insee_geo/circo_composition_2022_.csv"
         if local_circo_path.exists():
-            circo_mapping = DataLoader.load_dataset(str(local_circo_path), formate="csv")
+            circo_mapping = DataLoader.load_dataset(
+                str(local_circo_path), formate="csv"
+            )
         else:
             try:
                 circo_mapping = DataLoader.load_dataset(s3_circo_path, formate="csv")
             except Exception:
                 # Try finding circo_mapping relative to module
-                repo_circo = Path(__file__).resolve().parents[4] / "config" / "mappings" / "circo_mapping.csv"
+                repo_circo = (
+                    Path(__file__).resolve().parents[4]
+                    / "config"
+                    / "mappings"
+                    / "circo_mapping.csv"
+                )
                 circo_mapping = DataLoader.load_dataset(str(repo_circo), formate="csv")
 
         circo_mapping["COMMUNE_RESID"] = (
