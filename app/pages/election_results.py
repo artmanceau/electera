@@ -75,7 +75,6 @@ check_home_run()
 
 st.session_state["state"].selection_box(multiple_years=False, clear_cache_on_rerun=True)
 
-
 load_results()
 
 results = st.session_state["data"].container["results_synth"].set_index("index")

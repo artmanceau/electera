@@ -6,6 +6,8 @@ import shap
 import pandas as pd
 import numpy as np
 import streamlit as st
+import s3fs
+import polars as pl
 from asset.definitions import candidats_2022_mapping, colors_dict, get_colors, trad
 from asset.features import FEATURE_AUG, get_feature_desc
 
@@ -23,6 +25,31 @@ def check_home_run():
         if st.session_state["home_run"]:
             return None
     st.switch_page("pages/home.py")
+
+
+def latest_poll_refresh(year, election_type, trends):
+    # Use directly the file with the utility functions
+    fs = s3fs.S3FileSystem(
+        anon=True, client_kwargs={"endpoint_url": "https://minio.lab.sspcloud.fr"}
+    )
+    if election_type != "pres":
+        return None
+
+    with fs.open(
+        f"arthurmanceau/poll_tracker/polls/presidentiel/{year}/t1/polls.parquet",
+        "rb",
+    ) as f:
+        X = (
+            pl.scan_parquet(f)
+            .select(
+                [f"BP_{trend}" for trend in trends if trend != "par"] + ["start_date"]
+            )
+            .sort("start_date", descending=True)
+            .head(10)
+            .collect()
+            .select(pl.all().mean())
+        )
+    return X
 
 
 def diff_show(results, blocs, trad, label, label_show, year, t):
@@ -275,9 +302,24 @@ def present_results(data_line, year, t, blocs, scale):
             with st.expander("Sondages", expanded=True):
                 st.write(
                     """
-                    Prédictions du modèle pour l'élection
+                    Résultats selon les (10) derniers [sondages](https://sondages-presidentielles.streamlit.app/)
                 """
                 )
+                # Update data line
+                refresh = latest_poll_refresh(
+                    st.session_state["state"].year,
+                    st.session_state["state"].get_type(as_type="code"),
+                    st.session_state["state"].get_blocs(as_type="code"),
+                )
+                if not refresh.is_empty():
+                    latest = refresh.row(0, named=True)
+                    for target in latest:
+                        target_data_line = f"pvote{target.replace('BP_', '')}"
+                        if target_data_line in data_line.index and target in latest:
+                            data_line.loc[target_data_line, "2027_pres_poll"] = latest[
+                                target
+                            ]
+
                 result_func(
                     data_line,
                     year_type=f"{year}_{t}",
@@ -610,7 +652,7 @@ def show_shap_values(
             # Global mode (all communes)
             else:
                 global_plot_type = st.selectbox(
-                    "Global Plot Type",
+                    "Type de représentation",
                     PLOT_TYPES_GLOBAL,
                     key=f"global_plot_{i}",
                 )
@@ -619,13 +661,13 @@ def show_shap_values(
                     col1, col2 = st.columns(2)
                     with col1:
                         x_feat = st.selectbox(
-                            "Shap values depending on feature",
+                            "Valeur de shap en fonction du prédicteur",
                             feature_names,
                             key=f"x_feat_{i}",
                         )
                     with col2:
                         y_feat = st.selectbox(
-                            "Interaction with feature",
+                            "Intéraction avec le prédicteur",
                             feature_names,
                             key=f"y_feat_{i}",
                         )

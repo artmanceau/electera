@@ -93,3 +93,12 @@ for page in pages:
     with col2:
         st.markdown(page["desc"])
     st.markdown("---")
+
+st.markdown(
+    """
+    Autres applications :
+    * [Tracker de l'évolution des sondages](https://sondages-presidentielles.streamlit.app/)
+    * [Sondage politique avec des LLM](https://poll-llm.streamlit.app/)
+    * [Analyse de l'abstention aux élection municipales](https://municipales.streamlit.app/)
+    """
+)

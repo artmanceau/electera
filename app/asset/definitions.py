@@ -104,7 +104,7 @@ def political_align(blocs):
     if len(blocs) == 6:
         return ["G", "CG", "C", "CD", "D"]
     elif len(blocs) == 4:
-        return ["CGCCD", "D", "G"]
+        return ["G", "CGCCD", "D"]
     else:
         return ["TG", "TD"]
 
@@ -129,7 +129,7 @@ display_config_converter = {
             ["G", "D", "CG", "CD", "C", "par"]
         ): "division en 5 blocs : gauche / centre gauche / centre / cente droite / droite",
         str(
-            ["CGCCD", "D", "G", "par"]
+            ["G", "CGCCD", "D", "par"]
         ): "division extrême gauche / centre-gauche, centre et centre-droite / extrême droite",
     },
 }
