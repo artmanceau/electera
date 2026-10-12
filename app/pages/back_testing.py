@@ -3,6 +3,7 @@ import streamlit as st
 from core.utils import check_home_run, plot_backtest
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 
 
 def _load_result_for_year(
@@ -151,10 +152,12 @@ if mode_choice == "Commune":
         years=st.session_state["state"].get_years(),
         parties=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
     )
+    temporal_data["2027_pres_true"] = np.nan
 
 
 if mode_choice == "France Entière":
     temporal_data = load_results_over_time()
+    temporal_data["2027_pres_true"] = np.nan
 
 st.divider()
 

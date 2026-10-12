@@ -802,67 +802,73 @@ def plot_backtest(
     if isinstance(variables, str):
         variables = [variables]
     years_sorted = sorted(years)
-
+    state_code = st.session_state["state"].get_type(as_type="code")
     fig = go.Figure()
 
-    for idx, variable in enumerate(variables):
-        color = (
-            "#008000"
-            if (variable == "pvotepar")
-            else colors_dict[variable.replace("pvote", "")]
-        )
+    for variable in variables:
+        key = variable.replace("pvote", "")
+        label = trad[key] if variable == "pvotepar" else f"Vote {trad[key]}"
+        color = "#008000" if variable == "pvotepar" else colors_dict[key]
         true_vals = [
-            (
-                df.loc[
-                    variable,
-                    f"{year}_{st.session_state['state'].get_type(as_type='code')}{true_suffix}",
-                ]
-                if f"{year}_{st.session_state['state'].get_type(as_type='code')}{true_suffix}"
-                in df.columns
-                else None
-            )
+            df.loc[variable, f"{year}_{state_code}{true_suffix}"]
+            if f"{year}_{state_code}{true_suffix}" in df.columns
+            else np.nan
             for year in years_sorted
         ]
         pred_vals = [
-            (
-                df.loc[
-                    variable,
-                    f"{year}_{st.session_state['state'].get_type(as_type='code')}{pred_suffix}",
-                ]
-                if f"{year}_{st.session_state['state'].get_type(as_type='code')}{pred_suffix}"
-                in df.columns
-                else None
-            )
+            df.loc[variable, f"{year}_{state_code}{pred_suffix}"]
+            if f"{year}_{state_code}{pred_suffix}" in df.columns
+            else np.nan
             for year in years_sorted
         ]
-        fig.add_trace(
-            go.Scatter(
-                x=years_sorted,
-                y=true_vals,
-                mode="lines+markers",
-                name=(
-                    f"{trad[variable.replace('pvote', '')]} - Réel"
-                    if (variable == "pvotepar")
-                    else f"Vote {trad[variable.replace('pvote', '')]} - Réel"
-                ),
-                line=dict(color=color, width=3, dash="solid"),
-                marker=dict(size=10, color=color, symbol="triangle-down"),
-            )
+        baseline_vals = [np.nan] + true_vals[:-1] if true_vals else []
+        true_array = np.asarray(true_vals, dtype=float)
+        pred_array = np.asarray(pred_vals, dtype=float)
+        baseline_array = np.asarray(baseline_vals, dtype=float)
+        valid = (
+            np.isfinite(true_array)
+            & np.isfinite(pred_array)
+            & np.isfinite(baseline_array)
         )
-        fig.add_trace(
-            go.Scatter(
-                x=years_sorted,
-                y=pred_vals,
-                mode="lines+markers",
-                name=(
-                    f"{trad[variable.replace('pvote', '')]} - Prédiction"
-                    if (variable == "pvotepar")
-                    else f"Vote {trad[variable.replace('pvote', '')]} - Prédiction"
-                ),
-                line=dict(color=color, width=3, dash="dot"),
-                marker=dict(size=10, color=color, symbol="triangle-up"),
+        with st.expander(f"Erreur moyenne {label}"):
+            if valid.any():
+                errors = np.mean(np.abs(true_array[valid] - pred_array[valid]))
+                errors_baseline = np.mean(
+                    np.abs(true_array[valid] - baseline_array[valid])
+                )
+                col_model, col_baseline = st.columns(2)
+                col_model.metric(
+                    label="Erreur moyenne · Modèle",
+                    value=f"{errors:.2f}",
+                    delta=f"{errors - errors_baseline:+.2f} vs baseline",
+                    delta_color="inverse",
+                    border=False,
+                    help="Erreur absolue moyenne. Une valeur plus faible est meilleure.",
+                )
+                col_baseline.metric(
+                    label="Erreur moyenne · Baseline",
+                    value=f"{errors_baseline:.2f}",
+                    border=False,
+                    help="Valeur réelle de l'année précédente, sur les mêmes années.",
+                )
+            else:
+                st.info("Pas assez de données pour comparer le modèle à la baseline.")
+
+        for values, name, trace_color, width, dash, size, symbol in [
+            (baseline_vals, "Baseline", "#999999", 1, "dot", 5, "triangle-down"),
+            (true_vals, "Réel", color, 3, "solid", 10, "triangle-down"),
+            (pred_vals, "Prédiction", color, 3, "dot", 10, "triangle-up"),
+        ]:
+            fig.add_trace(
+                go.Scatter(
+                    x=years_sorted,
+                    y=values,
+                    mode="lines+markers",
+                    name=f"{label} - {name}",
+                    line=dict(color=trace_color, width=width, dash=dash),
+                    marker=dict(size=size, color=trace_color, symbol=symbol),
+                )
             )
-        )
 
     fig.update_layout(
         xaxis_title="Année",
@@ -872,5 +878,4 @@ def plot_backtest(
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-
     st.plotly_chart(fig, width="stretch")
