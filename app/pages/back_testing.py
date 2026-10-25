@@ -181,7 +181,7 @@ selected_blocs = st.multiselect(
         as_type="code", order="political", prefix="pvote"
     ),
 )
-
+# temporal_data.to_csv(f'notebooks/model/results_ts/backtest_{st.session_state["state"].get_blocs(as_type="code", order="political", prefix="pvote")}_{st.session_state["state"].get_type(as_type="code")}.csv')
 plot_backtest(
     temporal_data,
     selected_blocs,

@@ -10,6 +10,10 @@ electera.egg-info/
 
 # Data folder
 notebooks/model/figures/
+notebooks/model/results_ts/
+notebooks/model/shap_scatter_plots/
+notebooks/model/spatial_correlations_figures/
+notebooks/model/figures_res/
 cross_predictions/
 data/
 untracked/
