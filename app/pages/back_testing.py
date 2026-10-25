@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from core.utils import check_home_run, plot_backtest
+from core.utils import check_home_run, plot_backtest, get_asset
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
@@ -17,7 +17,8 @@ def _load_result_for_year(
 ) -> pd.DataFrame | None:
     """Load result for a single year (thread-safe: no session_state access)."""
     try:
-        data_loader.load_result(
+        X = get_asset(
+            data_loader.load_result,
             asset=asset,
             year=year,
             election_type=election_type,
@@ -25,7 +26,6 @@ def _load_result_for_year(
             columns=columns,
             filters=filters,
         )
-        X = data_loader.container[asset]
         if columns:
             X = X.set_index("index")
         if "annee" not in X.columns:
@@ -40,7 +40,7 @@ def _load_result_for_year(
 @st.cache_data
 def load_results_over_time() -> pd.DataFrame | None:
     """Concatenate results across years."""
-    data_loader = st.session_state["data"]  # Access ONCE in main thread
+    data_loader = st.session_state["dh"]
     years = st.session_state["state"].get_years()
     election_type = st.session_state["state"].get_type(as_type="code")
     trends = st.session_state["state"].get_blocs(as_type="code", order="alpha")
@@ -89,7 +89,7 @@ def load_results_over_time() -> pd.DataFrame | None:
 
 @st.cache_data
 def load_communes_list():
-    st.session_state["data"].load_communes_list()
+    return st.session_state["dh"].load_communes_list()
 
 
 def build_pres_table(
@@ -121,13 +121,12 @@ def build_pres_table(
 
 check_home_run()
 
-
 st.header("Back-testing du modèle")
 st.markdown("Analysez l'évolution des résultats et prédictions sur plusieurs années.")
 
 st.divider()
 
-st.session_state["state"].selection_box(multiple_years=True, clear_cache_on_rerun=False)
+st.session_state["state"].selection_box(multiple_years=True)
 
 tab1, tab2 = st.columns(2)
 with tab1:
@@ -140,8 +139,8 @@ if mode_choice == "France Entière":
 
 if mode_choice == "Commune":
     with tab2:
-        load_communes_list()
-        st.session_state["state"].commune_selector()
+        communes_list = get_asset(st.session_state["dh"].load_communes_list)
+        st.session_state["state"].commune_selector(communes_list)
         st.write(
             f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
         )

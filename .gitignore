@@ -9,6 +9,7 @@ electera.egg-info/
 .ruff_cache
 
 # Data folder
+notebooks/model/figures/
 cross_predictions/
 data/
 untracked/

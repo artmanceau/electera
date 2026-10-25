@@ -168,8 +168,13 @@ def compute_metrics():
         "rel_bias",
         "rel_absbias",
         "mae",
+        "rel_mae",
         "weighted_mae",
+        "rel_weighted_mae",
         "rmse",
+        "rel_rmse",
+        "weighted_rmse",
+        "rel_weighted_rmse",
     ]
     metrics = {name: {} for name in metric_names}
 
@@ -249,6 +254,11 @@ def compute_metrics():
                         mae = d.abs().mean()
                         rmse = np.sqrt((d**2).mean())
 
+                        # Relative metrics (compared to avg true value)
+                        avg_true = y_true.mean()
+                        rel_mae = (mae / avg_true * 100) if avg_true != 0 else np.nan
+                        rel_rmse = (rmse / avg_true * 100) if avg_true != 0 else np.nan
+
                         # Pondération par les inscrits.
                         valid_w = w.notna() & np.isfinite(w) & (w >= 0)
                         d_w = d[valid_w]
@@ -258,9 +268,22 @@ def compute_metrics():
 
                         if w.sum() > 0:
                             weighted_mae = (d_w.abs() * w).sum() / w.sum()
+                            weighted_rmse = np.sqrt(((d_w**2) * w).sum() / w.sum())
 
                             avg_pred_weighted = (pred_w * w).sum() / w.sum()
                             avg_true_weighted = (true_w * w).sum() / w.sum()
+
+                            # Relative weighted metrics
+                            rel_weighted_mae = (
+                                (weighted_mae / avg_true_weighted * 100)
+                                if avg_true_weighted != 0
+                                else np.nan
+                            )
+                            rel_weighted_rmse = (
+                                (weighted_rmse / avg_true_weighted * 100)
+                                if avg_true_weighted != 0
+                                else np.nan
+                            )
 
                             bias = avg_pred_weighted - avg_true_weighted
                             absbias = abs(bias)
@@ -273,6 +296,9 @@ def compute_metrics():
                                 rel_absbias = np.nan
                         else:
                             weighted_mae = np.nan
+                            weighted_rmse = np.nan
+                            rel_weighted_mae = np.nan
+                            rel_weighted_rmse = np.nan
                             bias = np.nan
                             absbias = np.nan
                             rel_bias = np.nan
@@ -284,8 +310,13 @@ def compute_metrics():
                             "rel_bias": float(rel_bias),
                             "rel_absbias": float(rel_absbias),
                             "mae": float(mae),
+                            "rel_mae": float(rel_mae),
                             "weighted_mae": float(weighted_mae),
+                            "rel_weighted_mae": float(rel_weighted_mae),
                             "rmse": float(rmse),
+                            "rel_rmse": float(rel_rmse),
+                            "weighted_rmse": float(weighted_rmse),
+                            "rel_weighted_rmse": float(rel_weighted_rmse),
                         }
 
                         for metric_name, value in values.items():
@@ -317,18 +348,19 @@ def to_matrix(values, years):
 def save_metric_figures(metrics):
     plt.rcParams.update(
         {
-            "font.size": 14,
-            "axes.labelsize": 14,
-            "axes.titlesize": 14,
-            "xtick.labelsize": 14,
-            "ytick.labelsize": 14,
-            "legend.fontsize": 14,
+            "font.size": 10,
+            "axes.labelsize": 10,
+            "axes.titlesize": 10,
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+            "legend.fontsize": 10,
         }
     )
 
     for metric_name, per_election in metrics.items():
         for election_type, per_trends_key in per_election.items():
             for trends_key, per_trend in per_trends_key.items():
+                # trends is the list of variables (e.g., 'taupar', 'tauD')
                 trends = sorted(per_trend)
                 years = sorted(
                     {
@@ -339,55 +371,56 @@ def save_metric_figures(metrics):
                     }
                 )
 
-                ncols = min(3, len(trends))
-                nrows = int(np.ceil(len(trends) / ncols))
-                fig, axes = plt.subplots(
-                    nrows,
-                    ncols,
-                    figsize=(10 * ncols, 8 * nrows),
-                    squeeze=False,
-                )
-                safe_trends = re.sub(r"[^A-Za-z0-9_.-]+", "_", trends_key)
-
-                for ax, trend in zip(axes.flat, trends):
+                for trend in trends:
                     matrix = to_matrix(per_trend[trend], years)
-                    # matrix_path = (
-                    #     OUTPUT_DIR
-                    #     / f"{metric_name}_{election_type}_{safe_trends}_{trend}_matrix.csv"
-                    # )
-                    # matrix.to_csv(matrix_path, index_label="evaluated_year")
 
+                    # Scaling logic for large values
+                    scale_factor = 1.0
+                    unit = ""
+                    max_val = matrix.max().max()
+
+                    if not np.isnan(max_val):
+                        if max_val >= 10000:
+                            scale_factor = 10000.0
+                            unit = " (tens of thousands)"
+                        elif max_val >= 1000:
+                            scale_factor = 1000.0
+                            unit = " (thousands)"
+
+                    matrix_scaled = matrix / scale_factor
+
+                    plt.figure(figsize=(8, 6))
                     sns.heatmap(
-                        matrix,
+                        matrix_scaled,
                         annot=True,
                         fmt=".1f",
                         cmap="GnBu",
                         square=True,
-                        ax=ax,
-                        annot_kws={"size": 9},
-                        cbar_kws={"label": metric_name.upper()},
+                        annot_kws={"size": 8},
+                        cbar_kws={"label": f"{metric_name.upper()}{unit}"},
                     )
-                    ax.set_title(trend, fontsize=14, pad=18)
-                    ax.set_xlabel("Model year", fontsize=14)
-                    ax.set_ylabel("Evaluated year", fontsize=14)
-                    ax.tick_params(axis="both", labelsize=14)
 
-                for ax in axes.flat[len(trends) :]:
-                    ax.axis("off")
+                    title = (
+                        f"{metric_name.capitalize()} of cross-predictions for variable {trend} "
+                        f"(model trained on {election_type} with the following political bloc {trends_key})"
+                    )
+                    plt.title(title, fontsize=10, pad=18)
+                    plt.xlabel(
+                        "Main election year used in the training set", fontsize=10
+                    )
+                    plt.ylabel("Election year predicted", fontsize=10)
+                    plt.tick_params(axis="both", labelsize=10)
+                    plt.tight_layout()
 
-                fig.suptitle(
-                    f"{metric_name.upper()} | {election_type} | {trends_key}",
-                    fontsize=16,
-                )
-                fig.tight_layout()
-
-                output_path = (
-                    OUTPUT_DIR / f"{metric_name}_{election_type}_{safe_trends}.pdf"
-                )
-                fig.savefig(output_path, format="pdf", bbox_inches="tight")
-                plt.close(fig)
-                print(f"Saved {output_path}")
-                # upload_output_file(output_path)
+                    safe_trends = re.sub(r"[^A-Za-z0-9_.-]+", "_", trends_key)
+                    safe_trend = re.sub(r"[^A-Za-z0-9_.-]+", "_", trend)
+                    output_path = (
+                        OUTPUT_DIR
+                        / f"{metric_name}_{election_type}_{safe_trends}_{safe_trend}.pdf"
+                    )
+                    plt.savefig(output_path, format="pdf", bbox_inches="tight")
+                    plt.close()
+                    print(f"Saved {output_path}")
 
 
 def save_metrics(metrics):

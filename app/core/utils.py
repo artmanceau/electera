@@ -1,8 +1,10 @@
 from typing import Dict, List, Optional
 import altair as alt
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import plotly.graph_objects as go
 import shap
+import urllib.parse
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -11,20 +13,44 @@ import polars as pl
 from asset.definitions import candidats_2022_mapping, colors_dict, get_colors, trad
 from asset.features import FEATURE_AUG, get_feature_desc
 
-# Constants
-DEFAULT_NB_FEAT = 10
-MIN_NB_FEAT = 5
-MAX_NB_FEAT = 100
-BASE_COLUMNS = {"codecommune", "base_value"}
-PLOT_TYPES_LOCAL = ["Waterfall", "Force"]
-PLOT_TYPES_GLOBAL = ["Beeswarm", "Bar", "Scatter"]
+
+@st.cache_data
+def get_asset(_load_func, asset_name=None, **kwargs):
+    """
+    Universal cached loader
+    """
+    if asset_name is not None:
+        kwargs["asset"] = asset_name
+    return _load_func(**kwargs)
 
 
 def check_home_run():
-    if "home_run" in st.session_state:
-        if st.session_state["home_run"]:
-            return None
-    st.switch_page("pages/home.py")
+    # Check home page has been run
+    if "home_run" not in st.session_state:
+        st.switch_page("pages/home.py")
+
+
+SLIDER_TEXT = "Selectionnez un nombre de features"
+DEFAULT_NB_FEAT = 15
+MIN_NB_FEAT = 5
+MAX_NB_FEAT = 60
+
+
+def make_slider(key):
+    return st.slider(
+        SLIDER_TEXT,
+        MIN_NB_FEAT,
+        MAX_NB_FEAT,
+        DEFAULT_NB_FEAT,
+        key=key,
+    )
+
+
+# Constants
+
+BASE_COLUMNS = {"codecommune", "base_value"}
+PLOT_TYPES_LOCAL = ["Waterfall", "Force", "Decision"]
+PLOT_TYPES_GLOBAL = ["Beeswarm", "Scatter", "Decision"]
 
 
 def latest_poll_refresh(year, election_type, trends):
@@ -388,32 +414,7 @@ def present_results(data_line, year, t, blocs, scale):
                 st.write("Election qui n'a pas encore eu lieu")
 
 
-def show_feature_importance(importance_df, blocs):
-    st.header(
-        "Déterminants socio-économiques les plus importants dans le modèle de prédiction"
-    )
-
-    tab1, tab2 = st.columns([3, 1])
-    with tab1:
-        nb_feat = st.slider(
-            "Selectionnez un nombre de variable pour visualiser l'importance des variables socio-économiques",
-            5,
-            50,
-        )
-    with tab2:
-        importance_type = st.selectbox(
-            "Importance type",
-            options=[
-                "gain",
-                "shap",
-                "cover",
-                "weight",
-                "permutation",
-                "total_gain",
-                "total_cover",
-            ],
-        )
-
+def show_feature_importance(importance_df, blocs, nb_feat, importance_type):
     trends = ["par"] + [f"{b.replace('tau', '')}" for b in blocs]
     tabs = st.tabs(["Participation"] + [f"Vote {trad[b]}" for b in blocs])
     for i, tab in enumerate(tabs):
@@ -437,8 +438,17 @@ def show_feature_importance(importance_df, blocs):
                 st.info(", ".join(df["feature_name"].to_list()))
 
             st.write(f"Importance (impotance type: {importance_type})")
+
+            # Normalize importance to % of total
+            total_imp = df[importance_type].sum()
+            if total_imp != 0:
+                df[f"{importance_type}_pct"] = (df[importance_type] / total_imp) * 100
+            else:
+                df[f"{importance_type}_pct"] = 0.0
+
+            # Use the original importance_type for sorting, but keep the original column in the slice
             top_gain = df.nlargest(nb_feat, importance_type)[
-                ["Feature", importance_type, "feature_name"]
+                ["Feature", importance_type, f"{importance_type}_pct", "feature_name"]
             ]
             top_gain = top_gain.sort_values(importance_type, ascending=False)
             chart = (
@@ -447,11 +457,11 @@ def show_feature_importance(importance_df, blocs):
                 .encode(
                     x=alt.X("feature_name:N", title="Feature"),
                     y=alt.Y(
-                        f"{importance_type}:Q",
-                        title="Importance",
+                        f"{importance_type}_pct:Q",
+                        title="Importance (%)",
                         axis=alt.Axis(),
                     ),
-                    tooltip=["Feature", importance_type, "feature_name"],
+                    tooltip=["Feature", f"{importance_type}_pct:Q", "feature_name"],
                 )
                 .properties(width=600, height=400)
             )
@@ -471,25 +481,75 @@ def generate_local_plot(
     nb_feat: int,
     feature_names: List[str],
 ) -> None:
-    """Generate a local SHAP plot (Waterfall, Force, or Decision)."""
-    plt.close("all")
-    plt.figure()
-    plt.rcParams["font.size"] = 8  # Smaller feature names
-    if plot_type == "Waterfall":
-        shap.plots.waterfall(
-            expl,
-            max_display=nb_feat,
-            show=False,
-        )
-    elif plot_type == "Force":
-        shap.plots.force(
-            expl,
-            matplotlib=True,
-            show=False,
+    """Generate a local SHAP plot using isolated rendering for Streamlit."""
+
+    if plot_type == "Force":
+        # Rendu HTML Natif et Interactif (JavaScript)
+        shap_values_matrix = getattr(expl, "values", expl)
+        feature_values_matrix = getattr(expl, "data", None)
+        base_value = getattr(expl, "base_values", None)
+
+        force_plot_html = shap.plots.force(
+            base_value * 100,
+            shap_values_matrix * 100,
+            features=feature_values_matrix,
             feature_names=feature_names,
+            matplotlib=False,
+            show=False,
         )
-    st.pyplot(plt.gcf())
-    plt.close()
+
+        # Injection du script JS d'Ollama/SHAP + Composant HTML
+        shap_html = f"<head>{shap.getjs()}</head><body>{force_plot_html.html()}</body>"
+        encoded_html = urllib.parse.quote(shap_html)
+        st.iframe(src=f"data:text/html;charset=utf-8,{encoded_html}", height=140)
+
+    else:
+        # Rendu Matplotlib standard mais ISOLÉ (évite les figures blanches)
+        plt.close("all")
+
+        # Ajustement de la taille de la figure selon le type de graphique
+        if plot_type == "Decision":
+            fig, ax = plt.subplots(figsize=(10, max(4, nb_feat * 0.35 + 2)))
+        else:
+            fig, ax = plt.subplots(figsize=(10, max(4, nb_feat * 0.4)))
+
+        plt.rcParams["font.size"] = 7
+
+        if plot_type == "Waterfall":
+            shap.plots.waterfall(
+                expl * 100,
+                max_display=nb_feat,
+                show=False,
+            )
+
+        elif plot_type == "Decision":
+            shap_values_matrix = getattr(expl, "values", expl)
+            feature_values_matrix = getattr(expl, "data", None)
+
+            # Gestion sécurisée de la matrice de données
+            if feature_values_matrix is None and expl is not None:
+                feature_values_matrix = expl.to_numpy()
+
+            display_range = slice(None, -nb_feat - 1, -1)
+
+            shap.decision_plot(
+                expl.base_values
+                * 100,  # Multiplié par 100 pour cohérence avec le reste
+                shap_values_matrix * 100,  # Multiplié par 100 pour l'axe en %
+                features=feature_values_matrix,
+                feature_names=feature_names,
+                feature_display_range=display_range,
+                highlight=0
+                if (shap_values_matrix.ndim == 1 or len(shap_values_matrix) == 1)
+                else None,
+                show=False,
+            )
+            # Puisqu'on a multiplié par 100 au-dessus, l'axe X affiche directement les pourcentages réels
+            plt.gca().xaxis.set_major_formatter(mtick.PercentFormatter(100.0))
+
+        # Affichage sécurisé de la figure Matplotlib dédiée
+        st.pyplot(fig)
+        plt.close(fig)
 
 
 def generate_global_plot(
@@ -500,10 +560,13 @@ def generate_global_plot(
     nb_feat: int,
     x_feat: Optional[str] = None,
     y_feat: Optional[str] = None,
+    sample_labels: Optional[List[str]] = None,
+    base_value: Optional[float] = None,
 ) -> None:
-    """Generate a global SHAP plot (Beeswarm, Bar, Scatter, etc.)."""
+    """Generate a global SHAP plot (Beeswarm, Scatter, Decision, etc.)."""
     plt.close("all")
-    plt.figure()
+    fig = plt.figure()
+    plt.rcParams["font.size"] = 7
 
     if plot_type == "Beeswarm":
         # Calculate mean absolute SHAP values for each feature
@@ -519,16 +582,11 @@ def generate_global_plot(
             values_subset,
             data_subset,
             feature_names=feature_names_subset,
+            max_display=nb_feat,
             show=False,
             color_bar=True,
-            plot_size=(10, 6),
         )
-    elif plot_type == "Bar":
-        mean_abs = np.abs(values).mean(axis=0)
-        idx = np.argsort(mean_abs)[-nb_feat:]
-        plt.barh(np.array(feature_names)[idx], mean_abs[idx])
-        plt.title("Mean Absolute SHAP Values")
-
+        plt.gca().xaxis.set_major_formatter(mtick.PercentFormatter(1.0))
     elif plot_type == "Scatter":
         if values.shape[1] >= 2 and x_feat and y_feat:
             explanation = shap.Explanation(
@@ -545,9 +603,68 @@ def generate_global_plot(
                 color=explanation[:, iy],
                 show=False,
             )
+            fig = plt.gcf()
+            ax = plt.gca()
+            ax.yaxis.set_major_formatter(mtick.PercentFormatter(100.0))
+            ax.tick_params(axis="both", labelsize=9)
+    elif plot_type == "Decision":
+        if base_value is not None:
+            display_range = slice(None, -nb_feat - 1, -1)
+            explanation = shap.Explanation(
+                values=values,
+                data=data,
+                feature_names=feature_names,
+            )
+            shap_values_matrix = getattr(explanation, "values", explanation)
+            shap.decision_plot(
+                base_value,
+                shap_values_matrix,
+                feature_names=feature_names,
+                feature_display_range=display_range,
+                legend_labels=list(sample_labels),
+                show=False,
+            )
+            plt.gca().xaxis.set_major_formatter(mtick.PercentFormatter(1.0))
 
-    st.pyplot(plt.gcf())
-    plt.close()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def convert_logits_to_probs(
+    values: np.ndarray, base_value: float
+) -> tuple[np.ndarray, float]:
+    """
+    Convert SHAP values from logit space to probability space using proportional redistribution.
+
+    Args:
+        values: SHAP values matrix (observations x features) in logit space.
+        base_value: Base value (intercept) in logit space.
+
+    Returns:
+        Tuple of (shap_probs, prob_base).
+    """
+
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    # Total predicted logit per observation
+    logit_total = np.sum(values, axis=1) + base_value
+
+    # Base and predicted probabilities
+    prob_base = sigmoid(base_value)
+    prob_pred = sigmoid(logit_total)
+
+    # Total probability difference to distribute
+    delta_prob_total = prob_pred - prob_base
+
+    # Absolute sum of logits per observation to use as weights
+    sum_abs_logit = np.sum(np.abs(values), axis=1, keepdims=True)
+    sum_abs_logit[sum_abs_logit == 0] = 1.0  # Avoid division by zero
+
+    # Proportional redistribution: delta_prob * (logit_val / sum_abs_logit)
+    shap_probs = delta_prob_total[:, np.newaxis] * (values / sum_abs_logit)
+
+    return shap_probs, prob_base
 
 
 def show_shap_values(
@@ -555,6 +672,7 @@ def show_shap_values(
     data_sample: pd.DataFrame,
     BLOCS: List[str],
     selection_code_commune: Optional[str] = None,
+    nb_feat: int = 15,
 ) -> None:
     """
     Display SHAP values for a given dataset and model.
@@ -572,14 +690,6 @@ def show_shap_values(
     for df in shap_df.values():
         all_columns.update(df.columns)
     all_columns.discard("base_value")
-
-    nb_feat = st.slider(
-        "Number of features to display",
-        MIN_NB_FEAT,
-        MAX_NB_FEAT,
-        DEFAULT_NB_FEAT,
-        key="shap_nb_feat",
-    )
 
     trends = ["par"] + [f"{b}" for b in BLOCS]
     tab_labels = ["Participation"] + [f"Vote {trad.get(b, b)}" for b in BLOCS]
@@ -614,18 +724,34 @@ def show_shap_values(
                 .to_numpy()
             )
             base_value = float(df.loc[mask, "base_value"].iloc[0])
-
+            print(base_value)
+            # Convert logits to probabilities
+            shap_values_prob, prob_base = convert_logits_to_probs(values, base_value)
+            print(prob_base)
             # Local mode (single commune)
             if selection_code_commune is not None:
                 local_mask = df["codecommune"].astype(str) == str(
                     selection_code_commune
                 )
+                print(selection_code_commune)
+                print(local_mask)
                 if not local_mask.any():
                     st.warning(f"No SHAP values for commune {selection_code_commune}")
                     continue
 
-                local_df = df[local_mask]
-                x = local_df[raw_features].iloc[0].astype(float).values
+                # Find the index of the selected commune within the probability matrix
+                commune_code = df.loc[local_mask, "codecommune"].iloc[0]
+                print(commune_code)
+                print(df.loc[local_mask, "codecommune"])
+                # Get the index of this commune in the 'mask' filtered view
+                # mask is a boolean series of the same length as df
+                global_indices = np.where(mask)[0]
+                # Find which of these global indices corresponds to our local commune
+                commune_global_idx = np.where(
+                    df.loc[global_indices, "codecommune"] == commune_code
+                )[0][0]
+
+                x_prob = shap_values_prob[commune_global_idx]
                 x_data = (
                     data_sample.loc[
                         data_sample["codecommune"] == selection_code_commune,
@@ -637,9 +763,9 @@ def show_shap_values(
                 )
 
                 expl = shap.Explanation(
-                    values=x,
+                    values=x_prob,
                     data=x_data,
-                    base_values=base_value,
+                    base_values=prob_base,
                     feature_names=feature_names,
                 )
                 local_plot_type = st.selectbox(
@@ -672,7 +798,7 @@ def show_shap_values(
                             key=f"y_feat_{i}",
                         )
                     generate_global_plot(
-                        values,
+                        shap_values_prob,
                         data,
                         feature_names,
                         global_plot_type,
@@ -680,115 +806,55 @@ def show_shap_values(
                         x_feat,
                         y_feat,
                     )
+                elif global_plot_type == "Decision":
+                    if "inscrits" in data_sample.columns:
+                        top_5_indices = data_sample.nlargest(5, "inscrits").index
+                        # We need indices relative to the 'mask' used for shap_values_prob
+                        # mask is a boolean series of the same length as df
+                        # we want to find where mask is true AND index is in top_5_indices
+                        commune_codes = df.loc[mask, "codecommune"].values
+                        top_5_codes = data_sample.loc[
+                            top_5_indices, "codecommune"
+                        ].values
+
+                        mapping_commune = pd.read_csv("app/asset/communes2022.csv")
+                        subset_labels = [
+                            mapping_commune[mapping_commune["codecommune"] == code][
+                                "nomcommune"
+                            ].iloc[0]
+                            for code in list(top_5_codes)
+                        ]
+
+                        indices = []
+                        for code in top_5_codes:
+                            if code in commune_codes:
+                                indices.append(np.where(commune_codes == code)[0][0])
+
+                        subset_values = shap_values_prob[indices]
+                        # subset_labels = [str(code) for code in top_5_codes[0:len(indices)]]
+                    else:
+                        subset_values = shap_values_prob[:5]
+                        subset_labels = [
+                            str(c) for c in df.loc[mask, "codecommune"].values[:5]
+                        ]
+
+                    generate_global_plot(
+                        subset_values,
+                        data,
+                        feature_names,
+                        global_plot_type,
+                        nb_feat,
+                        sample_labels=subset_labels,
+                        base_value=prob_base,
+                    )
                 else:
                     generate_global_plot(
-                        values,
+                        shap_values_prob,
                         data,
                         feature_names,
                         global_plot_type,
                         nb_feat,
                     )
-
-
-# def show_shap_values(shap_df, BLOCS, selection_code_commune=None):
-#     st.header("Shap values")
-
-#     all_columns = set()
-#     for df in shap_df.values():
-#         all_columns.update(df.columns)
-#     all_columns.discard("base_value")
-
-#     load_data(all_columns, selection_code_commune)
-
-#     def format_feature(f):
-#         f = f.removeprefix("F_") if f.startswith("F_") else f
-#         parts = f.split("_")
-#         return (
-#             FEATURE_AUG.get(parts[0], "")
-#             + get_feature_desc(parts[-1])
-#         )
-
-#     st.write(
-#         "Les valeurs de shap quantifient à quel point une variable socio-économique influence la prédiction."
-#     )
-
-#     nb_feat_shap = st.slider(
-#         "Selectionnez un nombre de variables pour visualiser les valeurs de shap", 5, 30
-#     )
-
-#     tabs = st.tabs(["Participation"] + [f" Vote {trad[b]}" for b in BLOCS])
-
-#     for i, tab in enumerate(tabs):
-#         with tab:
-#             trends = ["par"] + [f"{b}" for b in BLOCS]
-#             shap_values_df = shap_df[trends[i]].copy()
-
-#             base_cols = {"codecommune", "base_value"}
-#             raw_features = [c for c in shap_values_df.columns if c not in base_cols]
-
-#             feature_names = [format_feature(f) for f in raw_features]
-
-#             if selection_code_commune is not None:
-#                 shap_commune = shap_values_df[
-#                     shap_values_df["codecommune"].astype(str) == str(selection_code_commune)
-#                 ]
-
-#                 if len(shap_commune) == 0:
-#                     st.warning("Pas de valeurs de Shap pour cette commune")
-#                     st.stop()
-
-#                 base_value = float(shap_commune["base_value"].iloc[0])
-
-#                 row_values = shap_commune[raw_features].iloc[0].astype(float).values
-#                 row_data = st.session_state["data"].container["data_sample_all"].loc[
-#                     st.session_state["data"].container["data_sample_all"]["codecommune"]
-#                     == selection_code_commune,
-#                     raw_features,
-#                 ].iloc[0].astype(float).values
-
-#                 expl = shap.Explanation(
-#                     values=row_values,
-#                     data=row_data,
-#                     base_values=base_value,
-#                     feature_names=feature_names,
-#                 )
-
-#                 shap.plots.waterfall(expl, max_display=nb_feat_shap)
-
-#             else:
-#                 communes_communes = list(
-#                     set(shap_values_df["codecommune"]).intersection(
-#                         set(st.session_state["data"].container["data_sample_all"]["codecommune"])
-#                     )
-#                 )
-
-#                 mask = shap_values_df["codecommune"].isin(
-#                     st.session_state["data"].container["data_sample_all"]["codecommune"].values
-#                 )
-
-#                 values = shap_values_df.loc[mask, raw_features].astype(float).to_numpy()
-
-#                 data = st.session_state["data"].container["data_sample_all"].loc[
-#                     st.session_state["data"].container["data_sample_all"]["codecommune"].isin(
-#                         shap_values_df.loc[mask, "codecommune"]
-#                     ),
-#                     raw_features,
-#                 ].astype(float).to_numpy()
-
-#                 base_value = shap_values_df.loc[mask, "base_value"].iloc[0]
-
-#                 st.write("BASE VALUE:", base_value)
-#                 st.write("SHAP CHECK SUM:", values[0].sum())
-
-#                 shap.summary_plot(
-#                     values,
-#                     data,
-#                     feature_names=feature_names,
-#                     show=False
-#                 )
-
-#             st.pyplot(plt.gcf())
-#             plt.clf()
 
 
 def plot_backtest(

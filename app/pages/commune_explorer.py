@@ -1,72 +1,36 @@
 import streamlit as st
-from core.utils import check_home_run, present_results, show_shap_values
-
-
-@st.cache_data
-def load_results():
-    st.session_state["data"].load_result(
-        asset="results_full",
-        trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
-        year=st.session_state["state"].year,
-        election_type=st.session_state["state"].get_type(as_type="code"),
-        columns=None,
-        filters=[("codecommune", "==", st.session_state["state"].codecommune)],
-        asset_name="results_commune_selected",
-    )
-
-
-@st.cache_data
-def load_shap_values():
-    st.session_state["data"].load_explain(
-        asset="shap_values",
-        year=st.session_state["state"].year,
-        election_type=st.session_state["state"].get_type(as_type="code"),
-        trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
-        columns=None,
-        filters=[("codecommune", "==", st.session_state["state"].codecommune)],
-        asset_name="results_commune_selected",
-    )
-
-
-@st.cache_data
-def load_communes_list():
-    st.session_state["data"].load_communes_list()
-
-
-@st.cache_data
-def load_data(features, selection_code_commune):
-    filters = [
-        ("annee", "==", int(st.session_state["state"].year)),
-        (
-            "election_type",
-            "==",
-            str(st.session_state["state"].get_type(as_type="code_full")),
-        ),
-        ("codecommune", "==", str(selection_code_commune)),
-    ]
-    st.session_state["data"].load_data_sample(
-        columns=features, filters=filters, asset_name="data_sample_commune"
-    )
-
+from core.utils import (
+    check_home_run,
+    present_results,
+    show_shap_values,
+    get_asset,
+    make_slider,
+)
+from asset.features import CHAMPION_FEATURES_EXTENDED
 
 check_home_run()
 
-st.session_state["state"].selection_box(multiple_years=False, clear_cache_on_rerun=True)
+st.session_state["state"].selection_box(multiple_years=False)
 
-st.header("Resultat au niveau de chaque commune")
+st.header("Résultat au niveau de chaque commune")
 
-load_communes_list()
-st.session_state["state"].commune_selector()
+communes_list = get_asset(st.session_state["dh"].load_communes_list)
+st.session_state["state"].commune_selector(communes_list)
 st.write(
     f"Commune sélectionnée : {st.session_state['state'].commune} ({st.session_state['state'].codecommune})"
 )
 
 st.divider()
 
-load_results()
-
 present_results(
-    st.session_state["data"].container["results_commune_selected"],
+    get_asset(
+        st.session_state["dh"].load_result,
+        asset_name="results_full",
+        year=st.session_state["state"].year,
+        election_type=st.session_state["state"].get_type(as_type="code"),
+        trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
+        filters=[("codecommune", "==", st.session_state["state"].codecommune)],
+    ),
     year=st.session_state["state"].year,
     t=st.session_state["state"].get_type(as_type="code"),
     blocs=st.session_state["state"].get_blocs(as_type="code", order="political"),
@@ -75,29 +39,31 @@ present_results(
 
 st.divider()
 
-if st.button("Compute shap values"):
-    st.session_state.show_shap_values = True
+nb_feat_shap = make_slider("nb_feat_shap")
 
-    load_shap_values()
-
-    features = set()
-    for df in st.session_state["data"].container["shap_values"].values():
-        features.update(df.columns)
-    features.discard("base_value")
-
-    load_data(
-        features=features.union(["codecommune"]),
-        selection_code_commune=st.session_state["state"].codecommune,
-    )
-
-
-if (
-    st.session_state.show_shap_values
-    and "data_sample_commune" in st.session_state["data"].container
-):
-    show_shap_values(
-        shap_df=st.session_state["data"].container["shap_values"],
-        data_sample=st.session_state["data"].container["data_sample_commune"],
-        BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
-        selection_code_commune=st.session_state["state"].codecommune,
-    )
+show_shap_values(
+    shap_df=get_asset(
+        st.session_state["dh"].load_explain,
+        asset_name="shap_values",
+        year=st.session_state["state"].year,
+        election_type=st.session_state["state"].get_type(as_type="code"),
+        trends=st.session_state["state"].get_blocs(as_type="code", order="alpha"),
+        filters=[("codecommune", "==", st.session_state["state"].codecommune)],
+    ),
+    data_sample=get_asset(
+        st.session_state["dh"].load_data_sample,
+        columns=CHAMPION_FEATURES_EXTENDED + ["codecommune"],
+        filters=[
+            ("annee", "==", int(st.session_state["state"].year)),
+            (
+                "election_type",
+                "==",
+                str(st.session_state["state"].get_type(as_type="code_full")),
+            ),
+            ("codecommune", "==", st.session_state["state"].codecommune),
+        ],
+    ),
+    BLOCS=st.session_state["state"].get_blocs(as_type="code", order="political"),
+    selection_code_commune=st.session_state["state"].codecommune,
+    nb_feat=nb_feat_shap,
+)

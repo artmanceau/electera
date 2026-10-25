@@ -72,11 +72,9 @@ class AppData:
         self.data_path = data_path
         self.version = version
         self.sample_data_path = sample_data_path
-        self.container = {}
 
     def load_communes_list(self):
-        commmunes_list = pd.read_csv("app/asset/communes2022.csv")
-        self.container["communes_list"] = commmunes_list
+        return pd.read_csv("app/asset/communes2022.csv")
 
     def _make_api_request(self, endpoint: str, payload: dict):
         url = f"{API_URL}{endpoint}"
@@ -97,7 +95,7 @@ class AppData:
         return _convert_to_pandas(element)
 
     def _load_explain_s3(self, asset, trends, year, election_type, columns, filters):
-        self.container[asset] = {}
+        collected_items = {}
         trends_ = [f"tau{trend}" for trend in trends] if self.tau else trends
         fs = get_fs().fs
         with ThreadPoolExecutor(max_workers=len(trends)) as executor:
@@ -118,10 +116,10 @@ class AppData:
             ]
             for future in futures:
                 trend, data = future.result()
-                self.container[asset][trend] = data
-        return self.container[asset]
+                collected_items[trend] = data
+        return collected_items
 
-    def _load_data_sample_s3(self, columns, filters):
+    def _load_data_sample_s3(self, asset, columns, filters):
         element = DataLoader.load_dataset(
             self.sample_data_path,
             fs=get_fs().fs,
@@ -165,7 +163,6 @@ class AppData:
         election_type: Literal["leg", "pres", "ref"],
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
-        asset_name: Optional[str] | None = None,
     ):
         try:
             payload = {
@@ -181,8 +178,9 @@ class AppData:
             data = self._make_api_request("/data/explain", payload)
             # The API returns a dict of lists (JSON), we need to convert them to DataFrames
             processed_data = {trend: pd.DataFrame(df) for trend, df in data.items()}
-            self.container[asset] = processed_data
             logger.info(f"{asset} loaded with success from API!")
+            return processed_data
+
         except Exception as e:
             logger.warning(f"Failed to load {asset} from API: {e}. Falling back to S3.")
             self._load_explain_s3(asset, trends, year, election_type, columns, filters)
@@ -196,7 +194,6 @@ class AppData:
         election_type: Literal["leg", "pres", "ref"],
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
-        asset_name: Optional[str] | None = None,
     ):
         if self.tau:
             trends = [f"tau{trend}" for trend in trends]
@@ -222,14 +219,13 @@ class AppData:
             )
             logger.info(f"{asset} loaded with success from S3!")
 
-        asset_name = asset_name if asset_name is not None else asset
-        self.container[asset_name] = element
+        return element
 
     def load_data_sample(
         self,
         columns: Optional[List] | None = None,
         filters: Optional[List[Tuple]] | None = None,
-        asset_name: Optional[str] | None = None,
+        asset: Optional[str] | None = None,
         use_api: bool = True,
     ):
         if use_api:
@@ -238,23 +234,22 @@ class AppData:
                 payload = {
                     "columns": list(columns) if isinstance(columns, set) else columns,
                     "filters": filters,
-                    "asset_name": asset_name if asset_name is not None else "data",
+                    "asset_name": asset if asset is not None else "data",
                     "sample_data_path": self.sample_data_path,
                 }
                 response = requests.post(url, json=payload)
                 response.raise_for_status()
                 data = response.json()
                 element = pd.DataFrame(data)
-                logger.info(f"{asset_name} loaded with success from API!")
+                logger.info(f"{asset} loaded with success from API!")
             except Exception as e:
                 logger.warning(
-                    f"Failed to load {asset_name} from API: {e}. Falling back to S3."
+                    f"Failed to load {asset} from API: {e}. Falling back to S3."
                 )
-                element = self._load_data_sample_s3(columns, filters)
-                logger.info(f"{asset_name} loaded with success from S3!")
+                element = self._load_data_sample_s3(asset, columns, filters)
+                logger.info(f"{asset} loaded with success from S3!")
         else:
-            element = self._load_data_sample_s3(columns, filters)
-            logger.info(f"{asset_name} loaded with success from S3!")
+            element = self._load_data_sample_s3(asset, columns, filters)
+            logger.info(f"{asset} loaded with success from S3!")
 
-        asset_name = asset_name if asset_name is not None else "data"
-        self.container[asset_name] = element
+        return element

@@ -12,13 +12,11 @@ class SessionHandler:
         self.year = None
         self.type = None
         self.blocs = None
-
         self.commune = None
         self.codecommune = None
-
         self.years = None
 
-    def selection_box(self, multiple_years=False, clear_cache_on_rerun=True):
+    def selection_box(self, multiple_years=False):
         """Selection method for year, type and blocs"""
         # User selections
         col1, col2, col3 = st.columns(3)
@@ -30,7 +28,6 @@ class SessionHandler:
                     for el in st.session_state["config"].types_to_display
                 ],
                 index=0,
-                on_change=st.cache_data.clear() if clear_cache_on_rerun else None,
             )
         with col2:
             if multiple_years:
@@ -42,7 +39,6 @@ class SessionHandler:
                     default=st.session_state["config"].years_to_display[
                         reverse_convert("type", self.type)
                     ],
-                    on_change=st.cache_data.clear() if clear_cache_on_rerun else None,
                 )
 
             else:
@@ -52,7 +48,6 @@ class SessionHandler:
                         reverse_convert("type", self.type)
                     ],
                     index=0,
-                    on_change=st.cache_data.clear() if clear_cache_on_rerun else None,
                 )
 
         with col3:
@@ -63,7 +58,6 @@ class SessionHandler:
                     for el in st.session_state["config"].political_divisions_to_dislay
                 ],
                 index=0,
-                on_change=st.cache_data.clear() if clear_cache_on_rerun else None,
             )
         logger.debug(f"State registered: {self.type} | {self.year} | {self.blocs}")
 
@@ -117,9 +111,7 @@ class SessionHandler:
         else:
             return bloc_return
 
-    def commune_selector(self):
-        communes_list = st.session_state["data"].container["communes_list"]
-
+    def commune_selector(self, communes_list):
         # Requires cleaning but could be improved
         communes_list["nomcommune"] = (
             communes_list["nomcommune"]
@@ -136,7 +128,6 @@ class SessionHandler:
             "Selectionnez une commune",
             [""] + communes,
             index=None,
-            on_change=st.cache_data.clear(),
         )
         if self.commune is None:
             st.stop()
@@ -148,7 +139,6 @@ class SessionHandler:
             self.codecommune = st.selectbox(
                 "Selectionnez un arrondissement",
                 [""] + arrondissements,
-                on_change=st.cache_data.clear(),
             )
         else:
             self.codecommune = communes_list[
