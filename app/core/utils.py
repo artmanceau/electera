@@ -7,6 +7,7 @@ import shap
 import urllib.parse
 import pandas as pd
 import numpy as np
+from scipy.special import expit
 import streamlit as st
 import s3fs
 import polars as pl
@@ -490,11 +491,12 @@ def generate_local_plot(
         base_value = getattr(expl, "base_values", None)
 
         force_plot_html = shap.plots.force(
-            base_value * 100,
-            shap_values_matrix * 100,
+            base_value,
+            shap_values_matrix,
             features=feature_values_matrix,
             feature_names=feature_names,
             matplotlib=False,
+            link="logit",
             show=False,
         )
 
@@ -517,9 +519,12 @@ def generate_local_plot(
 
         if plot_type == "Waterfall":
             shap.plots.waterfall(
-                expl * 100,
+                expl,
                 max_display=nb_feat,
                 show=False,
+            )
+            ax.xaxis.set_major_formatter(
+                mtick.FuncFormatter(lambda y, _: f"{expit(y):.1%}")
             )
 
         elif plot_type == "Decision":
@@ -533,9 +538,8 @@ def generate_local_plot(
             display_range = slice(None, -nb_feat - 1, -1)
 
             shap.decision_plot(
-                expl.base_values
-                * 100,  # Multiplié par 100 pour cohérence avec le reste
-                shap_values_matrix * 100,  # Multiplié par 100 pour l'axe en %
+                expl.base_values,
+                shap_values_matrix,
                 features=feature_values_matrix,
                 feature_names=feature_names,
                 feature_display_range=display_range,
@@ -545,7 +549,9 @@ def generate_local_plot(
                 show=False,
             )
             # Puisqu'on a multiplié par 100 au-dessus, l'axe X affiche directement les pourcentages réels
-            plt.gca().xaxis.set_major_formatter(mtick.PercentFormatter(100.0))
+            plt.gca().xaxis.set_major_formatter(
+                mtick.FuncFormatter(lambda x, _: f"{expit(x):.1%}")
+            )
 
         # Affichage sécurisé de la figure Matplotlib dédiée
         st.pyplot(fig)
@@ -586,7 +592,9 @@ def generate_global_plot(
             show=False,
             color_bar=True,
         )
-        plt.gca().xaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+        plt.gca().xaxis.set_major_formatter(
+            mtick.FuncFormatter(lambda x, _: f"{expit(x) - 0.5:.1%}")
+        )
     elif plot_type == "Scatter":
         if values.shape[1] >= 2 and x_feat and y_feat:
             explanation = shap.Explanation(
@@ -603,10 +611,16 @@ def generate_global_plot(
                 color=explanation[:, iy],
                 show=False,
             )
+
             fig = plt.gcf()
-            ax = plt.gca()
-            ax.yaxis.set_major_formatter(mtick.PercentFormatter(100.0))
+            fig.set_size_inches(16, 10, forward=True)
+            ax = fig.axes[0]
+
+            ax.yaxis.set_major_formatter(
+                mtick.FuncFormatter(lambda y, _: f"{expit(y) - 0.5:.1%}")
+            )
             ax.tick_params(axis="both", labelsize=9)
+            fig.tight_layout()
     elif plot_type == "Decision":
         if base_value is not None:
             display_range = slice(None, -nb_feat - 1, -1)
@@ -624,7 +638,9 @@ def generate_global_plot(
                 legend_labels=list(sample_labels),
                 show=False,
             )
-            plt.gca().xaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+            plt.gca().xaxis.set_major_formatter(
+                mtick.FuncFormatter(lambda x, _: f"{expit(x):.1%}")
+            )
 
     st.pyplot(fig)
     plt.close(fig)
@@ -643,28 +659,28 @@ def convert_logits_to_probs(
     Returns:
         Tuple of (shap_probs, prob_base).
     """
+    return values, base_value
+    # def sigmoid(x):
+    #     return 1 / (1 + np.exp(-x))
 
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
+    # # Total predicted logit per observation
+    # logit_total = np.sum(values, axis=1) + base_value
 
-    # Total predicted logit per observation
-    logit_total = np.sum(values, axis=1) + base_value
+    # # Base and predicted probabilities
+    # prob_base = sigmoid(base_value)
+    # prob_pred = sigmoid(logit_total)
 
-    # Base and predicted probabilities
-    prob_base = sigmoid(base_value)
-    prob_pred = sigmoid(logit_total)
+    # # Total probability difference to distribute
+    # delta_prob_total = prob_pred - prob_base
 
-    # Total probability difference to distribute
-    delta_prob_total = prob_pred - prob_base
+    # # Absolute sum of logits per observation to use as weights
+    # sum_abs_logit = np.sum(np.abs(values), axis=1, keepdims=True)
+    # sum_abs_logit[sum_abs_logit == 0] = 1.0  # Avoid division by zero
 
-    # Absolute sum of logits per observation to use as weights
-    sum_abs_logit = np.sum(np.abs(values), axis=1, keepdims=True)
-    sum_abs_logit[sum_abs_logit == 0] = 1.0  # Avoid division by zero
+    # # Proportional redistribution: delta_prob * (logit_val / sum_abs_logit)
+    # shap_probs = delta_prob_total[:, np.newaxis] * (values / sum_abs_logit)
 
-    # Proportional redistribution: delta_prob * (logit_val / sum_abs_logit)
-    shap_probs = delta_prob_total[:, np.newaxis] * (values / sum_abs_logit)
-
-    return shap_probs, prob_base
+    # return shap_probs, prob_base
 
 
 def show_shap_values(
@@ -724,25 +740,21 @@ def show_shap_values(
                 .to_numpy()
             )
             base_value = float(df.loc[mask, "base_value"].iloc[0])
-            print(base_value)
-            # Convert logits to probabilities
-            shap_values_prob, prob_base = convert_logits_to_probs(values, base_value)
-            print(prob_base)
+
+            shap_values_prob, prob_base = values, base_value
+
             # Local mode (single commune)
             if selection_code_commune is not None:
                 local_mask = df["codecommune"].astype(str) == str(
                     selection_code_commune
                 )
-                print(selection_code_commune)
-                print(local_mask)
                 if not local_mask.any():
                     st.warning(f"No SHAP values for commune {selection_code_commune}")
                     continue
 
                 # Find the index of the selected commune within the probability matrix
                 commune_code = df.loc[local_mask, "codecommune"].iloc[0]
-                print(commune_code)
-                print(df.loc[local_mask, "codecommune"])
+
                 # Get the index of this commune in the 'mask' filtered view
                 # mask is a boolean series of the same length as df
                 global_indices = np.where(mask)[0]

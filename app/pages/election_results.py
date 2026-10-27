@@ -130,7 +130,7 @@ st.divider()
 
 sampled_communes_codes = (
     get_asset(st.session_state["dh"].load_communes_list)
-    .sample(frac=0.01, random_state=42)["codecommune"]
+    .sample(frac=0.1, random_state=42)["codecommune"]
     .tolist()
 )
 
