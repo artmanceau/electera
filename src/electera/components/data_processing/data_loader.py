@@ -115,7 +115,7 @@ class DataUtils:
                 lf = lf.filter(*exprs)
             if columns:
                 lf = lf.select(columns)
-        return lf.collect(streaming=True)
+        return lf.collect(engine="streaming")
 
     def _read_parquet_pl_pyarrow(
         file_path: str,
@@ -147,7 +147,7 @@ class DataUtils:
                 lf = lf.filter(*exprs)
             if columns:
                 lf = lf.select(columns)
-        return lf.collect(streaming=True)
+        return lf.collect(engine="streaming")
 
     def _read_csv(
         file_path: str,
