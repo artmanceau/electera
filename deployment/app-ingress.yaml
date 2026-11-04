@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: electera-frontend
+  name: electera-app
 spec:
   ingressClassName: nginx
   rules:
@@ -12,6 +12,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: electera-frontend
+                name: electera-app
                 port:
                   number: 80
