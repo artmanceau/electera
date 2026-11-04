@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - deployment/**
 
 permissions:
   contents: write
@@ -16,6 +18,16 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: electera
+            dockerfile: Dockerfile
+          - image: electera-api
+            dockerfile: Dockerfile.api
+          - image: electera-app
+            dockerfile: Dockerfile.app
 
     steps:
       - name: Checkout
@@ -33,39 +45,30 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and push main image
+      - name: Build and push image
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: ./${{ matrix.dockerfile }}
           push: true
           tags: |
-            arthurmanceau/electera:${{ github.sha }}
-            arthurmanceau/electera:latest
+            arthurmanceau/${{ matrix.image }}:${{ github.sha }}
+            arthurmanceau/${{ matrix.image }}:latest
 
-      - name: Build and push API image
-        uses: docker/build-push-action@v7
+  update-manifests:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          context: .
-          file: ./Dockerfile.api
-          push: true
-          tags: |
-            arthurmanceau/electera-api:${{ github.sha }}
-            arthurmanceau/electera-api:latest
+          ref: main
 
-      - name: Build and push APP image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile.app
-          push: true
-          tags: |
-            arthurmanceau/electera-app:${{ github.sha }}
-            arthurmanceau/electera-app:latest
-
-      - name: Update Kubernetes manifests
+      - name: Update Kubernetes image tags
         run: |
-          sed -i "s|arthurmanceau/electera-api:.*|arthurmanceau/electera-api:${GITHUB_SHA}|" deployment/api-deployment.yaml
-          sed -i "s|arthurmanceau/electera-app:.*|arthurmanceau/electera-app:${GITHUB_SHA}|" deployment/app-deployment.yaml
+          sed -i "s|arthurmanceau/electera-api:.*|arthurmanceau/electera-api:${GITHUB_SHA}|" deployment/deployment.yaml
+          sed -i "s|arthurmanceau/electera-app:.*|arthurmanceau/electera-app:${GITHUB_SHA}|" deployment/app.yaml
 
       - name: Commit updated manifests
         run: |
