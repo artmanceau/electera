@@ -113,7 +113,7 @@ def split_method(
             pl.col("annee") == int(test_year)
         )
         data_validation = data.filter(pl.col("election_type") == election_type).filter(
-            pl.col("annee") < int(validation_year)
+            pl.col("annee") == int(validation_year)
         )
     elif way == "random":
         # Time limit on elections

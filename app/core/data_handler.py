@@ -66,6 +66,22 @@ def _convert_to_pandas(X: Union[pl.DataFrame, pd.DataFrame]):
         return X
 
 
+def build_pres_table(df, election_type, years, parties):
+    result_cols = {}
+    for year in years:
+        d = df.loc[df["annee"] == year].copy()
+        if d.empty:
+            continue
+        pred = {"pvotepar": d["pvotepar_pred"].sum()}
+        true = {"pvotepar": d["pvotepar_true"].sum()}
+        for p in parties:
+            pred[f"pvote{p}"] = d[f"pvote{p}_pred"].sum()
+            true[f"pvote{p}"] = d[f"pvote{p}_true"].sum()
+        result_cols[f"{year}_{election_type}_pred"] = pd.Series(pred)
+        result_cols[f"{year}_{election_type}_true"] = pd.Series(true)
+    return pd.DataFrame(result_cols)
+
+
 class AppData:
     def __init__(self, data_path, version, tau, sample_data_path):
         self.tau = tau
@@ -220,6 +236,86 @@ class AppData:
             logger.info(f"{asset} loaded with success from S3!")
 
         return element
+
+    def load_backtest(
+        self,
+        years: list,
+        election_type: str,
+        trends: list,
+        codecommune: str | None = None,
+    ):
+        trends_api = [f"tau{t}" for t in trends] if self.tau else list(trends)
+
+        try:
+            payload = {
+                "years": years,
+                "election_type": election_type,
+                "trends": trends_api,
+                "codecommune": codecommune,
+                "data_path": self.data_path,
+                "model_version": self.version,
+            }
+            data = self._make_api_request("/data/backtest", payload)
+            element = pd.DataFrame(data).set_index("index")
+            logger.info("backtest temporal data loaded with success from API!")
+            return element
+        except Exception as e:
+            logger.warning(
+                f"Failed to load backtest temporal data from API: {e}. Falling back to S3."
+            )
+            element = self._load_backtest_s3(
+                years, election_type, trends_api, codecommune
+            )
+            logger.info("backtest temporal data loaded with success from S3!")
+            return element
+
+    def _load_backtest_s3(self, years, election_type, trends, codecommune):
+        if codecommune:
+            asset, columns, filters, axis = (
+                "results_full",
+                None,
+                [("codecommune", "==", codecommune)],
+                0,
+            )
+        else:
+            asset = "results_synth"
+            columns = {
+                year: [
+                    "index",
+                    f"{year}_{election_type}_pred",
+                    f"{year}_{election_type}_true",
+                ]
+                for year in years
+            }
+            filters, axis = None, 1
+
+        results = []
+        for year in years:
+            X = self._load_result_s3(
+                asset,
+                year,
+                election_type,
+                trends,
+                columns.get(year) if isinstance(columns, dict) else columns,
+                filters,
+            )
+            if columns:
+                X = X.set_index("index")
+            if "annee" not in X.columns:
+                X = X.copy()
+                X["annee"] = year
+            results.append(X)
+
+        df = pd.concat(results, axis=axis) if results else None
+        if df is None:
+            return df
+
+        if codecommune:
+            parties = [
+                t.replace("tau", "") if str(t).startswith("tau") else t for t in trends
+            ]
+            df = build_pres_table(df, election_type, years, parties)
+        return df
 
     def load_data_sample(
         self,

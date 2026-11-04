@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: electera-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: electera-app
+  template:
+    metadata:
+      labels:
+        app: electera-app
+    spec:
+      containers:
+        - name: streamlit
+          image: arthurmanceau/electera-app:latest
+          ports:
+            - containerPort: 8501
+          env:
+            - name: API_URL
+              value: "http://electera-api:8000"
+          envFrom:
+            - secretRef:
+                name: electera-s3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi

@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: electera-frontend
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: electera.lab.sspcloud.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: electera-frontend
+                port:
+                  number: 80
