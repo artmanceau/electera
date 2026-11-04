@@ -1,0 +1,77 @@
+
+name: Build and Deploy Electera
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: electera-deployment
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push main image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            arthurmanceau/electera:${{ github.sha }}
+            arthurmanceau/electera:latest
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.api
+          push: true
+          tags: |
+            arthurmanceau/electera-api:${{ github.sha }}
+            arthurmanceau/electera-api:latest
+
+      - name: Build and push APP image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.app
+          push: true
+          tags: |
+            arthurmanceau/electera-app:${{ github.sha }}
+            arthurmanceau/electera-app:latest
+
+      - name: Update Kubernetes manifests
+        run: |
+          sed -i "s|arthurmanceau/electera-api:.*|arthurmanceau/electera-api:${GITHUB_SHA}|" deployment/api-deployment.yaml
+          sed -i "s|arthurmanceau/electera-app:.*|arthurmanceau/electera-app:${GITHUB_SHA}|" deployment/app-deployment.yaml
+
+      - name: Commit updated manifests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deployment/
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(deploy): update images to ${GITHUB_SHA}"
+          git push

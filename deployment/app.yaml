@@ -23,6 +23,11 @@ spec:
           envFrom:
             - secretRef:
                 name: electera-s3
+          volumeMounts:
+            - name: streamlit-secrets
+              mountPath: /app/.streamlit/secrets.toml
+              subPath: secrets.toml
+              readOnly: true
           resources:
             requests:
               cpu: 500m
@@ -30,3 +35,7 @@ spec:
             limits:
               cpu: "2"
               memory: 4Gi
+      volumes:
+        - name: streamlit-secrets
+          secret:
+            secretName: electera-streamlit-secrets
