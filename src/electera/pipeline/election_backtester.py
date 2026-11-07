@@ -326,7 +326,7 @@ class BackTester:
                 predict_perc=self.config.predict_percentile,
                 selected_groups=[],
                 selected_features=CHAMPION_FEATURES_EXTENDED,
-                split_method_way="last-only",
+                split_method_way="last-try-seq",
             )
 
             for name, value in zip(container_names, values):
