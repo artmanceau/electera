@@ -6,3 +6,4 @@ pyarrow
 s3fs
 loguru
 python-dotenv
+joblib

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: streamlit
-          image: arthurmanceau/electera-app:latest
+          image: arthurmanceau/electera-app:ff92e84ddf0ccd2153cd8391fa0241f46b9f7ef8
           ports:
             - containerPort: 8501
           env:

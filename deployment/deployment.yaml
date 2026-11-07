@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: electera-api
-          image: arthurmanceau/electera-api:latest
+          image: arthurmanceau/electera-api:ff92e84ddf0ccd2153cd8391fa0241f46b9f7ef8
 
           ports:
             - containerPort: 8000
