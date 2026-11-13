@@ -37,6 +37,9 @@ from electera.components.modelling.benchmark_models import (
     TrivialModel2,
 )
 from electera.components.modelling.boosting.boosting import BoostingModel
+from electera.components.modelling.tabular_foundation_model import (
+    FoundationTabularModel,
+)
 from electera.components.modelling.data_split_pl import get_Xy_pl
 from electera.components.modelling.election_predictor import ElectionPredictor
 from electera.components.modelling.evaluation import ModelEvaluator
@@ -58,10 +61,12 @@ MODELS = {
     "boosting": BoostingModel,
     "meta_boosting": MetaBooster,
     "meta_boosting_multiple": MetaBoosterMultipleElections,
+    "foundation_model": FoundationTabularModel,
 }
 MODEL_ARGS = {
     "trivial_1": {},
     "trivial_2": {},
+    "foundation_model": {},
     "linear": {"linear_model": LinearRegression},
     "boosting": {
         "n_splits_outer": 5,

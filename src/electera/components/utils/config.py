@@ -52,6 +52,7 @@ class BackTesterConfig(BaseModel):
             "linear",
             "meta_boosting",
             "meta_boosting_multiple",
+            "foundation_model",
         ]
     ] = Field(default=["trivial_2"], description="Model to use")
 

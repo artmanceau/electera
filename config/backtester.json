@@ -9,6 +9,6 @@
     "predict_percentile": false,
     "organize_vote": true,
     "use_mlflow": true,
-    "models" : ["meta_boosting"],
-    "version" : "7.0.0"
+    "models" : ["foundation_model"],
+    "version" : "10.0.0"
 }

@@ -45,6 +45,7 @@ dependencies = [
     "boto3>=1.43.0",
     "polars-distance>=0.5.3",
     "joblib>=1.5.3",
+    "tabicl>=2.2.0",
 ]
 
 [build-system]
